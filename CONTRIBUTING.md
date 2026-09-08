@@ -10,10 +10,16 @@ canonical: it is where the Dutch government's code belongs, and where the
 history is authoritative.
 
 **codeberg.org/DAWO/DAWO-Sextant** is the public project and the place to take
-part today. It is pushed directly, not mirrored, and CI runs there. It is a European non-profit forge rather than a company's
+part today. It is pushed directly, not mirrored, and CI runs there. It is a
+European non-profit forge rather than a company's
 platform, which is the same reasoning that put the canonical copy on
 code.overheid.nl. What makes this open source is the licence and the code, not
 the address.
+
+There is a third: **forgejo.bb-open.com/bb-open/DAWO-Sextant**, BB Open's
+workshop, which is where a release is built and where the registry lives. The
+README's "Where this repository lives" table says what each forge is for and
+is the one place that description is maintained.
 
 There was a GitHub mirror. It is being retired rather than left as a third
 address nobody maintains, so do not open anything there.

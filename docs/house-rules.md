@@ -33,8 +33,10 @@ review as code and can be recreated on any Forgejo-family forge.
 `forgejo.bb-open.com` is the workshop and keeps no such obligation. Scratch
 branches and force-pushed ring refs belong there.
 
-**Push to both remotes.** Flux reads forgejo; a half-push serves the old
-version and says nothing.
+**Push to both remotes.** Flux reads Codeberg for this repository and the
+release is built on forgejo, so a half-push either serves the old version or
+builds nothing, and says nothing either way. The README's "Where this
+repository lives" table is the one place that describes the three forges.
 
 **Never `git add -A`.** Stage by name. On 2026-08-11 an `-A` swept about 700
 lines of a parallel session into three unrelated commits, and published

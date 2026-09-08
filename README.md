@@ -309,12 +309,19 @@ where the arguments are, including the ones we lost.
 
 ## Where this repository lives, and where it is built
 
+Three forges, and they are not interchangeable. This table is the answer;
+`CONTRIBUTING.md` and `docs/house-rules.md` point here rather than repeating
+it.
+
 | | |
 |---|---|
-| **codeberg.org/DAWO/DAWO-Sextant** | Where to read it, clone it, and take part today. Issues, pull requests and CI here. |
-| **code.overheid.nl/MinBZK/DAWO-Sextant** | Canonical, and where it is published as EU open source. No public accounts yet. |
+| **codeberg.org/DAWO/DAWO-Sextant** | Where to read it, clone it, and take part today. Issues, pull requests and CI here. Flux reads `main` here for the chart, so a merge reaches the cluster from this forge. |
+| **forgejo.bb-open.com/bb-open/DAWO-Sextant** | BB Open's workshop. CI runs here too, and this is the only forge that builds a release: the tag, the images and the registry production pulls from all live here. |
+| **code.overheid.nl/MinBZK/DAWO-Sextant** | Canonical, and where it is published as EU open source. No public accounts yet. May lag. |
 
-Every push goes to both.
+Codeberg and forgejo both have to be kept up to date. A push that reaches one
+and not the other is silent: the version that gets served or built is simply
+the older one.
 
 **Container images are on BB Open's forge, not on Codeberg.** Each release
 publishes `git.edano.eu/bb-open/sextant:<version>` (the console), `sextant:<version>-tools`,
@@ -328,10 +335,9 @@ Codeberg is the public front door because it is a European non-profit forge
 rather than a company's platform, which is the same reasoning that put the
 canonical copy on code.overheid.nl.
 
-**CI runs on Codeberg**, on a self-hosted runner, so a pull request opened
-there gets its checks where you can see them. `.forgejo/workflows/ci.yml` is in
-this repository, so you can read exactly what runs and run the same checks
-locally with `just ci`.
+**CI runs on a self-hosted runner**, so a pull request opened on Codeberg gets
+its checks where you can see them. `.forgejo/workflows/ci.yml` is in this
+repository, so you can read exactly what runs.
 
 **The end state is that all of it happens on code.overheid.nl** - the code, the
 issues, the pull requests and the pipeline. Everything above is scaffolding
