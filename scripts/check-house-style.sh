@@ -58,9 +58,23 @@ if [ -z "$raw" ]; then
   exit 0
 fi
 if [ -z "$added" ]; then
-  echo "house style: the diff was not empty but no added lines were read." >&2
-  echo "  That means this check is broken, not that the text is clean." >&2
-  exit 1
+  # A non-empty diff with nothing added is ordinary: a deletion, or a rename.
+  # The only '+' line such a diff carries is the '+++' header, which the
+  # pipeline above strips on purpose. Reading that as a broken pipeline
+  # refused every deletion-only commit, in the hook and in CI, and sent
+  # whoever hit it to debug this script instead of their diff.
+  #
+  # awk, not grep, decides which case this is. If grep silently no-ops - the
+  # ugrep failure described above - then grep-based counting would also come
+  # back empty and wave the breakage through, which is the one thing this
+  # guard exists to prevent. A second implementation cannot fail the same way.
+  if [ "$(printf '%s\n' "$raw" | awk '/^\+/ && !/^\+\+\+/ {n++} END {print n+0}')" -gt 0 ]; then
+    echo "house style: the diff was not empty but no added lines were read." >&2
+    echo "  That means this check is broken, not that the text is clean." >&2
+    exit 1
+  fi
+  echo "house style: nothing added to check"
+  exit 0
 fi
 
 # An em dash (U+2014) and its cousin the en dash used as a dash (U+2013),
