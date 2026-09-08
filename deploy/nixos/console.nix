@@ -19,7 +19,13 @@ let
   # place is the state directory, which is why a repo outside it has to be
   # named explicitly in ReadWritePaths.
   stateDir = "/var/lib/sextant";
-  needsRW = cfg.repo != null && !(lib.hasPrefix stateDir cfg.repo);
+  # A path boundary, not a string prefix. hasPrefix alone reads
+  # /var/lib/sextant-repos/main as living inside /var/lib/sextant, leaves it
+  # out of ReadWritePaths, and hands back exactly the failure this module was
+  # rewritten to prevent: a console that starts, looks healthy and cannot
+  # write.
+  inStateDir = p: p == stateDir || lib.hasPrefix (stateDir + "/") p;
+  needsRW = cfg.repo != null && !(inStateDir (toString cfg.repo));
   # DynamicUser is the right default for a read-only console: no account to
   # manage, no uid to leak. It is the wrong default the moment the console has
   # to WRITE a repository the operator prepared, because the uid does not

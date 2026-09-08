@@ -35,12 +35,22 @@ let
     repo = "/var/lib/sextant/overlay";
     gate = "eval";
   };
+  # A sibling that only SHARES the state directory's name. It is outside, so
+  # it needs the write path; a plain string prefix says it is inside and the
+  # unit never gets one.
+  beside = mk {
+    enable = true;
+    repo = "/var/lib/sextant-repos/main";
+    write = true;
+    gate = "eval";
+  };
 in
 pkgs.runCommand "sextant-console-module-check"
 {
   execStart = full.ExecStart;
   rwPaths = builtins.concatStringsSep "," full.ReadWritePaths;
   rwInState = builtins.concatStringsSep "," inState.ReadWritePaths;
+  rwBeside = builtins.concatStringsSep "," beside.ReadWritePaths;
   inStateExec = inState.ExecStart;
 } ''
   fail() { echo "FAIL: $1" >&2; exit 1; }
@@ -59,6 +69,7 @@ pkgs.runCommand "sextant-console-module-check"
   # carries a path it already owns.
   [ "$rwPaths" = "/srv/overlay" ] || fail "ReadWritePaths for an outside repo = '$rwPaths'"
   [ -z "$rwInState" ] || fail "a repo inside the state dir was added to ReadWritePaths: '$rwInState'"
+  [ "$rwBeside" = "/var/lib/sextant-repos/main" ] || fail "a repo beside the state dir was treated as inside it: '$rwBeside'"
 
   # A read-only console must not be handed the write path by accident.
   case "$inStateExec" in
