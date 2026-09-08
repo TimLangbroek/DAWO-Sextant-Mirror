@@ -95,10 +95,14 @@ func (f *Fleet) rejectAncestorDuplication(groups []string) error {
 			}
 			for _, other := range groups {
 				if other == anc {
+					// g is the descendant: GroupAncestry walks upward, so
+					// anc contains g and not the other way round. The
+					// arguments were the wrong way round and the sentence
+					// told the operator the parent sat inside its child.
 					return fmt.Errorf(
 						"group %q is already inside %q, so listing both adds nothing "+
 							"and makes the order of the list decide which one wins: "+
-							"keep %q", anc, g, g)
+							"keep %q", g, anc, g)
 				}
 			}
 		}

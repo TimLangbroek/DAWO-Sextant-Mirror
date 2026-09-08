@@ -33,11 +33,12 @@ func TestEditingADeviceCannotAddItsOwnAncestor(t *testing.T) {
 			"that makes array order decide ties")
 	}
 	// The message has to name both, since an operator editing a device does not
-	// see the hierarchy from there.
-	for _, want := range []string{"gemeente-a", "stad"} {
-		if !strings.Contains(err.Error(), want) {
-			t.Errorf("error %q does not name %q", err, want)
-		}
+	// see the hierarchy from there. Naming them is not enough: it has to say
+	// which one contains which. stad is the child of gemeente-a, and the
+	// sentence used to claim the opposite, which is worse than saying nothing
+	// to a reader who cannot see the tree.
+	if want := `"stad" is already inside "gemeente-a"`; !strings.Contains(err.Error(), want) {
+		t.Errorf("error %q does not read %s", err, want)
 	}
 	if got := f.Devices["lt-1"].Groups; len(got) != 1 {
 		t.Errorf("the device was changed anyway: %v", got)
