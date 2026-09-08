@@ -225,8 +225,12 @@ type State struct {
 	// minutes and one that has been stuck for two hours read identically
 	// without it.
 	WaitingSince time.Time `json:"waitingSince,omitempty"`
-	Started      time.Time `json:"started"`
-	Updated      time.Time `json:"updated"`
+	// Started is written once and read by nobody in this process. It is not
+	// dead: the run is persisted as rollout.json (and its Postgres twin), and
+	// "when did this start" is the first question asked of a run that went
+	// wrong.
+	Started time.Time `json:"started"`
+	Updated time.Time `json:"updated"`
 }
 
 // Note records the engine's latest decision on the run. Called on every tick

@@ -214,14 +214,13 @@ type Device struct {
 	// Labels are free-form key/value pairs for filter targeting.
 	Labels map[string]string `json:"labels,omitempty"`
 
-	Settings   map[string]any    `json:"settings,omitempty"`
-	Enforced   []string          `json:"enforced,omitempty"`
-	Packages   []string          `json:"packages,omitempty"`
-	Flatpaks   []string          `json:"flatpaks,omitempty"`
-	Overlays   []string          `json:"overlays,omitempty"`
-	Accepted   map[string]string `json:"accepted,omitempty"`
-	Exceptions map[string]string `json:"exceptions,omitempty"`
-	ITAM       ITAM              `json:"itam,omitempty"`
+	Settings map[string]any    `json:"settings,omitempty"`
+	Enforced []string          `json:"enforced,omitempty"`
+	Packages []string          `json:"packages,omitempty"`
+	Flatpaks []string          `json:"flatpaks,omitempty"`
+	Overlays []string          `json:"overlays,omitempty"`
+	Accepted map[string]string `json:"accepted,omitempty"`
+	ITAM     ITAM              `json:"itam,omitempty"`
 	// Spec is the hardware fingerprint an imaging station captured at
 	// enrollment (nixos-facter-derived); data for inventory/audit, not config.
 	Spec *HardwareSpec `json:"spec,omitempty"`
@@ -233,7 +232,6 @@ type ITAM struct {
 	Model     string `json:"model,omitempty"`
 	Owner     string `json:"owner,omitempty"`
 	Site      string `json:"site,omitempty"`
-	Lifecycle string `json:"lifecycle,omitempty"`
 	HostKeyID string `json:"hostKeyId,omitempty"`
 }
 

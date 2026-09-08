@@ -149,9 +149,6 @@ func (s Sealer) PrimaryKeyID() string {
 	return hex.EncodeToString(s.primary.id)
 }
 
-// KeyCount is how many keys can open values, primary included.
-func (s Sealer) KeyCount() int { return len(s.keys) }
-
 // Seal encrypts plaintext with the primary key and returns
 // magic||keyID||nonce||ciphertext. The nonce is random per call, so sealing
 // the same value twice yields different bytes.

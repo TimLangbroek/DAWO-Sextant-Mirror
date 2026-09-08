@@ -43,8 +43,12 @@ func (k Kind) Validate() error {
 // it without ever holding the plaintext. Times are RFC3339 in the store; the
 // zero RevealedBy means it has never been revealed.
 type Meta struct {
-	Tag        string `json:"tag"`
-	Kind       Kind   `json:"kind"`
+	Tag  string `json:"tag"`
+	Kind Kind   `json:"kind"`
+	// CreatedBy has no reader in the product and is deliberate: it is the
+	// provenance of a device secret, stored in the row and asserted by the
+	// Postgres adapter's test. Whoever asks who sealed a LUKS key reads it
+	// from there.
 	CreatedBy  string `json:"createdBy"`
 	Created    string `json:"created"`
 	RevealedBy string `json:"revealedBy,omitempty"`

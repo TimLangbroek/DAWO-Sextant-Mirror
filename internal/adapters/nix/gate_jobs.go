@@ -38,8 +38,7 @@ import (
 // line, as each worker finishes, so a large validation reports progressively
 // instead of all at once.
 type jobLine struct {
-	Attr    string `json:"attr"`
-	DrvPath string `json:"drvPath"`
+	Attr string `json:"attr"`
 	// Error carries nix's full evaluation trace when the attribute failed.
 	// Its lines are INDENTED, so a naive strings.HasPrefix(line, "error:")
 	// finds nothing - sanitize handles that, a hand-rolled scan would not.
