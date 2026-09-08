@@ -53,6 +53,21 @@ catalog-check:
 agent-ci:
     cd agent && cargo fmt --check && cargo clippy --all-targets -- -D warnings && cargo test
 
+# Deterministic since the epoch is pinned, so a run on a clean tree leaves no
+# diff. A diff means an icon was added or removed and the font is behind.
+#
+# Regenerate the subset icon font
+icon-font:
+    scripts/regen-icon-font.sh
+
+# Every page answers, answers with a WHOLE document, and reports the build you
+# think you are testing. SEXTANT_COOKIE checks the pages behind the login too.
+#   just smoke URL=https://console.bb-open.com
+#
+# Smoke a running console
+smoke URL="http://127.0.0.1:8080" VERSION="":
+    scripts/e2e-smoke.sh {{URL}} {{VERSION}}
+
 fmt:
     gofmt -w cmd internal
 

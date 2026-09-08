@@ -13,9 +13,16 @@
 # Run after adding any icon:
 #   scripts/regen-icon-font.sh
 # Requires nix (pulls fonttools + brotli + the full font). Deterministic:
-# same icon set in, same bytes out.
+# same icon set in, same bytes out, because the font and the tooling come from
+# this flake's locked nixpkgs rather than the machine's registry.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+
+# fontTools stamps head.modified with the current time, so two runs a second
+# apart produced different bytes and a compressed size that wandered by tens
+# of bytes. That is what made the promise above untrue, not the icon list.
+# A fixed epoch (2023-11-14) is what fontTools reads to stamp instead.
+export SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-1700000000}"
 
 OUT=internal/http/web/static/fonts/material-symbols.woff2
 TMPL=internal/http/web/templates
@@ -36,12 +43,16 @@ mapfile -t names < <(
 text="${names[*]}"
 echo "subsetting $(printf '%s\n' "${names[@]}" | wc -l) icons"
 
-src="$(nix build --no-link --print-out-paths 'nixpkgs#material-symbols')/share/fonts/truetype/MaterialSymbolsOutlined[FILL,GRAD,opsz,wght].ttf"
+# --inputs-from .: the font comes from THIS flake's locked nixpkgs, not from
+# whatever the machine's registry happens to point at. Without it the header's
+# promise below is false, and it was: regenerating on a laptop in September
+# produced a file four bytes off the one in the tree.
+src="$(nix build --inputs-from . --no-link --print-out-paths 'nixpkgs#material-symbols')/share/fonts/truetype/MaterialSymbolsOutlined[FILL,GRAD,opsz,wght].ttf"
 
 # One python env with BOTH fonttools and brotli so woff2 compression works
 # (pyftsubset --flavor=woff2 imports brotli at runtime; separate store paths
 # would not share sys.path).
-pyenv='let p = (builtins.getFlake "nixpkgs").legacyPackages.${builtins.currentSystem};
+pyenv='let p = (builtins.getFlake (toString ./.)).inputs.nixpkgs.legacyPackages.${builtins.currentSystem};
        in p.python3.withPackages (ps: [ ps.fonttools ps.brotli ])'
 
 # The upstream file is a variable font (FILL,GRAD,opsz,wght). The console
