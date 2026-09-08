@@ -398,8 +398,11 @@ type FilterRule struct {
 type RolloutPolicy struct {
 	// Rings lists group names with their gates, in promotion order.
 	Rings []RolloutRing `json:"rings,omitempty"`
-	// ApproveRole is the minimum role required to start a rollout.
-	ApproveRole string `json:"approveRole,omitempty"`
+	// A field named approveRole lived here and nothing ever read it: an
+	// operator could write a minimum role into the plan and get a control
+	// that never refused anybody. If it comes back it belongs where the run
+	// is authorised, not in the document alone; see the note in
+	// app.RolloutService.StartWith.
 	// AutoFlow makes the ladder standing policy (ADR 0012): the engine starts
 	// its own runs when non-machine commits reach HEAD. A pointer because
 	// "not configured" must stay distinguishable from a deliberate false -

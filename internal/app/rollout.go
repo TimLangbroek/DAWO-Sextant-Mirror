@@ -499,6 +499,13 @@ func (s *RolloutService) StartScoped(ctx context.Context, target, scope string, 
 }
 
 // StartWith begins a run shaped by opts; see StartOpts.
+//
+// There is no role gate here. Authorisation happens at the edge: the web
+// handler calls requireWeb(v, "org", identity.Owner) before it gets this far,
+// and the API path judges the token. A per-plan minimum role was declared in
+// the fleet document for a while (RolloutPolicy.approveRole) and read by
+// nobody, which is worse than not having one. If that returns, this is the
+// function that has to refuse.
 func (s *RolloutService) StartWith(ctx context.Context, target string, opts StartOpts, _ ports.Author) (*rollout.State, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
