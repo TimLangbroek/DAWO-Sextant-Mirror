@@ -353,6 +353,25 @@ jobs:
               fi
             done
 
+            # The simulator clones the overlay itself, so a private remote
+            # needs the same netrc the console and the gate runner already
+            # seed. It did not get one: the demo cell spent nineteen days in
+            # CrashLoopBackOff on "could not read Username for ..." while the
+            # secret sat unused in the namespace (2026-08-20 .. 2026-09-08).
+            # Asserted in both directions, because a mount that appears
+            # unconditionally would carry a credential into cells that have
+            # none to give.
+            sim=$(helm template deploy/helm -s templates/simulator.yaml \
+              --set gateMode=eval --set simulator.enabled=true \
+              --set gitRemote.url=https://example.test/o.git \
+              --set gitRemote.netrcSecret=demo-netrc)
+            echo "$sim" | grep -q "secretName: demo-netrc" || { echo "the simulator clones a private overlay without a netrc: that is a CrashLoopBackOff, not a warning"; exit 1; }
+            echo "$sim" | grep -q "mountPath: /netrc-secret" || { echo "netrc volume declared but never mounted into the simulator"; exit 1; }
+            nonetrc=$(helm template deploy/helm -s templates/simulator.yaml \
+              --set gateMode=eval --set simulator.enabled=true \
+              --set gitRemote.url=https://example.test/o.git)
+            echo "$nonetrc" | grep -q netrc && { echo "the simulator mounts a netrc for a remote that asked for none"; exit 1; }
+
             # The chart has to install on a cluster that is not Cilium, which
             # is most of them. A CiliumNetworkPolicy is an unknown kind there
             # and the whole release fails, so the engine is asserted in all

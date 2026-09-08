@@ -38,6 +38,16 @@ spec:
           args:
             - |
               set -eu
+              {{- if .Values.gitRemote.netrcSecret }}
+              # The simulator reads the same remote the console writes, so a
+              # private overlay needs the same credential. The console and the
+              # gate runner both seed it and this one did not, which left the
+              # demo in CrashLoopBackOff for nineteen days on
+              # "could not read Username for ...". HOME is exported for the
+              # exec'd process too: fleetsim fetches the ring branches itself.
+              export HOME=/tmp
+              install -m 0600 /netrc-secret/netrc /tmp/.netrc
+              {{- end }}
               git clone -q --depth 1 --branch {{ .Values.gitRemote.branch }} {{ .Values.gitRemote.url }} /tmp/overlay
               exec fleetsim -url http://{{ .Release.Name }}:80 \
                 -token "$SEXTANT_CHECKIN_TOKEN" \
@@ -54,6 +64,10 @@ spec:
                 {{- end }}
           envFrom:
             - secretRef: { name: {{ .Values.secretName }} }
+          {{- if .Values.gitRemote.netrcSecret }}
+          volumeMounts:
+            - { name: netrc, mountPath: /netrc-secret, readOnly: true }
+          {{- end }}
           securityContext:
             allowPrivilegeEscalation: false
             capabilities: { drop: ["ALL"] }
@@ -61,6 +75,11 @@ spec:
           resources:
             requests: { cpu: 10m, memory: 32Mi }
             limits: { cpu: 200m, memory: 128Mi }
+      {{- if .Values.gitRemote.netrcSecret }}
+      volumes:
+        - name: netrc
+          secret: { secretName: {{ .Values.gitRemote.netrcSecret }} }
+      {{- end }}
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets: {{ toYaml . | nindent 8 }}
       {{- end }}
