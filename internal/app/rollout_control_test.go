@@ -159,12 +159,12 @@ func TestStartScopedNarrowsTheLadderToTheScope(t *testing.T) {
 	rs, _, _, _, _ := newRolloutStack(t)
 	ctx := context.Background()
 
-	st, err := rs.StartScoped(ctx, "rev-2", "fleet", ports.Author{})
+	st, err := rs.StartWith(ctx, "rev-2", StartOpts{Groups: []string{"fleet"}}, ports.Author{})
 	if err != nil {
-		t.Fatalf("StartScoped: %v", err)
+		t.Fatalf("scoped start: %v", err)
 	}
 	if st == nil {
-		t.Fatal("StartScoped returned no state")
+		t.Fatal("scoped start returned no state")
 	}
 
 	// The run stores its own ring snapshot, which is what the engine walks.
@@ -185,9 +185,9 @@ func TestStartScopedNarrowsTheLadderToTheScope(t *testing.T) {
 func TestStartScopedOnTheTestGroupIsASingleWave(t *testing.T) {
 	rs, _, _, _, _ := newRolloutStack(t)
 	ctx := context.Background()
-	st, err := rs.StartScoped(ctx, "rev-2", "canary", ports.Author{})
+	st, err := rs.StartWith(ctx, "rev-2", StartOpts{Groups: []string{"canary"}}, ports.Author{})
 	if err != nil {
-		t.Fatalf("StartScoped: %v", err)
+		t.Fatalf("scoped start: %v", err)
 	}
 	if len(st.Rings) != 1 {
 		t.Errorf("scoping to the test group produced %d waves, want one", len(st.Rings))
@@ -201,11 +201,11 @@ func TestStartScopedRefusesWhatItCannotHonour(t *testing.T) {
 	// An unknown group must fail loudly. Silently falling back to the full
 	// ladder would roll a scoped change across the whole fleet - the exact
 	// opposite of what the caller asked for.
-	if _, err := rs.StartScoped(ctx, "rev-2", "no-such-group", ports.Author{}); err == nil {
+	if _, err := rs.StartWith(ctx, "rev-2", StartOpts{Groups: []string{"no-such-group"}}, ports.Author{}); err == nil {
 		t.Error("scoping to an unknown group was accepted")
 	}
 	// And an empty target is refused before anything is stored.
-	if _, err := rs.StartScoped(ctx, "", "fleet", ports.Author{}); err == nil {
+	if _, err := rs.StartWith(ctx, "", StartOpts{Groups: []string{"fleet"}}, ports.Author{}); err == nil {
 		t.Error("an empty target was accepted")
 	}
 	// Neither attempt may have left a run behind.
