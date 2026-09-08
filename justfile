@@ -8,15 +8,15 @@ default: ci
 # people the wrong definition of green.
 ci: fmt-check vet lint test coverage-floor build nix-build catalog-check css-check agent-ci
 
-# The logic layer must stay above 75%. Transport, ports, logging and the
-# capability wiring are excluded: they are glue, and counting them lets real
-# coverage rot behind a comfortable average.
+# The logic layer must stay above the floor enforced below. Transport, ports,
+# logging and the capability wiring are excluded: they are glue, and counting
+# them lets real coverage rot behind a comfortable average.
 #
-# 80 is the agreed target (decided 2026-08-06) and this is a ratchet toward
-# it, not the destination. It was 70 while the measured number was 75.3,
-# which let five points erode before anything would have complained - a floor
-# below the standing number protects nothing. Raise this whenever the real
-# number clears the next step; never lower it to make a branch pass.
+# The floor now sits on the agreed number, 80 (decided 2026-08-06). It was 70
+# while the measured number was 75.3, which let five points erode before
+# anything would have complained: a floor below the standing number protects
+# nothing. Raise this whenever the real number clears the next step; never
+# lower it to make a branch pass.
 #
 # Written as a plain script rather than a one-liner. The previous version used
 # Make-style $$ escaping, which just does not do - the shell saw $$ and
@@ -37,8 +37,8 @@ coverage-floor:
     fi
     total=$(go tool cover -func="$COV.logic" | tail -1 | awk '{print $3}' | tr -d '%')
     echo "logic-layer coverage: ${total}%"
-    # Raised 70 -> 80 on 2026-08-07; keep this in step with
-    # .forgejo/workflows/ci.yml, or local and CI disagree about what passes.
+    # Raised 70 -> 80 on 2026-08-07. This is the only place the number is
+    # written: CI calls this recipe rather than restating it (43cf67d).
     awk -v t="$total" 'BEGIN { exit (t < 80) ? 1 : 0 }' || {
       echo "coverage below the 80% floor" >&2
       exit 1
