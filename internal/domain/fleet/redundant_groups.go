@@ -87,6 +87,45 @@ func PruneRedundantGroups() func(*Fleet) error {
 // model or the nix twin, and it closes the door the demo fleet walked through
 // 27 times. The message names both groups, because "you cannot do that" is
 // useless to somebody who cannot see the hierarchy from where they stand.
+// rejectNewAncestorDuplication refuses ONE addition: putting `added` next to
+// a group it already contains, or that already contains it. Pairs that were
+// there before are not this call's business.
+//
+// That distinction is the whole point. CreateGroupWithDevices appends to a
+// membership somebody else wrote, and on the demo fleet 27 of 148 devices
+// carry a group and its own parent from before this guard existed. Judging
+// the combined list refused every one of them for a group they were not being
+// added to, and named two groups the operator never touched.
+func (f *Fleet) rejectNewAncestorDuplication(existing []string, added string) error {
+	for _, g := range existing {
+		if g == added {
+			continue
+		}
+		for _, anc := range f.GroupAncestry(g) {
+			if anc == added {
+				// added contains g, so g is the one to keep: it brings added
+				// along through the scope chain.
+				return ancestorDuplication(g, added)
+			}
+		}
+		for _, anc := range f.GroupAncestry(added) {
+			if anc == g {
+				return ancestorDuplication(added, g)
+			}
+		}
+	}
+	return nil
+}
+
+// ancestorDuplication is the refusal both guards speak. child sits inside
+// ancestor; keeping the child is what preserves the chain.
+func ancestorDuplication(child, ancestor string) error {
+	return fmt.Errorf(
+		"group %q is already inside %q, so listing both adds nothing "+
+			"and makes the order of the list decide which one wins: "+
+			"keep %q", child, ancestor, child)
+}
+
 func (f *Fleet) rejectAncestorDuplication(groups []string) error {
 	for _, g := range groups {
 		for _, anc := range f.GroupAncestry(g) {
@@ -96,13 +135,8 @@ func (f *Fleet) rejectAncestorDuplication(groups []string) error {
 			for _, other := range groups {
 				if other == anc {
 					// g is the descendant: GroupAncestry walks upward, so
-					// anc contains g and not the other way round. The
-					// arguments were the wrong way round and the sentence
-					// told the operator the parent sat inside its child.
-					return fmt.Errorf(
-						"group %q is already inside %q, so listing both adds nothing "+
-							"and makes the order of the list decide which one wins: "+
-							"keep %q", g, anc, g)
+					// anc contains g and not the other way round.
+					return ancestorDuplication(g, anc)
 				}
 			}
 		}

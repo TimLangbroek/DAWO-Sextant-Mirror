@@ -76,3 +76,40 @@ func TestTheGuardLeavesLegitimateMembershipAlone(t *testing.T) {
 		t.Errorf("groups = %v, want the move to have happened", got)
 	}
 }
+
+// TestOldRedundancyDoesNotBlockAnUnrelatedBulkAdd is the shape the demo fleet
+// is in: 27 of 148 devices list a group and its own parent, written before
+// this guard existed. Adding one of them to a group that has nothing to do
+// with either must work. Judging the whole combined membership refused it and
+// named two groups the operator never touched, from a screen that offers no
+// way to fix them.
+func TestOldRedundancyDoesNotBlockAnUnrelatedBulkAdd(t *testing.T) {
+	f := guarded()
+	d := f.Devices["lt-1"]
+	d.Groups = []string{"stad", "gemeente-a"} // grandfathered
+	f.Devices["lt-1"] = d
+
+	if err := CreateGroupWithDevices("backoffice", Group{}, []string{"lt-1"})(f); err != nil {
+		t.Fatalf("adding a grandfathered device to an unrelated group was refused: %v", err)
+	}
+	got := f.Devices["lt-1"].Groups
+	if len(got) != 3 || got[2] != "backoffice" {
+		t.Errorf("groups = %v, want the old two plus backoffice", got)
+	}
+}
+
+// And the guard still has to fire when the ADDITION is the duplication: a new
+// group under stad, for a device already in stad.
+func TestAddingAGroupUnderOneAlreadyThereIsStillRefused(t *testing.T) {
+	f := guarded()
+	err := CreateGroupWithDevices("stad-noord", Group{Parent: "stad"}, []string{"lt-1"})(f)
+	if err == nil {
+		t.Fatal("adding a group under one the device already has was accepted")
+	}
+	if !strings.Contains(err.Error(), "stad-noord") || !strings.Contains(err.Error(), "stad") {
+		t.Errorf("error %q does not name both groups", err)
+	}
+	if got := f.Devices["lt-1"].Groups; len(got) != 1 {
+		t.Errorf("the device was changed anyway: %v", got)
+	}
+}

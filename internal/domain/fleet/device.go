@@ -246,7 +246,7 @@ func CreateGroupWithDevices(name string, g Group, tags []string) Mutation {
 				}
 			}
 			if !already {
-				if err := f.rejectAncestorDuplication(append(append([]string{}, d.Groups...), name)); err != nil {
+				if err := f.rejectNewAncestorDuplication(d.Groups, name); err != nil {
 					return err
 				}
 				d.Groups = append(d.Groups, name)
