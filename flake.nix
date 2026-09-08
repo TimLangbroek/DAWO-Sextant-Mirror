@@ -33,6 +33,28 @@
 
       forAll = f: nixpkgs.lib.genAttrs systems
         (system: f (import nixpkgs { inherit system; overlays = [ goOverlay ]; }));
+
+      # One version, read from the chart, because the chart's is the one a
+      # release already guards against the tag (release.yml, "Chart version
+      # guard"). Before this, the flake said 0.1.0 while the chart said 0.92.0,
+      # so `nix build .#sextant` produced sextant-0.1.0 and a binary that
+      # reported "dev" - on the path this product tells operators to use.
+      version =
+        let
+          chart = builtins.match ".*\nversion: ([0-9]+\.[0-9]+\.[0-9]+)\n.*"
+            (builtins.readFile ./deploy/helm/Chart.yaml);
+          cargo = builtins.match ".*\nversion = \"([0-9]+\.[0-9]+\.[0-9]+)\"\n.*"
+            (builtins.readFile ./agent/Cargo.toml);
+        in
+        if chart == null then throw "no version: line in deploy/helm/Chart.yaml"
+        else if cargo == null then throw "no version = line in agent/Cargo.toml"
+        # The agent carries its own version into its binary through
+        # CARGO_PKG_VERSION, so nix cannot paper over a difference: the drift
+        # has to be refused rather than hidden behind a matching store path.
+        else if builtins.head cargo != builtins.head chart
+        then throw ("agent/Cargo.toml is at ${builtins.head cargo} and "
+          + "deploy/helm/Chart.yaml is at ${builtins.head chart}; one release, one number")
+        else builtins.head chart;
     in
     {
       # The resolver/generator contract (ADR 0005): overlays import these
@@ -56,7 +78,7 @@
       packages = forAll (pkgs: rec {
         sextant = pkgs.buildGoModule {
           pname = "sextant";
-          version = "0.1.0";
+          inherit version;
           # Only the Go source tree feeds the build - filtered rather than
           # `src = self` (the whole flake tree). Unfiltered, the source
           # derivation's hash depended on every unrelated file in the repo
@@ -81,7 +103,10 @@
           vendorHash = null;
           subPackages = [ "cmd/sextant" "cmd/sxctl" ];
           env.CGO_ENABLED = "0";
-          ldflags = [ "-s" "-w" ];
+          # The Dockerfile has stamped main.version since the first release and
+          # this build did not, so the same commit produced a console that knew
+          # its release in a container and called itself "dev" on NixOS.
+          ldflags = [ "-s" "-w" "-X main.version=${version}" ];
           # sxctl writes its own manual, so the package installs the page the
           # binary itself produces rather than a copy of a file in the tree.
           # A packaged sxctl and its `man sxctl` cannot disagree.
@@ -101,7 +126,7 @@
         # reports only - comin does the converging.
         sextant-agent = pkgs.rustPlatform.buildRustPackage {
           pname = "sextant-agent";
-          version = "0.1.0";
+          inherit version;
           src = ./agent;
           cargoLock.lockFile = ./agent/Cargo.lock;
           meta = {
