@@ -141,5 +141,5 @@ the wrong contents; the only check is naming the files. `git add -p` or
   handled and tested, not assumed.
 
 ## Build and test
-See the "Build and test" section in `README.md`,
-or run `just ci`.
+Run `just ci`. The README's "Quickstart" section walks the same steps by
+hand, and "Running it for real" covers a deployment.

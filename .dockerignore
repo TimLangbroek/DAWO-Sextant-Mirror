@@ -7,7 +7,6 @@
 /sextant
 /sxctl
 /gate-runner
-/dfctl
 /dist/
 
 # Rust build cache: hundreds of MB that no Dockerfile consumes (the agent is

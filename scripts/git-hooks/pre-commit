@@ -2,8 +2,8 @@
 # Refuse staged text that CI would reject on house style.
 #
 # The commit-msg hook already judges the message. This judges what the commit
-# CONTAINS: the writing rules in CLAUDE.md that a script can decide, applied to
-# the lines being added rather than to the whole tree.
+# CONTAINS: the writing rules in docs/house-rules.md that a script can decide,
+# applied to the lines being added rather than to the whole tree.
 #
 # Here rather than only in CI for the usual reason: while the text is still in
 # the editor the fix is one keystroke, and after the push it is a second commit
