@@ -167,3 +167,73 @@ func looksLikeCatalogKey(s string) bool {
 	i := strings.IndexByte(s, '.')
 	return i > 0 && catalogPrefixes[s[:i]]
 }
+
+// TestEveryCatalogKeyIsUsed is the other direction, and it went unwatched.
+//
+// The tests above prove every key a page asks for exists. Nothing proved the
+// reverse, so a page could be renamed or rewritten and leave its whole
+// vocabulary behind. That is what happened: the rollout page moved to the
+// updates.* namespace and thirty-three rollout.* strings stayed, translated
+// into two languages, read by nobody.
+//
+// A key counts as used when its quoted literal appears anywhere in this
+// package's own sources - template or Go. That is deliberately looser than
+// the regexes above: a key handed to a template through a struct field, or
+// picked out of a slice, is still a literal somewhere, and the cost of being
+// wrong here is deleting a string a page still needs.
+//
+// The one key shape built at runtime is devices.config_<state>, so the
+// reachable states are added by driving the real function, the same way
+// TestDeviceConfigChipCoversItsWholeInputSpace does.
+func TestEveryCatalogKeyIsUsed(t *testing.T) {
+	var blob strings.Builder
+	for _, body := range templateFiles(t) {
+		blob.WriteString(body)
+	}
+	paths, err := goSources()
+	if err != nil || len(paths) == 0 {
+		t.Fatalf("no Go sources found (%v)", err)
+	}
+	for _, p := range paths {
+		if filepath.Base(p) == "catalog.go" {
+			continue // the definition is not a use
+		}
+		b, err := os.ReadFile(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		blob.Write(b)
+	}
+	sources := blob.String()
+	if len(sources) < 100_000 {
+		t.Fatalf("only %d bytes of sources read; the scan is broken, not the catalog", len(sources))
+	}
+
+	dynamic := map[string]bool{}
+	const rev, other = "aaaa", "bbbb"
+	for i := range 64 {
+		b := func(n int) bool { return i&(1<<n) != 0 }
+		target := rev
+		if b(0) {
+			target = other
+		}
+		if state := deviceConfigState(rev, target, b(1), b(2), b(3), b(4)); state != "" {
+			dynamic["devices.config_"+state] = true
+		}
+	}
+
+	var unused []string
+	for key := range catalog["en"] {
+		if dynamic[key] || strings.Contains(sources, `"`+key+`"`) {
+			continue
+		}
+		unused = append(unused, key)
+	}
+	sort.Strings(unused)
+	if len(unused) > 0 {
+		t.Errorf("%d catalog key(s) nothing asks for; delete them or use them:", len(unused))
+		for _, k := range unused {
+			t.Errorf("    %s", k)
+		}
+	}
+}
