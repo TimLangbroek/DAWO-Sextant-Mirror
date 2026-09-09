@@ -255,3 +255,58 @@ func TestRecordFactsRefusesWhatItCannotStoreSafely(t *testing.T) {
 		}
 	})
 }
+
+// TestAWipeThatDidNotHappenIsNotAnnouncedAsOne drives all three wipe acks
+// through the real emitter.
+//
+// Only the success path was covered, and the failure it hides is the worst
+// one this notification can produce: "Device wiped: lt-1. Its disk key is
+// destroyed." for a machine that refused or failed. An operator reads that as
+// a laptop that is safe to write off, and stops looking for it.
+func TestAWipeThatDidNotHappenIsNotAnnouncedAsOne(t *testing.T) {
+	ctx := context.Background()
+	cases := []struct {
+		ack        string
+		wantTitle  string
+		wantAbsent string
+	}{
+		{observed.AckWipe, "Device wiped: lt-1", ""},
+		{observed.AckWipeRefused, "Wipe refused: lt-1", "disk key is destroyed"},
+		{observed.AckWipeFailed, "Wipe failed: lt-1", "disk key is destroyed"},
+	}
+	for _, c := range cases {
+		t.Run(c.ack, func(t *testing.T) {
+			notifyStore := newFakeNotifyStore()
+			inv := NewInventoryService(newMemStatus(), nopFacts{}, clockAt{time.Unix(1, 0)}, "default").
+				WithNotifier(NewNotifyService(notifyStore, clockAt{time.Unix(1, 0)}, "default"),
+					[]string{"owners", "security"})
+
+			if err := inv.CheckIn(ctx, observed.CheckIn{Tag: "lt-1", Ack: c.ack}, nil); err != nil {
+				t.Fatalf("checkin: %v", err)
+			}
+
+			var seen []notify.Notification
+			for _, n := range notifyStore.added {
+				if n.Kind == notify.WipeExecuted {
+					seen = append(seen, n)
+				}
+			}
+			// Every owner group hears about it, or one of them acts on a
+			// device somebody else already wrote off.
+			if len(seen) != 2 {
+				t.Fatalf("notifications = %d, want one per audience group", len(seen))
+			}
+			for _, n := range seen {
+				if n.Title != c.wantTitle {
+					t.Errorf("title = %q, want %q", n.Title, c.wantTitle)
+				}
+				if c.wantAbsent != "" && strings.Contains(n.Body, c.wantAbsent) {
+					t.Errorf("a wipe that did not happen claims %q: %s", c.wantAbsent, n.Body)
+				}
+				if n.Link != "/devices/lt-1" {
+					t.Errorf("link = %q, want the device page", n.Link)
+				}
+			}
+		})
+	}
+}
