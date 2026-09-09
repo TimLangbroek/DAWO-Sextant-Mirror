@@ -165,8 +165,3 @@ func (s *ImagingService) AdvanceFromDevice(ctx context.Context, c observed.Check
 func (s *ImagingService) Cancel(ctx context.Context, station, mac string) error {
 	return s.Report(ctx, station, mac, imaging.Canceled, "")
 }
-
-// Remove deletes a job record (once installed and reconciled, or abandoned).
-func (s *ImagingService) Remove(ctx context.Context, station, mac string) error {
-	return s.store.Delete(ctx, s.tenant, station, imaging.NormalizeMAC(mac))
-}

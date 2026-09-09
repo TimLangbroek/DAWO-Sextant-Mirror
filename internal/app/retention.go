@@ -55,6 +55,10 @@ type RetentionPolicy struct {
 	// swept however quiet it is - silence is a finding, not a reason to
 	// forget it.
 	DeviceStatus time.Duration
+	// ImageJobs: finished imaging ceremonies. The record of how a machine was
+	// installed is worth keeping past the install, and worth losing after
+	// that. Only terminal jobs age out; one that stalled stays.
+	ImageJobs time.Duration
 }
 
 // DefaultRetention is what a deployment gets without a decision. Generous on
@@ -65,6 +69,7 @@ func DefaultRetention() RetentionPolicy {
 		Elevation:     365 * 24 * time.Hour, // a year: it is evidence of a decision
 		SeenUsers:     365 * 24 * time.Hour,
 		DeviceStatus:  180 * 24 * time.Hour,
+		ImageJobs:     180 * 24 * time.Hour,
 	}
 }
 
@@ -101,11 +106,12 @@ type RetentionResult struct {
 	Elevation     int
 	SeenUsers     int
 	DeviceStatus  int
+	ImageJobs     int
 }
 
 // Total is the sum, for the "did anything happen" log line.
 func (r RetentionResult) Total() int {
-	return r.Notifications + r.Elevation + r.SeenUsers + r.DeviceStatus
+	return r.Notifications + r.Elevation + r.SeenUsers + r.DeviceStatus + r.ImageJobs
 }
 
 // Sweep removes everything past its window and reports what went.
@@ -159,6 +165,12 @@ func (s *RetentionSweeper) Sweep(ctx context.Context) (RetentionResult, error) {
 		}
 	}
 
+	if d := s.policy.ImageJobs; d > 0 {
+		n, err := s.store.DeleteImageJobsBefore(ctx, s.tenant, now.Add(-d))
+		record("image jobs", err)
+		res.ImageJobs = n
+	}
+
 	// Logged EVERY run, including a run that removed nothing. "Deleted
 	// nothing" and "never ran" must not look the same - that distinction
 	// cost a whole release when the credential sweep sat behind a nil guard
@@ -168,7 +180,8 @@ func (s *RetentionSweeper) Sweep(ctx context.Context) (RetentionResult, error) {
 		"notifications", res.Notifications,
 		"elevation", res.Elevation,
 		"seenUsers", res.SeenUsers,
-		"deviceStatus", res.DeviceStatus)
+		"deviceStatus", res.DeviceStatus,
+		"imageJobs", res.ImageJobs)
 	return res, firstErr
 }
 

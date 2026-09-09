@@ -127,8 +127,6 @@ type ImageJobStore interface {
 	// decision (made against a status that no longer holds) must not be
 	// silently honoured.
 	TransitionStatus(ctx context.Context, tenant, station, mac string, from, to imaging.Status, message string, now time.Time) (bool, error)
-	// Delete removes a job (once installed and reconciled, or canceled).
-	Delete(ctx context.Context, tenant, station, mac string) error
 }
 
 // PrefsStore persists per-user presentation preferences, tenant-namespaced.

@@ -148,10 +148,3 @@ func (j *ImageJobStore) TransitionStatus(ctx context.Context, tenant, station, m
 	}
 	return tag.RowsAffected() > 0, nil
 }
-
-// Delete removes a job.
-func (j *ImageJobStore) Delete(ctx context.Context, tenant, station, mac string) error {
-	_, err := j.s.pool.Exec(ctx,
-		`DELETE FROM image_jobs WHERE tenant=$1 AND station=$2 AND mac=$3`, tenant, station, mac)
-	return err
-}

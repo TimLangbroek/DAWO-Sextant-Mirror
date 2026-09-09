@@ -10,8 +10,9 @@ import (
 	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/domain/imaging"
 )
 
-func TestImageJobsUpsertGetListDelete(t *testing.T) {
-	s := openStore(t).ImageJobs()
+func TestImageJobsUpsertGetListSweep(t *testing.T) {
+	store := openStore(t)
+	s := store.ImageJobs()
 	ctx := context.Background()
 
 	if _, ok, err := s.Get(ctx, "t1", "nuc-1", "aa:bb:cc:dd:ee:01"); err != nil || ok {
@@ -43,11 +44,31 @@ func TestImageJobsUpsertGetListDelete(t *testing.T) {
 		t.Fatalf("list by station = %+v %v", all, err)
 	}
 
-	if err := s.Delete(ctx, "t1", "nuc-1", "aa:bb:cc:dd:ee:01"); err != nil {
+	// The retention sweep is the only thing that removes a job, and it must
+	// leave one that is still in flight: a station that stalled mid-install is
+	// a finding, not clutter. This job is `installed`, so it stays however old
+	// the cutoff is.
+	n, err := store.DeleteImageJobsBefore(ctx, "t1", t0.Add(time.Hour))
+	if err != nil {
 		t.Fatal(err)
 	}
+	if n != 0 {
+		t.Fatalf("swept %d jobs; an unfinished one must survive", n)
+	}
+	if _, ok, _ := s.Get(ctx, "t1", "nuc-1", "aa:bb:cc:dd:ee:01"); !ok {
+		t.Fatal("an unfinished job was swept")
+	}
+
+	// Finished and old enough: it goes.
+	if _, err := s.TransitionStatus(ctx, "t1", "nuc-1", "aa:bb:cc:dd:ee:01",
+		imaging.Installed, imaging.Done, "", t0.Add(2*time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	if n, err = store.DeleteImageJobsBefore(ctx, "t1", t0.Add(time.Hour)); err != nil || n != 1 {
+		t.Fatalf("swept %d jobs (%v), want 1", n, err)
+	}
 	if _, ok, _ := s.Get(ctx, "t1", "nuc-1", "aa:bb:cc:dd:ee:01"); ok {
-		t.Fatal("job survived delete")
+		t.Fatal("a finished job past the window survived the sweep")
 	}
 }
 

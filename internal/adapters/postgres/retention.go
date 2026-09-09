@@ -81,3 +81,20 @@ func (s *Store) DeleteDeviceStatusBefore(ctx context.Context, tenant string, cut
 	}
 	return int(tag.RowsAffected()), nil
 }
+
+// DeleteImageJobsBefore removes finished imaging jobs older than cutoff.
+//
+// Only done and canceled: those are the two terminal states in
+// domain/imaging. failed is retryable and installed is mid-ceremony, so both
+// stay - a job that stopped moving is evidence about a station, and this
+// sweep is about age, not about tidying away problems.
+func (s *Store) DeleteImageJobsBefore(ctx context.Context, tenant string, cutoff time.Time) (int, error) {
+	tag, err := s.pool.Exec(ctx,
+		`DELETE FROM image_jobs
+		 WHERE tenant = $1 AND updated < $2 AND status IN ('done', 'canceled')`,
+		tenant, cutoff)
+	if err != nil {
+		return 0, err
+	}
+	return int(tag.RowsAffected()), nil
+}

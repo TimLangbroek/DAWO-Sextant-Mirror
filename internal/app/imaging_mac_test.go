@@ -63,16 +63,20 @@ func TestImagingEntryPointsNormaliseTheMAC(t *testing.T) {
 		}
 	})
 
-	t.Run("Remove finds the job under another spelling", func(t *testing.T) {
+	t.Run("Report finds the job under another spelling", func(t *testing.T) {
 		s := newImaging()
 		if err := s.Dispatch(ctx, imaging.Job{Station: "nuc-1", MAC: stored, Tag: "lab-1", Hardware: "lenovo-t495s"}); err != nil {
 			t.Fatal(err)
 		}
-		if err := s.Remove(ctx, "nuc-1", shouty); err != nil {
-			t.Fatalf("Remove: %v", err)
+		if err := s.Report(ctx, "nuc-1", shouty, imaging.Imaging, ""); err != nil {
+			t.Fatalf("Report: %v", err)
 		}
-		if _, ok, _ := s.Get(ctx, "nuc-1", stored); ok {
-			t.Error("the job survived Remove; the register keeps a job nobody will image")
+		job, ok, _ := s.Get(ctx, "nuc-1", stored)
+		if !ok {
+			t.Fatal("job disappeared")
+		}
+		if job.Status != imaging.Imaging {
+			t.Errorf("status = %v, want Imaging - the station reported and nothing moved", job.Status)
 		}
 	})
 }

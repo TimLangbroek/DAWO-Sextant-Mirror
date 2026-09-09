@@ -43,6 +43,10 @@ func (m *memRetention) DeleteElevationBefore(_ context.Context, _ string, c time
 func (m *memRetention) DeleteSeenUsersBefore(_ context.Context, _ string, c time.Time) (int, error) {
 	return m.note("seenUsers", c)
 }
+func (m *memRetention) DeleteImageJobsBefore(_ context.Context, _ string, c time.Time) (int, error) {
+	return m.note("imageJobs", c)
+}
+
 func (m *memRetention) DeleteDeviceStatusBefore(_ context.Context, _ string, c time.Time, known map[string]bool) (int, error) {
 	m.known = known
 	return m.note("deviceStatus", c)
@@ -56,6 +60,7 @@ func TestSweepUsesEachWindow(t *testing.T) {
 		Elevation:     20 * 24 * time.Hour,
 		SeenUsers:     30 * 24 * time.Hour,
 		DeviceStatus:  40 * 24 * time.Hour,
+		ImageJobs:     50 * 24 * time.Hour,
 	}
 	s := NewRetentionSweeper(store, pol, "t1", clockAt{now}, nil).
 		WithFleet(func() map[string]bool { return map[string]bool{"lt-1": true} })
@@ -64,12 +69,13 @@ func TestSweepUsesEachWindow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("sweep: %v", err)
 	}
-	if res.Total() != 4 {
-		t.Errorf("total removed = %d, want 4", res.Total())
+	if res.Total() != 5 {
+		t.Errorf("total removed = %d, want 5", res.Total())
 	}
 	for kind, d := range map[string]time.Duration{
 		"notifications": pol.Notifications, "elevation": pol.Elevation,
 		"seenUsers": pol.SeenUsers, "deviceStatus": pol.DeviceStatus,
+		"imageJobs": pol.ImageJobs,
 	} {
 		want := now.Add(-d)
 		if got := store.cutoffs[kind]; !got.Equal(want) {
@@ -149,8 +155,16 @@ func TestOneFailureDoesNotStopTheOthers(t *testing.T) {
 	if err == nil {
 		t.Error("a failing sweep reported success; nobody would learn it is not running")
 	}
-	if len(store.calls) != 4 {
-		t.Errorf("only %v ran; one failure stopped the rest", store.calls)
+	// Named rather than counted: adding a kind should make somebody look at
+	// this list on purpose, not quietly bump a number.
+	ran := map[string]bool{}
+	for _, c := range store.calls {
+		ran[c] = true
+	}
+	for _, want := range []string{"notifications", "elevation", "seenUsers", "deviceStatus", "imageJobs"} {
+		if !ran[want] {
+			t.Errorf("%s did not run; one failure stopped the rest (%v)", want, store.calls)
+		}
 	}
 	if res.Elevation == 0 || res.SeenUsers == 0 {
 		t.Errorf("the other kinds did not sweep: %+v", res)
@@ -165,6 +179,7 @@ func TestDefaultsAreGenerousAndNonZero(t *testing.T) {
 	for name, got := range map[string]time.Duration{
 		"notifications": d.Notifications, "elevation": d.Elevation,
 		"seenUsers": d.SeenUsers, "deviceStatus": d.DeviceStatus,
+		"imageJobs": d.ImageJobs,
 	} {
 		if got <= 0 {
 			t.Errorf("%s default is %v, which disables the sweep", name, got)
@@ -270,5 +285,38 @@ func TestRunDoesNotSweepBeforeTheFirstTick(t *testing.T) {
 		t.Fatal("a sweep happened before the first tick; with an hour between " +
 			"ticks that can only be a sweep at startup")
 	case <-time.After(250 * time.Millisecond):
+	}
+}
+
+// TestImageJobsAgeOutWithTheirOwnWindow: before this, nothing in the product
+// ever removed an imaging job. The only route to the store's delete was a
+// service method with no caller, so a fleet accumulated one row per install
+// ceremony forever.
+func TestImageJobsAgeOutWithTheirOwnWindow(t *testing.T) {
+	store := newMemRetention()
+	now := time.Date(2026, 9, 9, 12, 0, 0, 0, time.UTC)
+	s := NewRetentionSweeper(store, RetentionPolicy{ImageJobs: 90 * 24 * time.Hour},
+		"t1", clockAt{now}, nil)
+
+	res, err := s.Sweep(context.Background())
+	if err != nil {
+		t.Fatalf("sweep: %v", err)
+	}
+	if res.ImageJobs != 1 || res.Total() != 1 {
+		t.Errorf("image jobs removed = %d (total %d), want 1", res.ImageJobs, res.Total())
+	}
+	if want := now.Add(-90 * 24 * time.Hour); !store.cutoffs["imageJobs"].Equal(want) {
+		t.Errorf("cutoff = %v, want %v", store.cutoffs["imageJobs"], want)
+	}
+	// And a deployment that has not decided must not get a window by accident.
+	store2 := newMemRetention()
+	if _, err := NewRetentionSweeper(store2, RetentionPolicy{}, "t1", clockAt{now}, nil).
+		Sweep(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range store2.calls {
+		if c == "imageJobs" {
+			t.Error("a zero window still swept image jobs")
+		}
 	}
 }

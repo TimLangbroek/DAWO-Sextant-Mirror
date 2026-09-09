@@ -21,4 +21,9 @@ type RetentionStore interface {
 	// cutoff for tags NOT in known. A device that still exists is never
 	// swept, however quiet: its silence is the finding.
 	DeleteDeviceStatusBefore(ctx context.Context, tenant string, cutoff time.Time, known map[string]bool) (int, error)
+	// DeleteImageJobsBefore removes imaging jobs that have REACHED A TERMINAL
+	// STATE and have not changed since cutoff. A job still in flight is never
+	// swept however old it looks: a station that stalled mid-install is a
+	// finding, and deleting the record would hide it.
+	DeleteImageJobsBefore(ctx context.Context, tenant string, cutoff time.Time) (int, error)
 }
