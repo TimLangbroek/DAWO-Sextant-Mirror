@@ -66,7 +66,12 @@ func newConsole(t *testing.T) (*httptest.Server, *app.ConfigService) {
 // newConsoleWithGate builds the console over the seed fleet with a caller-chosen
 // gate, so a test can prove how a handler behaves when the nix gate rejects
 // (e.g. metadata handlers that skip the gate must still succeed).
-func newConsoleWithGate(t *testing.T, gate ports.Gate, opts ...func(*web.Server)) (*httptest.Server, *app.ConfigService) {
+// seedConsoleConfig builds the seeded temp repo and a ConfigService over it.
+// Split out of newConsoleWithGate so a test that needs a DIFFERENT set of
+// services (device credentials, mail, secrets) can start from the same fleet
+// instead of hand-rolling a twenty-line fixture, which is how this package
+// ended up with two dozen of them.
+func seedConsoleConfig(t *testing.T, gate ports.Gate) *app.ConfigService {
 	t.Helper()
 	dir := t.TempDir()
 	run := func(args ...string) {
@@ -94,6 +99,12 @@ func newConsoleWithGate(t *testing.T, gate ports.Gate, opts ...func(*web.Server)
 	if err != nil {
 		t.Fatal(err)
 	}
+	return cfg
+}
+
+func newConsoleWithGate(t *testing.T, gate ports.Gate, opts ...func(*web.Server)) (*httptest.Server, *app.ConfigService) {
+	t.Helper()
+	cfg := seedConsoleConfig(t, gate)
 	srv, err := web.New(web.Services{Config: cfg}, web.DevSessions{}, true,
 		nil, nil, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	if err != nil {
