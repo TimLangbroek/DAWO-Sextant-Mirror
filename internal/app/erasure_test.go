@@ -2,9 +2,12 @@ package app
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
+	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/adapters/git"
 	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/ports"
 )
 
@@ -141,5 +144,111 @@ func TestDecisionsMadeForOthersAreLeftAndExplained(t *testing.T) {
 	joined := strings.Join(rep.Remaining, " ")
 	if !strings.Contains(joined, "DECIDED") {
 		t.Errorf("the surviving decisions are not explained:\n%s", joined)
+	}
+}
+
+// erasureSeed: three devices, one assigned to the person being erased under
+// their console subject, one under their device username, one belonging to
+// somebody else whose name merely starts the same way.
+const erasureSeed = `{
+  "version": 3,
+  "org": {"settings": {}},
+  "groups": {"pilot": {}},
+  "devices": {
+    "lt-sub":   {"groups": ["pilot"], "hardware": "hw", "assignedUser": "Sub-1"},
+    "lt-user":  {"groups": ["pilot"], "hardware": "hw", "assignedUser": "ada"},
+    "lt-other": {"groups": ["pilot"], "hardware": "hw", "assignedUser": "adalovelace"},
+    "lt-free":  {"groups": ["pilot"], "hardware": "hw"}
+  }
+}`
+
+func erasureConfig(t *testing.T) *ConfigService {
+	t.Helper()
+	dir := t.TempDir()
+	sh(t, dir, "init", "-q", "-b", "main")
+	if err := os.WriteFile(filepath.Join(dir, "fleet.json"), []byte(erasureSeed), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	sh(t, dir, "add", "fleet.json")
+	sh(t, dir, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "seed")
+	repo, err := git.Open(dir, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	svc, err := NewConfigService(repo, ports.GateFunc(func(context.Context, string, []string) error { return nil }))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return svc
+}
+
+// TestErasureClearsTheRightDevicesAndOnlyThose covers the half of run() that
+// touches the fleet document, which had no test.
+//
+// Both directions are damage. Missing a device leaves a person's name in a
+// file that is published to every machine, after telling them their data was
+// erased. Clearing one too many rewrites somebody else's assignment on the
+// word of a partial name match.
+func TestErasureClearsTheRightDevicesAndOnlyThose(t *testing.T) {
+	ctx := context.Background()
+	cfg := erasureConfig(t)
+	store := &memErasure{}
+	s := NewErasureService(store, cfg, "t1", nil)
+
+	rep, err := s.Erase(ctx, "sub-1", "ada", ports.Author{Name: "dpo"})
+	if err != nil {
+		t.Fatalf("erase: %v", err)
+	}
+
+	cleared := map[string]bool{}
+	for _, tag := range rep.DevicesCleared {
+		cleared[tag] = true
+	}
+	// Matched on the subject, matched on the username, and case does not
+	// decide: whoever typed "Sub-1" into the field is not the reason a
+	// request fails.
+	for _, want := range []string{"lt-sub", "lt-user"} {
+		if !cleared[want] {
+			t.Errorf("%s was not cleared; the name stays in a file every machine reads", want)
+		}
+	}
+	// "adalovelace" starts with "ada" and is a different person.
+	if cleared["lt-other"] {
+		t.Error("lt-other was cleared on a partial name match; that is somebody else's assignment")
+	}
+	if cleared["lt-free"] {
+		t.Error("a device with no assigned user was reported as cleared")
+	}
+
+	// And the document actually changed, not just the report.
+	f := cfg.Fleet()
+	for _, tag := range []string{"lt-sub", "lt-user"} {
+		if got := f.Devices[tag].AssignedUser; got != "" {
+			t.Errorf("%s still carries %q after the erasure reported it cleared", tag, got)
+		}
+	}
+	if got := f.Devices["lt-other"].AssignedUser; got != "adalovelace" {
+		t.Errorf("lt-other lost its assignment: %q", got)
+	}
+}
+
+// TestAPreviewLeavesTheFleetDocumentAlone: the two-act design has to hold on
+// this side too. A preview that rewrites the document is a deletion nobody
+// confirmed.
+func TestAPreviewLeavesTheFleetDocumentAlone(t *testing.T) {
+	ctx := context.Background()
+	cfg := erasureConfig(t)
+	s := NewErasureService(&memErasure{}, cfg, "t1", nil)
+
+	rep, err := s.Preview(ctx, "sub-1", "ada")
+	if err != nil {
+		t.Fatalf("preview: %v", err)
+	}
+	if len(rep.DevicesCleared) != 2 {
+		t.Errorf("preview named %v, want the two it would clear", rep.DevicesCleared)
+	}
+	f := cfg.Fleet()
+	if f.Devices["lt-sub"].AssignedUser == "" || f.Devices["lt-user"].AssignedUser == "" {
+		t.Error("the preview cleared an assignment; nobody confirmed that")
 	}
 }
