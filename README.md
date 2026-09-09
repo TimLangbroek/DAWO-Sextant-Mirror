@@ -315,13 +315,20 @@ it.
 
 | | |
 |---|---|
-| **codeberg.org/DAWO/DAWO-Sextant** | Where to read it, clone it, and take part today. Issues, pull requests and CI here. Flux reads `main` here for the chart, so a merge reaches the cluster from this forge. |
-| **forgejo.bb-open.com/bb-open/DAWO-Sextant** | BB Open's workshop. CI runs here too, and this is the only forge that builds a release: the tag, the images and the registry production pulls from all live here. |
-| **code.overheid.nl/MinBZK/DAWO-Sextant** | Canonical, and where it is published as EU open source. No public accounts yet. May lag. |
+| **codeberg.org/DAWO/DAWO-Sextant** | Where to read it, clone it, and take part today. Issues, pull requests and CI, on a runner attached here. Flux reads `main` here for the chart, so a merge reaches the cluster from this forge. Kept up to date. |
+| **code.overheid.nl/MinBZK/DAWO-Sextant** | Canonical, and where it is published as EU open source. No public accounts yet. Kept up to date. |
+| **forgejo.bb-open.com/bb-open/DAWO-Sextant** | BB Open's workshop, and today the only forge that builds a release: the tag, the images and the registry production pulls from live here. Not required to be current. |
 
-Codeberg and forgejo both have to be kept up to date. A push that reaches one
-and not the other is silent: the version that gets served or built is simply
-the older one.
+Codeberg and code.overheid.nl are the two that have to be kept up to date. A
+push that reaches one and not the other is silent, and the version served is
+simply the older one.
+
+There is one string attached to leaving forgejo behind, and it is worth
+knowing before it bites: `release.yml` refuses to run anywhere else
+(`github.server_url == 'https://forgejo.bb-open.com'`), because the registry
+credentials live there. So a forge that may lag is also the only forge that
+can cut a release, and a tag pushed to a stale forgejo builds the wrong tree.
+Until the release moves, bring forgejo up to date before tagging.
 
 **Container images are on BB Open's forge, not on Codeberg.** Each release
 publishes `git.edano.eu/bb-open/sextant:<version>` (the console), `sextant:<version>-tools`,
