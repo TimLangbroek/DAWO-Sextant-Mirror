@@ -108,4 +108,17 @@ case "$message" in
     fail "an em or en dash; use a comma, a colon, a full stop, or two sentences" ;;
 esac
 
+# The trail belongs to this project, not to the tooling that happened to be in
+# the room. CONTRIBUTING's AI policy asks for one disclosure line naming the
+# model; a tool that also stamps Co-Authored-By and a link to a private chat
+# adds an author who cannot be asked anything and a URL nobody outside can
+# open. 257 commits on main carry that before anybody noticed, which is the
+# argument for checking rather than remembering.
+if printf '%s\n' "$message" | grep -qiE '^Co-Authored-By: (Claude|GPT|Copilot|Gemini)'; then
+  fail "a Co-Authored-By naming a model; use the disclosure trailer from CONTRIBUTING instead"
+fi
+if printf '%s\n' "$message" | grep -qiE 'claude\.ai/code/session|^Claude-Session:|Generated with \[Claude Code\]'; then
+  fail "a link to a private assistant session; nobody outside this machine can open it"
+fi
+
 exit 0
