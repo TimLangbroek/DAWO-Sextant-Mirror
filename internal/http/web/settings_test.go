@@ -73,6 +73,13 @@ func newConsole(t *testing.T) (*httptest.Server, *app.ConfigService) {
 // ended up with two dozen of them.
 func seedConsoleConfig(t *testing.T, gate ports.Gate) *app.ConfigService {
 	t.Helper()
+	return seedConsoleConfigWith(t, gate, seedFleet)
+}
+
+// seedConsoleConfigWith is seedConsoleConfig over a caller-chosen fleet
+// document, for the tests that need an access grant seedFleet does not carry.
+func seedConsoleConfigWith(t *testing.T, gate ports.Gate, fleetDoc string) *app.ConfigService {
+	t.Helper()
 	dir := t.TempDir()
 	run := func(args ...string) {
 		out, err := exec.Command("git", append([]string{"-C", dir}, args...)...).CombinedOutput()
@@ -81,7 +88,7 @@ func seedConsoleConfig(t *testing.T, gate ports.Gate) *app.ConfigService {
 		}
 	}
 	run("init", "-q", "-b", "main")
-	for name, body := range map[string]string{"fleet.json": seedFleet,
+	for name, body := range map[string]string{"fleet.json": fleetDoc,
 		"catalog.json": seedCatalog, "profiles.json": seedProfiles,
 		"bundles.json": seedBundles} {
 		if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0o644); err != nil {
