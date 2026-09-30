@@ -168,9 +168,16 @@ fn spool(root: &Path, intent: &str) {
 
 /// tighten best-effort restricts a directory to owner-only (0700). Failure is
 /// non-fatal - the directory ownership is the primary control; this only drops
-/// the read/traverse bits the default umask would otherwise grant.
+/// the read/traverse bits the default umask would otherwise grant. It is not
+/// silent though: the layer was lost, and a device where that happened should
+/// say so in the journal rather than keep the degradation to itself.
 fn tighten(dir: &Path) {
-    let _ = fs::set_permissions(dir, fs::Permissions::from_mode(0o700));
+    if let Err(e) = fs::set_permissions(dir, fs::Permissions::from_mode(0o700)) {
+        eprintln!(
+            "sextant-agent: could not restrict {} to owner-only: {e}",
+            dir.display()
+        );
+    }
 }
 
 #[cfg(test)]
