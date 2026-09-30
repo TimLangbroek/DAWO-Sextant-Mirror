@@ -47,7 +47,13 @@ func (m *memDiag) Delete(context.Context, string, string) error { return nil }
 
 // consoleWithDiagnostics wires a console that holds one bundle for lt-1, and
 // returns the buffer its logger writes to so the audit line can be read back.
-func consoleWithDiagnostics(t *testing.T, store ports.DiagnosticsStore) (*httptest.Server, *bytes.Buffer) {
+//
+// The console's clock sits one hour after the bundle was collected, so the
+// download lands inside the fourteen-day retention window no matter when this
+// test runs. The first version asked the real clock, so the test passed while
+// the wall was within two weeks of 9 September and then started reporting the
+// bundle as absent: retention deleted it on sight.
+func consoleWithDiagnostics(t *testing.T, store *memDiag) (*httptest.Server, *bytes.Buffer) {
 	t.Helper()
 	cfg := seedConsoleConfig(t, ports.GateFunc(func(context.Context, string, []string) error { return nil }))
 	sealer, err := secretbox.New(base64.StdEncoding.EncodeToString(bytes.Repeat([]byte("k"), 32)))
@@ -55,7 +61,7 @@ func consoleWithDiagnostics(t *testing.T, store ports.DiagnosticsStore) (*httpte
 		t.Fatal(err)
 	}
 	var logs bytes.Buffer
-	diag := app.NewDiagnosticsService(store, sealer, fixedClock{time.Now().UTC()}, "")
+	diag := app.NewDiagnosticsService(store, sealer, fixedClock{store.meta.Created.Add(time.Hour)}, "")
 	srv, err := web.New(web.Services{Config: cfg, Diagnostics: diag}, web.DevSessions{}, true,
 		nil, nil, nil, slog.New(slog.NewTextHandler(&logs, nil)))
 	if err != nil {
