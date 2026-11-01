@@ -100,6 +100,64 @@ func TestSimulatedIntegrationsAreStablePerDevice(t *testing.T) {
 	}
 }
 
+// Integer division across the six demo groups used to drop up to five devices,
+// so `just demo` asked for 60 and logged 59. Below len(demoGroups) the
+// one-device-per-group floor wins so no ring branch is empty; from
+// len(demoGroups) upwards the total must match what the caller asked for, and
+// no group may receive more than one remainder device above its floor share.
+func TestGeneratedFleetDeviceCountMatchesRequestedTotal(t *testing.T) {
+	minGroups := len(demoGroups)
+	base := 0
+	for _, g := range demoGroups {
+		base += g.N
+	}
+	for _, n := range []int{1, 5, 6, 7, 10, 30, 50, 60, 100, 150, 200, 1000} {
+		f, err := os.CreateTemp(t.TempDir(), "fleet-*.json")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := writeDemoFleet(f, n); err != nil {
+			t.Fatal(err)
+		}
+		if err := f.Close(); err != nil {
+			t.Fatal(err)
+		}
+		raw, err := os.ReadFile(f.Name())
+		if err != nil {
+			t.Fatal(err)
+		}
+		var doc struct {
+			Devices map[string]fleetDevice `json:"devices"`
+		}
+		if err := json.Unmarshal(raw, &doc); err != nil {
+			t.Fatal(err)
+		}
+		want := n
+		if n < minGroups {
+			want = minGroups
+		}
+		if got := len(doc.Devices); got != want {
+			t.Errorf("n=%d: generated %d devices, want %d", n, got, want)
+		}
+		perGroup := map[string]int{}
+		for _, d := range doc.Devices {
+			for _, g := range d.Groups {
+				perGroup[g]++
+			}
+		}
+		for _, g := range demoGroups {
+			got := perGroup[g.Name]
+			if got < 1 {
+				t.Errorf("n=%d: group %s has %d devices, want at least 1", n, g.Name, got)
+			}
+			ceil := g.N*n/base + 1
+			if got > ceil {
+				t.Errorf("n=%d: group %s has %d devices, want at most %d", n, g.Name, got, ceil)
+			}
+		}
+	}
+}
+
 // demoTags returns the tags of a generated fleet, so the tests run against the
 // names the demo actually produces rather than invented ones.
 func demoTags(t *testing.T, n int) []string {

@@ -30,7 +30,7 @@ import (
 )
 
 // demoGroups shapes the generated fleet: a small IT test group plus
-// production groups of plausible sizes (150 devices total by default).
+// production groups of plausible relative sizes (weights sum to 150).
 var demoGroups = []struct {
 	Name string
 	N    int
@@ -432,15 +432,40 @@ func writeDemoFleet(w *os.File, n int) error {
 	for _, g := range demoGroups {
 		base += g.N
 	}
+	// Every group needs at least one device so no rollout ring is empty, and
+	// any shortfall from integer division goes to the groups with the largest
+	// fractional remainder so -gen N emits N devices for every N >= len(demoGroups).
+	counts := make([]int, len(demoGroups))
+	rems := make([]int, len(demoGroups))
+	placed := 0
+	for i, g := range demoGroups {
+		c := g.N * n / base
+		rem := g.N * n % base
+		if c == 0 {
+			c = 1
+			rem = 0
+		}
+		counts[i] = c
+		rems[i] = rem
+		placed += c
+	}
+	for placed < n {
+		best := 0
+		for i, rem := range rems {
+			if rem > rems[best] {
+				best = i
+			}
+		}
+		counts[best]++
+		rems[best] = -1
+		placed++
+	}
 	// #nosec G404 - demo data generation, deliberately deterministic; no security use.
 	r := rand.New(rand.NewSource(42))
 	hw := []string{"lenovo-t495s", "hp-elitebook-840", "dell-latitude-5440"}
-	for _, g := range demoGroups {
+	for idx, g := range demoGroups {
 		doc.Groups[g.Name] = struct{}{}
-		count := g.N * n / base
-		if count == 0 {
-			count = 1
-		}
+		count := counts[idx]
 		for i := 1; i <= count; i++ {
 			tag := fmt.Sprintf("%s-%03d", g.Name, i)
 			doc.Devices[tag] = fleetDevice{
