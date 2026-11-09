@@ -316,6 +316,14 @@ where the arguments are, including the ones we lost.
 
 Every push goes to both.
 
+**Container images are on BB Open's forge, not on Codeberg.** Each release
+publishes `git.edano.eu/bb-open/sextant:<version>` (the console), `sextant:<version>-tools`,
+`sextant-gate:<version>` and `sextant-docs:<version>`, each with an SPDX SBOM
+under its own tag plus `-sbom`. They pull without an account. Codeberg would be
+the natural home, but the gate image is about 630 MiB per release and the
+default package quota there is 1.5 GiB, so two releases would fill it. The Helm
+chart in `deploy/helm` points at these images by default.
+
 Codeberg is the public front door because it is a European non-profit forge
 rather than a company's platform, which is the same reasoning that put the
 canonical copy on code.overheid.nl.

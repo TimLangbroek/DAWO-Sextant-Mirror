@@ -1,7 +1,13 @@
 # Sextant chart defaults. Secrets never live in values: the release reads
 # an existing Secret (secretName) with SEXTANT_* keys.
+#
+# Released images live on BB Open's forge under git.edano.eu, the name that
+# forge reports as its own, and pull anonymously. forgejo.bb-open.com is the
+# same forge under an older name. They are not on Codeberg: the gate image
+# alone is about 630 MiB per release, against a default package quota of
+# 1.5 GiB. See "Where this repository lives" in the README.
 image:
-  repository: forgejo.bb-open.com/bb-open/sextant
+  repository: git.edano.eu/bb-open/sextant
   # Empty by default: the deployment template falls back to
   # `.Chart.AppVersion` (`| default .Chart.AppVersion`), so a fresh install
   # with no override tracks the chart it came from instead of whatever tag
@@ -51,7 +57,7 @@ allowUnvalidated: false
 gateRunner:
   enabled: false
   image:
-    repository: forgejo.bb-open.com/bb-open/sextant-gate
+    repository: git.edano.eu/bb-open/sextant-gate
     # Empty by default: falls back to .Chart.AppVersion, same as image.tag
     # above.
     tag: ""

@@ -15,8 +15,8 @@ on:
 jobs:
   images:
     runs-on: nixos
-    # The registry lives on BB Open's forgejo and so do its credentials. This
-    # workflow must therefore only run there.
+    # The registry lives on BB Open's forgejo (git.edano.eu) and so do its
+    # credentials. This workflow must therefore only run there.
     #
     # Measured 2026-08-10, and it is why this guard exists rather than being
     # tidy: a runner was registered against Codeberg, the mirror pushed the
@@ -47,7 +47,7 @@ jobs:
             exit 1
           fi
           VERSION="${GITHUB_REF_NAME#v}"
-          REGISTRY="forgejo.bb-open.com"
+          REGISTRY="git.edano.eu"
           # Rootless podman needs the setuid newuidmap/newgidmap to map the
           # forgejo-runner user's /etc/subuid range into the build's user
           # namespace. On NixOS those live in /run/wrappers/bin, which the
@@ -110,7 +110,7 @@ jobs:
           # so a variable from the build step above is empty by the time this
           # one starts. It used to be, and syft was silently handed a ref with
           # no host in it.
-          REGISTRY="forgejo.bb-open.com"
+          REGISTRY="git.edano.eu"
           mkdir -p sbom
           nix shell nixpkgs#syft nixpkgs#oras --command bash -c "
             set -euo pipefail
@@ -167,7 +167,7 @@ jobs:
           # human to remember two files at release time.
           sed -i "s/^version: .*/version: $VERSION/" deploy/marketplace/metadata.yaml
           rm -rf /tmp/mirror
-          git clone -q "https://release-bot:${MIRROR_TOKEN}@forgejo.bb-open.com/bb-open/sextant-charts.git" /tmp/mirror
+          git clone -q "https://release-bot:${MIRROR_TOKEN}@git.edano.eu/bb-open/sextant-charts.git" /tmp/mirror
           ./deploy/marketplace/sync.sh /tmp/mirror
           cd /tmp/mirror
           git config user.name "release-bot"

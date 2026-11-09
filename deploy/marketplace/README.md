@@ -9,7 +9,7 @@ is that nobody notices until a customer installs the older one.
 So the copy is generated, never edited, and it lives in a repository of our
 own rather than in theirs:
 
-**<https://forgejo.bb-open.com/bb-open/sextant-charts>**
+**<https://git.edano.eu/bb-open/sextant-charts>**
 
 Their tag convention documents this shape: a listing points at a `source_url`
 with a `chart_path`, and their own monorepo is only one way to satisfy it. A

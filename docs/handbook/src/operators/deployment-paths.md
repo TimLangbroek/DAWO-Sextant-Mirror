@@ -42,7 +42,7 @@ podman run -d --name sextant --network host \
   -e SEXTANT_CHECKIN_TOKEN="…" \
   -e SEXTANT_SECRET_KEY="$(head -c 32 /dev/urandom | base64)" \
   -v /srv/sextant/overlay:/data/overlay:z \
-  forgejo.bb-open.com/bb-open/sextant:0.91.0 \
+  git.edano.eu/bb-open/sextant:0.93.0 \
   --addr 127.0.0.1:8080 --repo /data/overlay --write --gate remote \
   --gate-url https://gate.example.org
 ```
