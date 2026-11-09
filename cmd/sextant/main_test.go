@@ -19,17 +19,15 @@ import (
 	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/platform/metrics"
 )
 
-// env builds a config.Getenv over a fixed map, the same injectable seam
+// noEnv is a config.Getenv with nothing set, the same injectable seam
 // config_test.go uses - no process environment is touched.
-func env(m map[string]string) config.Getenv {
-	return func(k string) string { return m[k] }
-}
+func noEnv(string) string { return "" }
 
 // TestBuildCapabilitiesNoRepo covers the deployment shape used for probes
 // and smoke tests: no --repo means no config plane, so buildCapabilities
 // must return cleanly with nothing to mount and nothing to release.
 func TestBuildCapabilitiesNoRepo(t *testing.T) {
-	cfg, err := config.Load(nil, env(nil))
+	cfg, err := config.Load(nil, noEnv)
 	if err != nil {
 		t.Fatalf("config.Load: %v", err)
 	}
@@ -56,7 +54,7 @@ func TestBuildCapabilitiesNoRepo(t *testing.T) {
 // a config that fails validation must surface a clear error before any
 // server, repo or background worker is touched.
 func TestRunFailsFastOnInvalidConfig(t *testing.T) {
-	err := run([]string{"--log-level", "deafening"}, env(nil))
+	err := run(context.Background(), []string{"--log-level", "deafening"}, noEnv, io.Discard)
 	if err == nil {
 		t.Fatal("run: want error for invalid --log-level, got nil")
 	}
@@ -69,7 +67,7 @@ func TestRunFailsFastOnInvalidConfig(t *testing.T) {
 // branch reachable purely through flag parsing, so the fail-fast path isn't
 // only exercised via the log-level case above.
 func TestRunFailsFastOnWriteWithoutRepo(t *testing.T) {
-	err := run([]string{"--write"}, env(nil))
+	err := run(context.Background(), []string{"--write"}, noEnv, io.Discard)
 	if err == nil {
 		t.Fatal("run: want error for --write without --repo, got nil")
 	}

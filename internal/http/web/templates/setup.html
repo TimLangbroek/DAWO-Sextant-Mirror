@@ -4,6 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{.L.T "setup.title"}} - Sextant</title>
+  {{if and (eq .Step "callback") (not .Error)}}<meta http-equiv="refresh" content="0;url=/setup">{{end}}
+  {{if eq .Step "done"}}<meta http-equiv="refresh" content="3;url=/login">{{end}}
   <link rel="stylesheet" href="/static/fonts.css">
   <link rel="stylesheet" href="/static/app.css">
 </head>
@@ -26,6 +28,12 @@
 
     {{if eq .Step "waiting"}}
     <p class="muted">{{.L.T "setup.waiting"}}</p>
+    {{else if eq .Step "callback"}}
+    {{if .Error}}<div class="error mb-4" role="alert">{{.L.T .Error}}<div class="font-mono text-body-sm">{{.Detail}}</div></div>{{end}}
+    <a href="/setup" class="btn">{{.L.T "setup.signin.back"}}</a>
+    {{else if eq .Step "done"}}
+    <p class="mb-4" role="status">{{.L.T "setup.done"}}</p>
+    <a href="/login" class="btn">{{.L.T "setup.done_link"}}</a>
     {{else}}
     <ol class="mb-6 flex gap-sm text-body-sm" aria-label="{{.L.T "setup.steps"}}">
       {{range .Steps}}
@@ -76,6 +84,52 @@
         <button type="submit" name="action" value="use" class="btn">{{.L.T "setup.repo.use"}}</button>
       </div>
     </form>
+    {{else if eq .Step "signin"}}
+    {{with .Signin}}
+    {{if .User}}
+    <dl class="mb-4 flex flex-col gap-xs">
+      <dt class="text-body-sm text-text-tertiary">{{$.L.T "setup.signin.signed_in"}}</dt>
+      <dd class="font-bold text-ink">{{.User.Name}}{{if .User.Email}} ({{.User.Email}}){{end}}</dd>
+      <dt class="text-body-sm text-text-tertiary">{{$.L.T "setup.signin.subject"}}</dt>
+      <dd class="font-mono text-body-sm">{{.User.Subject}}</dd>
+      <dt class="text-body-sm text-text-tertiary">{{$.L.T "setup.signin.groups"}}</dt>
+      <dd>{{if .User.Groups}}{{range $i, $g := .User.Groups}}{{if $i}}, {{end}}<span class="font-mono text-body-sm">{{$g}}</span>{{end}}{{else}}<span class="muted">{{$.L.T "setup.signin.no_groups"}}</span>{{end}}</dd>
+    </dl>
+    <p class="mb-4">{{$.L.T "setup.signin.owner"}}</p>
+    <form method="post" action="/setup/signin" class="flex gap-sm mb-6">
+      <input type="hidden" name="action" value="finish">
+      <button type="submit" class="btn">{{$.L.T "setup.signin.finish"}}</button>
+      <a href="/setup/signin/start" class="btn">{{$.L.T "setup.signin.again"}}</a>
+    </form>
+    {{else if .Checked}}
+    <p class="mb-4" role="status">{{$.L.T "setup.signin.checked"}}</p>
+    <a href="/setup/signin/start" class="btn mb-6">{{$.L.T "setup.signin.test"}}</a>
+    {{else}}
+    <p class="mb-4">{{$.L.T "setup.signin.intro"}}</p>
+    {{end}}
+    <form method="post" action="/setup/signin" class="flex flex-col gap-sm">
+      <input type="hidden" name="action" value="check">
+      <label for="signin-address">{{$.L.T "setup.signin.address"}}</label>
+      {{if .PublicURLFixed}}
+      <p class="font-mono text-body-sm">{{.PublicURL}}</p>
+      <p class="muted">{{$.L.T "setup.signin.address_fixed"}}</p>
+      {{else}}
+      <input id="signin-address" name="public_url" type="url" value="{{.PublicURL}}" required>
+      <p class="muted">{{$.L.T "setup.signin.address_hint"}}</p>
+      {{end}}
+      {{if .RedirectURL}}
+      <p class="text-body-sm text-text-tertiary">{{$.L.T "setup.signin.redirect"}}</p>
+      <p class="font-mono text-body-sm">{{.RedirectURL}}</p>
+      {{end}}
+      <label for="signin-issuer">{{$.L.T "setup.signin.issuer"}}</label>
+      <input id="signin-issuer" name="issuer" type="url" value="{{.Issuer}}" placeholder="https://id.example.com" required>
+      <label for="signin-client">{{$.L.T "setup.signin.client_id"}}</label>
+      <input id="signin-client" name="client_id" value="{{.ClientID}}" required>
+      <label for="signin-secret">{{$.L.T "setup.signin.client_secret"}}</label>
+      <input id="signin-secret" name="client_secret" type="password" autocomplete="off" required>
+      <button type="submit" class="btn">{{$.L.T "setup.signin.check"}}</button>
+    </form>
+    {{end}}
     {{else}}
     <p class="muted">{{.L.T "setup.next_not_built"}}</p>
     {{end}}

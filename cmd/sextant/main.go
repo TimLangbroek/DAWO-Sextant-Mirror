@@ -7,6 +7,7 @@ package main
 import (
 	"context"
 	"errors"
+	"io"
 
 	// Embed the IANA zone database: user timezone preferences must resolve
 	// even in a container image without tzdata.
@@ -36,26 +37,51 @@ import (
 var version = "dev"
 
 func main() {
-	if err := run(os.Args[1:], os.Getenv); err != nil {
+	err := run(context.Background(), os.Args[1:], os.Getenv, os.Stderr)
+	if errors.Is(err, errRestart) {
+		err = restartSelf()
+	}
+	if err != nil {
 		fmt.Fprintln(os.Stderr, "sextant:", err)
 		os.Exit(1)
 	}
 }
 
-func run(args []string, getenv config.Getenv) error {
+// errRestart ends run so main starts the console again. Setup returns it
+// once its answers are on disk.
+var errRestart = errors.New("restart requested")
+
+// restartSelf replaces this process with a fresh start of the same binary,
+// arguments and environment, so everything is read again as at boot. It
+// keeps the process id: a supervisor (systemd, a container runtime, the
+// kubelet) sees no exit and has nothing to restart or count.
+func restartSelf() error {
+	exe, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	// #nosec G702 G204 - this binary, with the arguments and environment it was started with.
+	return syscall.Exec(exe, os.Args, os.Environ())
+}
+
+func run(parent context.Context, args []string, getenv config.Getenv, stderr io.Writer) error {
 	cfg, err := config.Load(args, getenv)
 	if err != nil {
 		return err
 	}
-	log := logging.New(os.Stderr, cfg.LogFormat, cfg.LogLevel)
+	log := logging.New(stderr, cfg.LogFormat, cfg.LogLevel)
 
 	m := metrics.New()
 	checks := health.New(5 * time.Second)
 	checks.SetLogger(log)
 	checks.SetBuildInfo(version, strconv.Itoa(fleet.Version), cfg.GateMode)
 
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
+	ctx, stop := signal.NotifyContext(parent, syscall.SIGTERM, syscall.SIGINT)
 	defer stop()
+	// Setup ends this run with errRestart; everything below shuts down as
+	// it would on SIGTERM before main starts again.
+	ctx, restart := context.WithCancelCause(ctx)
+	defer restart(nil)
 
 	mux := http.NewServeMux()
 	mux.Handle("GET /healthz", checks.Liveness())
@@ -92,7 +118,11 @@ func run(args []string, getenv config.Getenv) error {
 
 	// Without a console, a console nobody can sign in to offers setup, and
 	// anything else serves a plain identity line on the root.
-	if !slices.Contains(mounted, "console") && (!setupMode(cfg) || !mountSetup(mux, cfg, log)) {
+	hooks := setupHooks{
+		check:   func() error { _, err := config.Load(args, getenv); return err },
+		restart: func() { restart(errRestart) },
+	}
+	if !slices.Contains(mounted, "console") && (!setupMode(cfg) || !mountSetup(mux, cfg, log, hooks)) {
 		mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, _ *http.Request) {
 			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 			_, _ = fmt.Fprintln(w, "Sextant - declarative fleet control-plane for NixOS")
@@ -133,5 +163,9 @@ func run(args []string, getenv config.Getenv) error {
 		}()
 	}
 
-	return srv.Run(ctx)
+	runErr := srv.Run(ctx)
+	if errors.Is(context.Cause(ctx), errRestart) {
+		return errRestart
+	}
+	return runErr
 }

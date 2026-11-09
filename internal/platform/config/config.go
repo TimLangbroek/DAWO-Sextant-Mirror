@@ -395,7 +395,7 @@ func (c *Config) validate() error {
 		// otherwise a session cookie can be sent in the clear on a
 		// misconfigured (non-TLS, or TLS-terminating-proxy) deployment. Fail
 		// fast rather than ship an insecure default.
-		if !c.SecureCookies && !isLoopback(c.Addr) && !isLoopbackURL(c.PublicURL) {
+		if !c.SecureCookies && !isLoopback(c.Addr) && !IsLoopbackURL(c.PublicURL) {
 			return fmt.Errorf("session auth on non-loopback --addr %q requires --secure-cookies (or SEXTANT_SECURE_COOKIES=true, or an https --public-url); refusing to ship session cookies without the Secure flag", c.Addr)
 		}
 	}
@@ -423,12 +423,12 @@ func isLoopback(addr string) bool {
 	return false
 }
 
-// isLoopbackURL reports whether u is a plain-http address on this machine.
+// IsLoopbackURL reports whether u is a plain-http address on this machine.
 // A console reached only that way keeps its cookies off the network
 // whatever it listens on: a container publishes its port on the host's
 // loopback but listens on every address inside, and the sign-in redirect
 // only ever comes back to this address.
-func isLoopbackURL(u string) bool {
+func IsLoopbackURL(u string) bool {
 	p, err := url.Parse(u)
 	if err != nil || p.Scheme != "http" {
 		return false

@@ -7,8 +7,10 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"time"
 
 	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/adapters/git"
+	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/adapters/oidc"
 	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/domain/forge"
 	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/http/web"
 	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/platform/config"
@@ -24,7 +26,7 @@ func setupMode(cfg *config.Config) bool { return cfg.OIDCIssuer == "" && !cfg.De
 // mountSetup mounts the first-start pages and logs the one-time link. It
 // reports false when setup cannot run, after saying why, and the caller
 // falls back to the plain identity line.
-func mountSetup(mux *http.ServeMux, cfg *config.Config, log *slog.Logger) bool {
+func mountSetup(mux *http.ServeMux, cfg *config.Config, log *slog.Logger, hooks setupHooks) bool {
 	tok, err := web.NewSetupToken()
 	if err != nil {
 		log.Error("setup mode not available", "err", err)
@@ -50,7 +52,17 @@ func mountSetup(mux *http.ServeMux, cfg *config.Config, log *slog.Logger) bool {
 		},
 		TestRepo:  git.LsRemote,
 		CloneRepo: git.Clone,
-		Log:       log,
+		NewSignin: func(ctx context.Context, c web.SigninConfig) (web.SigninFlow, error) {
+			// A provider that never answers must not hold the page forever.
+			ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+			defer cancel()
+			return oidc.New(ctx, oidc.Config{Issuer: c.Issuer, ClientID: c.ClientID,
+				ClientSecret: c.ClientSecret, RedirectURL: c.RedirectURL, GroupsClaim: c.GroupsClaim,
+				SessionKey: c.SessionKey, Secure: c.Secure, Logger: log})
+		},
+		Check:   hooks.check,
+		Restart: hooks.restart,
+		Log:     log,
 	})
 	if err != nil {
 		log.Error("setup mode not available", "err", err)
@@ -61,6 +73,13 @@ func mountSetup(mux *http.ServeMux, cfg *config.Config, log *slog.Logger) bool {
 	// up, and the setup page tells everyone else to look here.
 	log.Warn("setup: open "+setupLink(cfg, tok), "dataDir", cfg.DataDir)
 	return true
+}
+
+// setupHooks is what setup needs from the process around it: a way to
+// check that the next start accepts what setup wrote, and that start.
+type setupHooks struct {
+	check   func() error
+	restart func()
 }
 
 // setupLink is the address to open. The public URL when it is known;

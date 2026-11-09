@@ -54,7 +54,7 @@ func TestMountSetupLogsAWorkingLink(t *testing.T) {
 	var buf bytes.Buffer
 	cfg := &config.Config{Addr: "127.0.0.1:8080", DataDir: t.TempDir()}
 	mux := http.NewServeMux()
-	if !mountSetup(mux, cfg, logging.New(&buf, "text", "info")) {
+	if !mountSetup(mux, cfg, logging.New(&buf, "text", "info"), setupHooks{}) {
 		t.Fatal("setup not mounted")
 	}
 	line := buf.String()
@@ -73,7 +73,7 @@ func TestMountSetupLogsAWorkingLink(t *testing.T) {
 	// Without a data directory there is nowhere to keep answers, and the
 	// caller falls back to the identity line instead of a setup that
 	// cannot save.
-	if mountSetup(http.NewServeMux(), &config.Config{Addr: "127.0.0.1:8080"}, logging.New(io.Discard, "text", "info")) {
+	if mountSetup(http.NewServeMux(), &config.Config{Addr: "127.0.0.1:8080"}, logging.New(io.Discard, "text", "info"), setupHooks{}) {
 		t.Fatal("setup mounted without a data directory")
 	}
 }

@@ -300,8 +300,8 @@ func TestIsLoopbackURL(t *testing.T) {
 		"":                        false,
 	}
 	for u, want := range cases {
-		if got := isLoopbackURL(u); got != want {
-			t.Errorf("isLoopbackURL(%q) = %v, want %v", u, got, want)
+		if got := IsLoopbackURL(u); got != want {
+			t.Errorf("IsLoopbackURL(%q) = %v, want %v", u, got, want)
 		}
 	}
 }

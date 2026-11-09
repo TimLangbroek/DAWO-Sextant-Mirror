@@ -70,8 +70,12 @@ machine is not the only process that can reach loopback.
    person who completes the test becomes the owner (recorded by subject), so
    no group mapping is needed to get in. A string-valued groups claim counts
    as one group (issue #180).
-4. **Done.** The console writes the files and restarts itself (re-exec), and
-   the page waits for `/readyz` and sends you to sign in.
+4. **Done.** The console checks that the next start accepts what it wrote
+   (if not, the old files go back and the page says why), then restarts
+   itself in place (re-exec, same process id), and the page moves on to
+   sign-in after three seconds. The test sign-in goes through a link, not
+   the form's own redirect: the console's `form-action 'self'` policy stops
+   a form from landing on the provider, rightly.
 
 Database and gate are not steps. The database comes with the install path
 (the NixOS module and the compose file start one; the chart already has

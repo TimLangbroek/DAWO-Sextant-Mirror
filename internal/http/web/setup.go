@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -49,7 +50,39 @@ type SetupOptions struct {
 	// that one command.
 	TestRepo  func(ctx context.Context, url, user, token string) error
 	CloneRepo func(ctx context.Context, url, user, token, dir string) error
-	Log       *slog.Logger
+	// NewSignin discovers an identity provider and returns a login flow
+	// against it, for the test sign-in.
+	NewSignin func(ctx context.Context, c SigninConfig) (SigninFlow, error)
+	// Check loads the configuration the way the next start will, with what
+	// setup wrote. An error is what that start would refuse with.
+	Check func() error
+	// Restart starts the console again with what setup wrote, once the
+	// current request has been answered.
+	Restart func()
+	Log     *slog.Logger
+}
+
+// SigninConfig is what the sign-in step asks, plus what a test login
+// needs to run with it.
+type SigninConfig struct {
+	Issuer, ClientID, ClientSecret, RedirectURL, GroupsClaim string
+	SessionKey                                               []byte
+	Secure                                                   bool
+}
+
+// SigninFlow is a login against one identity provider: Login sends the
+// browser there, Identify reads who came back, without a session.
+type SigninFlow interface {
+	Login(w http.ResponseWriter, r *http.Request)
+	Identify(w http.ResponseWriter, r *http.Request) (identity.User, error)
+}
+
+// signinTry is the provider being tried. The secret stays in memory until
+// setup finishes, so an abandoned attempt leaves nothing on disk.
+type signinTry struct {
+	view   signinView
+	secret string
+	flow   SigninFlow
 }
 
 // Setup serves the first-start pages.
@@ -63,6 +96,8 @@ type Setup struct {
 	// stored, so a key nobody saved never reaches the disk, and a restart
 	// before that point simply generates new ones: nothing used them yet.
 	pending config.Keys
+	// signin is the provider being tried in the sign-in step.
+	signin *signinTry
 }
 
 // NewSetupToken returns a fresh one-time setup token.
@@ -133,6 +168,13 @@ func (s *Setup) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /setup/recovery-key", s.guard(s.handleRecoveryKey))
 	mux.HandleFunc("POST /setup/keys", s.guard(s.handleKeys))
 	mux.HandleFunc("POST /setup/repo", s.guard(s.handleRepo))
+	mux.HandleFunc("POST /setup/signin", s.guard(s.handleSignin))
+	mux.HandleFunc("GET /setup/signin/start", s.guard(s.handleSigninStart))
+	// Not guarded: the provider sends the browser back from another site,
+	// and a SameSite=Strict cookie does not come along on that request.
+	// The sealed flow cookie and the state stand in for it, and only the
+	// guarded start above hands those out.
+	mux.HandleFunc("GET /callback", s.handleCallback)
 }
 
 // authorized reports whether the request carries the setup token in its
@@ -181,10 +223,10 @@ func (s *Setup) handleSetup(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/setup", http.StatusSeeOther)
 		return
 	}
-	s.guard(func(w http.ResponseWriter, _ *http.Request) {
+	s.guard(func(w http.ResponseWriter, r *http.Request) {
 		s.mu.Lock()
 		defer s.mu.Unlock()
-		s.renderLocked(w, http.StatusOK, "")
+		s.render(w, http.StatusOK, s.signinPage(r, "", ""))
 	})(w, r)
 }
 
@@ -364,6 +406,255 @@ func (s *Setup) useExistingRepo(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/setup", http.StatusSeeOther)
 }
 
+// handleSignin checks a provider, or finishes setup with the one that
+// was tested.
+func (s *Setup) handleSignin(w http.ResponseWriter, r *http.Request) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.step() != "signin" {
+		http.Redirect(w, r, "/setup", http.StatusSeeOther)
+		return
+	}
+	if r.PostFormValue("action") == "finish" {
+		s.finish(w, r)
+		return
+	}
+	// A new check replaces whatever was tried before, also when it fails:
+	// the page then shows the new answers, and finish must not quietly use
+	// the old ones.
+	s.signin = nil
+	in := signinView{
+		PublicURL: strings.TrimSpace(r.PostFormValue("public_url")),
+		Issuer:    strings.TrimSpace(r.PostFormValue("issuer")),
+		ClientID:  strings.TrimSpace(r.PostFormValue("client_id")),
+	}
+	secret := strings.TrimSpace(r.PostFormValue("client_secret"))
+	page := func(status int, errKey, detail string) {
+		p := s.page(errKey)
+		p.Detail = detail
+		p.Signin = s.fixSignin(in)
+		s.render(w, status, p)
+	}
+	if s.opt.NewSignin == nil {
+		page(http.StatusNotImplemented, "setup.signin.unavailable", "")
+		return
+	}
+	if s.opt.Deployment["PUBLIC_URL"] {
+		in.PublicURL = s.opt.Settings.PublicURL
+	}
+	pub, ok := cleanAddress(in.PublicURL, false)
+	if !ok {
+		key := "setup.signin.address_invalid"
+		if strings.HasPrefix(in.PublicURL, "http://") {
+			key = "setup.signin.address_https"
+		}
+		page(http.StatusUnprocessableEntity, key, "")
+		return
+	}
+	in.PublicURL = pub
+	if in.Issuer == "" || in.ClientID == "" || secret == "" {
+		page(http.StatusUnprocessableEntity, "setup.signin.missing", "")
+		return
+	}
+	if _, ok := cleanAddress(in.Issuer, true); !ok {
+		page(http.StatusUnprocessableEntity, "setup.signin.issuer_invalid", "")
+		return
+	}
+	key, err := base64.StdEncoding.DecodeString(s.opt.Keys.SessionKey)
+	if err != nil {
+		s.opt.Log.Error("setup: session key", "err", err)
+		page(http.StatusInternalServerError, "setup.write_failed", "")
+		return
+	}
+	flow, err := s.opt.NewSignin(r.Context(), SigninConfig{
+		Issuer: in.Issuer, ClientID: in.ClientID, ClientSecret: secret,
+		RedirectURL: pub + "/callback", GroupsClaim: s.opt.Settings.OIDCGroupsClaim,
+		SessionKey: key, Secure: s.opt.SecureCookies || strings.HasPrefix(pub, "https://"),
+	})
+	if err != nil {
+		page(http.StatusUnprocessableEntity, "setup.signin.discovery_failed", err.Error())
+		return
+	}
+	in.Checked = true
+	s.signin = &signinTry{view: in, secret: secret, flow: flow}
+	page(http.StatusOK, "", "")
+}
+
+// handleSigninStart sends the browser to the provider. A link and not the
+// form's own redirect: the console's form-action policy rightly stops a
+// form from landing on another site.
+func (s *Setup) handleSigninStart(w http.ResponseWriter, r *http.Request) {
+	s.mu.Lock()
+	try := s.signin
+	s.mu.Unlock()
+	if try == nil {
+		http.Redirect(w, r, "/setup", http.StatusSeeOther)
+		return
+	}
+	try.flow.Login(w, r)
+}
+
+// handleCallback records who signed in and sends the browser on to the
+// setup page. Through a page and not a redirect, so the browser counts the
+// next request as this site's own and sends the setup cookie with it. It
+// shows nothing of setup itself: this request carries no setup cookie.
+func (s *Setup) handleCallback(w http.ResponseWriter, r *http.Request) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.signin == nil {
+		s.render(w, http.StatusBadRequest, setupPage{Step: "callback", Error: "setup.signin.test_failed",
+			Detail: "no test sign-in was started"})
+		return
+	}
+	u, err := s.signin.flow.Identify(w, r)
+	if err != nil {
+		s.render(w, http.StatusBadRequest, setupPage{Step: "callback", Error: "setup.signin.test_failed", Detail: err.Error()})
+		return
+	}
+	s.signin.view.User = &u
+	s.render(w, http.StatusOK, setupPage{Step: "callback"})
+}
+
+// finish writes the sign-in answers and restarts the console with them.
+// The person who completed the test becomes owner by subject, so nobody
+// has to map a group before the first sign-in. If the next start would
+// refuse what was written, the old files go back and the page says why:
+// a console that cannot start is worse than one still in setup.
+func (s *Setup) finish(w http.ResponseWriter, r *http.Request) {
+	try := s.signin
+	if try == nil || try.view.User == nil {
+		http.Redirect(w, r, "/setup", http.StatusSeeOther)
+		return
+	}
+	page := func(status int, errKey, detail string) {
+		p := s.page(errKey)
+		p.Detail, p.Signin = detail, s.fixSignin(try.view)
+		s.render(w, status, p)
+	}
+	oldSettings, oldKeys, err := config.ReadDataDir(s.opt.DataDir)
+	if err != nil {
+		s.opt.Log.Error("setup: reading the data directory", "err", err)
+		page(http.StatusInternalServerError, "setup.write_failed", "")
+		return
+	}
+	settings, keys := oldSettings, oldKeys
+	settings.OwnerSubjects = append([]string(nil), oldSettings.OwnerSubjects...)
+	for _, f := range []struct {
+		env      string
+		dst, val *string
+	}{
+		{"PUBLIC_URL", &settings.PublicURL, &try.view.PublicURL},
+		{"OIDC_ISSUER", &settings.OIDCIssuer, &try.view.Issuer},
+		{"OIDC_CLIENT_ID", &settings.OIDCClientID, &try.view.ClientID},
+		{"OIDC_CLIENT_SECRET", &keys.OIDCClientSecret, &try.secret},
+	} {
+		if !s.opt.Deployment[f.env] {
+			*f.dst = *f.val
+		}
+	}
+	if sub := try.view.User.Subject; !slices.Contains(settings.OwnerSubjects, sub) {
+		settings.OwnerSubjects = append(settings.OwnerSubjects, sub)
+	}
+	restore := func() {
+		if err := errors.Join(config.WriteSettings(s.opt.DataDir, oldSettings),
+			config.WriteKeys(s.opt.DataDir, oldKeys)); err != nil {
+			s.opt.Log.Error("setup: putting the old answers back", "err", err)
+		}
+	}
+	if err := errors.Join(config.WriteSettings(s.opt.DataDir, settings), config.WriteKeys(s.opt.DataDir, keys)); err != nil {
+		s.opt.Log.Error("setup: writing the sign-in answers", "err", err)
+		restore()
+		page(http.StatusInternalServerError, "setup.write_failed", "")
+		return
+	}
+	if s.opt.Check != nil {
+		if err := s.opt.Check(); err != nil {
+			restore()
+			page(http.StatusUnprocessableEntity, "setup.signin.would_not_start", err.Error())
+			return
+		}
+	}
+	s.opt.Log.Info("setup: done, restarting", "owner", try.view.User.Subject, "issuer", try.view.Issuer)
+	// The token has done its work; the cookie that carries it goes too.
+	http.SetCookie(w, &http.Cookie{Name: setupCookie, Value: "", Path: "/", HttpOnly: true,
+		Secure: s.opt.SecureCookies, SameSite: http.SameSiteStrictMode, MaxAge: -1})
+	s.render(w, http.StatusOK, setupPage{Step: "done"})
+	if s.opt.Restart != nil {
+		s.opt.Restart()
+	}
+}
+
+// cleanAddress accepts an http(s) URL with a host and no path, query or
+// credentials, and returns it without a trailing slash. Plain http only on
+// this machine: anywhere else a sign-in over it would send cookies in the
+// clear, and the console refuses to start that way. A path is allowed for
+// an issuer, which often has one.
+func cleanAddress(v string, pathOK bool) (string, bool) {
+	u, err := url.Parse(v)
+	if err != nil || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
+		return "", false
+	}
+	if !pathOK && strings.Trim(u.Path, "/") != "" {
+		return "", false
+	}
+	switch u.Scheme {
+	case "https":
+	case "http":
+		if !config.IsLoopbackURL(v) {
+			return "", false
+		}
+	default:
+		return "", false
+	}
+	return strings.TrimRight(u.String(), "/"), true
+}
+
+// signinView is what the sign-in step shows. Never the secret.
+type signinView struct {
+	PublicURL, Issuer, ClientID string
+	PublicURLFixed              bool
+	RedirectURL                 string
+	// Checked: the provider answered and a test sign-in can start.
+	Checked bool
+	// User is who signed in during the test.
+	User *identity.User
+}
+
+// signinPage is the current step, with the sign-in step filled in: the
+// provider being tried, or an address guessed from how the browser came.
+func (s *Setup) signinPage(r *http.Request, errKey, detail string) setupPage {
+	p := s.page(errKey)
+	p.Detail = detail
+	if p.Step != "signin" {
+		return p
+	}
+	if s.signin != nil {
+		p.Signin = s.fixSignin(s.signin.view)
+		return p
+	}
+	v := signinView{PublicURL: s.opt.Settings.PublicURL}
+	if v.PublicURL == "" {
+		scheme := "http"
+		if r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" {
+			scheme = "https"
+		}
+		v.PublicURL = scheme + "://" + r.Host
+	}
+	p.Signin = s.fixSignin(v)
+	return p
+}
+
+// fixSignin fills in what follows from the address and the deployment.
+func (s *Setup) fixSignin(v signinView) signinView {
+	if s.opt.Deployment["PUBLIC_URL"] {
+		v.PublicURL, v.PublicURLFixed = strings.TrimRight(s.opt.Settings.PublicURL, "/"), true
+	}
+	if v.PublicURL != "" {
+		v.RedirectURL = strings.TrimRight(v.PublicURL, "/") + "/callback"
+	}
+	return v
+}
+
 // repoForm refills the existing-repository form. Never the token.
 type repoForm struct {
 	URL, User string
@@ -395,6 +686,7 @@ type setupPage struct {
 	Detail          string
 	RecoveryOffered bool
 	Repo            repoForm
+	Signin          signinView
 }
 
 // step is the first one not yet done. Each is done when its answer is in
