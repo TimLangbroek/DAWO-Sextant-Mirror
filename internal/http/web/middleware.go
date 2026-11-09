@@ -40,6 +40,7 @@ func (s *Server) authed(w http.ResponseWriter, r *http.Request) (view, bool) {
 		return view{}, false
 	}
 	rv := s.svc.Config.Fleet().IdentityResolver(s.baseViewer, s.baseEditor, s.baseOwner)
+	rv.OwnerSubjects = s.ownerSubjects
 	if !rv.CanViewAnything(u) {
 		http.Error(w, "no role grants console access to your account", http.StatusForbidden)
 		return view{}, false

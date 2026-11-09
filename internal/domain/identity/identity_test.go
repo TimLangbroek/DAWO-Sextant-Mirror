@@ -156,3 +156,22 @@ func TestCanViewAnything(t *testing.T) {
 		t.Error("roleless user reached the console")
 	}
 }
+
+// The person who completed setup owns the console by subject, with no
+// group, and an empty subject never matches anybody's entry.
+func TestOwnerSubjects(t *testing.T) {
+	rv := Resolver{Ancestry: func(string) []string { return nil }, DeviceGroups: func(string) []string { return nil },
+		OwnerSubjects: []string{"sub-setup", ""}}
+	if got := rv.RoleAt(User{Subject: "sub-setup"}, "org"); got != Owner {
+		t.Fatalf("setup subject: %v, want owner", got)
+	}
+	if got := rv.RoleAt(User{Subject: "sub-setup"}, "device:lt-1"); got != Owner {
+		t.Fatalf("setup subject at a device: %v, want owner", got)
+	}
+	if got := rv.RoleAt(User{Subject: "someone-else"}, "org"); got != None {
+		t.Fatalf("other subject: %v, want none", got)
+	}
+	if got := rv.RoleAt(User{}, "org"); got != None {
+		t.Fatalf("empty subject: %v, want none", got)
+	}
+}

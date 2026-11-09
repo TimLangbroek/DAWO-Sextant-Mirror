@@ -195,8 +195,7 @@ func (a *API) wrap(h func(http.ResponseWriter, *http.Request) error, mutating bo
 		// happen in the handlers.
 		if !mutating {
 			pr := principalFrom(r.Context())
-			rv := a.cfg.Fleet().IdentityResolver(
-				a.authz.BaselineViewer, a.authz.BaselineEditor, a.authz.BaselineOwner)
+			rv := a.resolver(a.cfg.Fleet())
 			// A viewer-ceiling token still reads; a ceiling never blocks a
 			// read the owner could do, so the view floor uses the owner.
 			if !rv.CanViewAnything(pr.user) {

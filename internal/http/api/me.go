@@ -20,7 +20,7 @@ const errPrefsUnavailable = simpleErr("preferences need the database (postgres n
 func (a *API) getMe(w http.ResponseWriter, r *http.Request) error {
 	p := principalFrom(r.Context())
 	f := a.cfg.Fleet()
-	rv := f.IdentityResolver(a.authz.BaselineViewer, a.authz.BaselineEditor, a.authz.BaselineOwner)
+	rv := a.resolver(f)
 
 	clamp := func(got identity.Role) identity.Role {
 		if p.hasCap && p.ceiling < got {

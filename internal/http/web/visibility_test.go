@@ -39,6 +39,12 @@ func (s scopedSessions) SessionUser(*http.Request) (identity.User, string, bool)
 
 func newScopedConsole(t *testing.T, u identity.User) *httptest.Server {
 	t.Helper()
+	return newScopedConsoleWith(t, u, nil)
+}
+
+// newScopedConsoleWith is newScopedConsole with owner subjects configured.
+func newScopedConsoleWith(t *testing.T, u identity.User, ownerSubjects []string) *httptest.Server {
+	t.Helper()
 	dir := t.TempDir()
 	run := func(args ...string) {
 		out, err := exec.Command("git", append([]string{"-C", dir}, args...)...).CombinedOutput()
@@ -70,6 +76,7 @@ func newScopedConsole(t *testing.T, u identity.User) *httptest.Server {
 	if err != nil {
 		t.Fatal(err)
 	}
+	srv.SetOwnerSubjects(ownerSubjects)
 	mux := http.NewServeMux()
 	srv.Routes(mux)
 	ts := httptest.NewServer(mux)

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/domain/fleet"
 	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/domain/identity"
 	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/ports"
 )
@@ -30,6 +31,9 @@ type Authz struct {
 	BaselineViewer []string
 	BaselineEditor []string
 	BaselineOwner  []string
+	// OwnerSubjects are OIDC subjects with the org-wide owner role
+	// (identity.Resolver.OwnerSubjects).
+	OwnerSubjects []string
 }
 
 type principalKey struct{}
@@ -92,8 +96,7 @@ func principalFrom(ctx context.Context) principal {
 // reduce, never widen.
 func (a *API) require(r *http.Request, ref string, role identity.Role) error {
 	p := principalFrom(r.Context())
-	rv := a.cfg.Fleet().IdentityResolver(
-		a.authz.BaselineViewer, a.authz.BaselineEditor, a.authz.BaselineOwner)
+	rv := a.resolver(a.cfg.Fleet())
 	got := rv.RoleAt(p.user, ref)
 	if p.hasCap && p.ceiling < got {
 		got = p.ceiling // ceiling narrows, never widens
@@ -109,8 +112,7 @@ func (a *API) require(r *http.Request, ref string, role identity.Role) error {
 // the FULL document; feed it to fleet.VisibleTo for output filtering only.
 func (a *API) canView(r *http.Request) func(ref string) bool {
 	p := principalFrom(r.Context())
-	rv := a.cfg.Fleet().IdentityResolver(
-		a.authz.BaselineViewer, a.authz.BaselineEditor, a.authz.BaselineOwner)
+	rv := a.resolver(a.cfg.Fleet())
 	return func(ref string) bool {
 		got := rv.RoleAt(p.user, ref)
 		if p.hasCap && p.ceiling < got {
@@ -155,4 +157,12 @@ func author(r *http.Request) ports.Author {
 		name = p.user.Subject
 	}
 	return ports.Author{Subject: p.user.Subject, Name: name, Email: email}
+}
+
+// resolver is the authorization resolver over f with this server's
+// baseline. One place, so a baseline added later reaches every check.
+func (a *API) resolver(f *fleet.Fleet) identity.Resolver {
+	rv := f.IdentityResolver(a.authz.BaselineViewer, a.authz.BaselineEditor, a.authz.BaselineOwner)
+	rv.OwnerSubjects = a.authz.OwnerSubjects
+	return rv
 }

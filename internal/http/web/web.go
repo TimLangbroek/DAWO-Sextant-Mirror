@@ -80,6 +80,9 @@ type Server struct {
 	statusOnMain bool
 
 	baseViewer, baseEditor, baseOwner []string
+	// ownerSubjects are OIDC subjects with the org-wide owner role
+	// (identity.Resolver.OwnerSubjects).
+	ownerSubjects []string
 
 	// Organisation presentation defaults; user preferences override.
 	defaultLocale, defaultTZ string
@@ -106,6 +109,10 @@ func (s *Server) SetDefaults(locale, tz string) {
 		s.defaultTZ = tz
 	}
 }
+
+// SetOwnerSubjects names the OIDC subjects that own the console whatever
+// their groups (design 0013).
+func (s *Server) SetOwnerSubjects(subjects []string) { s.ownerSubjects = subjects }
 
 // SetOrgName sets the organisation's display name (see Server.orgName).
 func (s *Server) SetOrgName(name string) {

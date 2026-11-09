@@ -6,6 +6,7 @@ package identity
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 )
 
@@ -107,6 +108,10 @@ type Resolver struct {
 	BaselineViewer []string
 	BaselineEditor []string
 	BaselineOwner  []string
+	// OwnerSubjects are OIDC subjects with the org-wide owner role whatever
+	// their groups: the person who completed setup (design 0013), so nobody
+	// needs a group mapping to get in the first time.
+	OwnerSubjects []string
 }
 
 // RoleAt returns the highest role the user holds at the given scope ref
@@ -128,7 +133,11 @@ func (rv Resolver) RoleAt(u User, ref string) Role {
 			best = role
 		}
 	}
-	// Server-config baselines are org-wide.
+	// Server-config baselines are org-wide. An empty subject never matches:
+	// a principal nobody can identify does not become anybody's owner.
+	if u.Subject != "" && slices.Contains(rv.OwnerSubjects, u.Subject) {
+		consider(Owner)
+	}
 	if intersects(member, rv.BaselineOwner) {
 		consider(Owner)
 	}

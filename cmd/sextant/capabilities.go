@@ -214,6 +214,7 @@ func (d *deps) buildConfigPlane() error {
 		BaselineViewer: cfg.ViewerGroups,
 		BaselineEditor: cfg.EditorGroups,
 		BaselineOwner:  cfg.OwnerGroups,
+		OwnerSubjects:  cfg.OwnerSubjects,
 	}
 
 	var conv ports.ConvergenceSource = noConvergence{}
@@ -666,8 +667,9 @@ func (d *deps) authCapability() capability.Capability {
 				SessionKey:   d.cfg.SessionKey,
 				Secure:       d.cfg.SecureCookies,
 				Authorize: func(u identity.User) bool {
-					return d.svc.Fleet().IdentityResolver(
-						d.cfg.ViewerGroups, d.cfg.EditorGroups, d.cfg.OwnerGroups).CanViewAnything(u)
+					rv := d.svc.Fleet().IdentityResolver(d.cfg.ViewerGroups, d.cfg.EditorGroups, d.cfg.OwnerGroups)
+					rv.OwnerSubjects = d.cfg.OwnerSubjects
+					return rv.CanViewAnything(u)
 				},
 			})
 			if err != nil {
@@ -715,6 +717,7 @@ func (d *deps) consoleCapability() capability.Capability {
 			}
 			console.SetDefaults(d.cfg.DefaultLocale, d.cfg.DefaultTimezone)
 			console.SetOrgName(d.cfg.OrgName)
+			console.SetOwnerSubjects(d.cfg.OwnerSubjects)
 			// The same string sextant_build_info carries, so the page and the
 			// metric can never disagree about what is running.
 			console.SetVersion(version)
