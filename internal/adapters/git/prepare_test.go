@@ -85,6 +85,27 @@ func TestPrepareFillsAnEmptyRemote(t *testing.T) {
 	}
 }
 
+// An empty directory is what a fresh volume or a tmpfiles rule leaves, and
+// it is used as it is. A clone that fails leaves it empty for the next try.
+func TestPrepareUsesAnEmptyDirectory(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	if _, err := Prepare(ctx, dir, "file:///nonexistent/remote.git", "main", starterFiles, "s"); err == nil {
+		t.Fatal("unreachable remote accepted")
+	}
+	if entries, err := os.ReadDir(dir); err != nil || len(entries) != 0 {
+		t.Fatalf("after a failed clone: %v, %d entries", err, len(entries))
+	}
+	bareDir, url := bare(t)
+	said, err := Prepare(ctx, dir, url, "main", starterFiles, "seed")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(said, "was empty") || remoteHead(t, bareDir, "main") != gitT(t, dir, "rev-parse", "HEAD") {
+		t.Fatalf("said %q", said)
+	}
+}
+
 // A remote with a fleet already in it is cloned and never seeded over.
 func TestPrepareClonesAFilledRemote(t *testing.T) {
 	ctx := context.Background()
@@ -213,8 +234,20 @@ func TestPrepareRefusals(t *testing.T) {
 		t.Fatal("ssh accepted")
 	}
 	stray := t.TempDir()
+	if err := os.WriteFile(filepath.Join(stray, "notes.txt"), []byte("mine"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := Prepare(ctx, stray, url, "main", starterFiles, "s"); err == nil || !strings.Contains(err.Error(), "not a git repository") {
 		t.Fatalf("existing non-repo dir: %v", err)
+	}
+	// A file where the repository should be is reported as what it is, and
+	// left alone.
+	file := filepath.Join(t.TempDir(), "o")
+	if err := os.WriteFile(file, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Prepare(ctx, file, url, "main", starterFiles, "s"); err == nil || !strings.Contains(err.Error(), "not a directory") {
+		t.Fatalf("a file as --repo: %v", err)
 	}
 	gone := filepath.Join(t.TempDir(), "o")
 	if _, err := Prepare(ctx, gone, "file:///nonexistent/remote.git", "main", starterFiles, "s"); err == nil {

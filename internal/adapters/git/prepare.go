@@ -14,7 +14,7 @@ import (
 // Prepare makes dir a working copy of the fleet repository at rawURL, on
 // branch, from whatever it finds:
 //
-//	no dir yet          clone the remote
+//	no dir, or empty    clone the remote
 //	an empty remote     fill it with files and push, so a repository just
 //	                    created on any forge is all an install needs
 //	an existing clone   point it at rawURL and fetch; history the remote
@@ -32,15 +32,20 @@ func Prepare(ctx context.Context, dir, rawURL, branch string, files fs.FS, msg s
 	if _, err := os.Stat(filepath.Join(dir, ".git")); err == nil {
 		return update(ctx, dir, remote, branch)
 	}
-	if _, err := os.Stat(dir); err == nil {
+	// An empty directory is as good as none: it is what a fresh volume or a
+	// systemd tmpfiles rule hands over, and git clones into it.
+	switch entries, err := os.ReadDir(dir); {
+	case err == nil && len(entries) > 0:
 		return "", fmt.Errorf("%s exists and is not a git repository; move it away, or point --repo at the repository you meant", dir)
-	} else if !errors.Is(err, fs.ErrNotExist) {
+	case err != nil && !errors.Is(err, fs.ErrNotExist):
 		return "", err
 	}
 	if err := os.MkdirAll(filepath.Dir(dir), 0o700); err != nil {
 		return "", err
 	}
-	// git removes the directory itself when a clone fails.
+	// When a clone fails git removes what it made: the directory if it
+	// created it, only the contents if it was there already. Either way the
+	// next start begins from the same place.
 	if _, err := prepRun(ctx, "", "clone", "-q", "--", remote, dir); err != nil {
 		return "", err
 	}
