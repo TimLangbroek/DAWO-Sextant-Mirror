@@ -40,6 +40,9 @@ func main() {
 	if len(os.Args) > 1 && os.Args[1] == "check-config" {
 		os.Exit(checkConfig(os.Args[2:], os.Getenv, os.Stdout, os.Stderr))
 	}
+	if len(os.Args) > 1 && os.Args[1] == "prepare-repo" {
+		os.Exit(prepareRepo(context.Background(), os.Args[2:], os.Stdout, os.Stderr))
+	}
 	err := run(context.Background(), os.Args[1:], os.Getenv, os.Stderr)
 	if errors.Is(err, errRestart) {
 		err = restartSelf()
