@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/subtle"
 	"encoding/base64"
@@ -10,6 +11,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -38,6 +40,9 @@ type SetupOptions struct {
 	// or from an earlier setup that did not finish.
 	Keys     config.Keys
 	Settings config.Settings
+	// SeedRepo creates the starter fleet repository in dir, leaving an
+	// existing repository as it is.
+	SeedRepo func(ctx context.Context, dir string) error
 	Log      *slog.Logger
 }
 
@@ -72,6 +77,13 @@ func NewSetup(opt SetupOptions) (*Setup, error) {
 	if opt.DataDir == "" {
 		return nil, errors.New("setup needs a data directory (--data-dir) to keep its answers in")
 	}
+	// Absolute, because the repository path is written to settings.json and
+	// read back by a process that may not start in the same directory.
+	abs, err := filepath.Abs(opt.DataDir)
+	if err != nil {
+		return nil, err
+	}
+	opt.DataDir = abs
 	if opt.Log == nil {
 		opt.Log = slog.New(slog.DiscardHandler)
 	}
@@ -114,6 +126,7 @@ func (s *Setup) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /setup", s.handleSetup)
 	mux.HandleFunc("GET /setup/recovery-key", s.guard(s.handleRecoveryKey))
 	mux.HandleFunc("POST /setup/keys", s.guard(s.handleKeys))
+	mux.HandleFunc("POST /setup/repo", s.guard(s.handleRepo))
 }
 
 // authorized reports whether the request carries the setup token in its
@@ -246,6 +259,41 @@ func (s *Setup) handleKeys(w http.ResponseWriter, r *http.Request) {
 	}
 	s.opt.Log.Info("setup: keys written", "dir", s.opt.DataDir)
 	http.Redirect(w, r, "/setup", http.StatusSeeOther)
+}
+
+// handleRepo starts the fleet repository in the data directory.
+func (s *Setup) handleRepo(w http.ResponseWriter, r *http.Request) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.step() != "repo" || s.opt.SeedRepo == nil {
+		http.Redirect(w, r, "/setup", http.StatusSeeOther)
+		return
+	}
+	dir := filepath.Join(s.opt.DataDir, "overlay")
+	if err := s.opt.SeedRepo(r.Context(), dir); err != nil {
+		s.opt.Log.Error("setup: starting the fleet repository", "dir", dir, "err", err)
+		s.renderLocked(w, http.StatusInternalServerError, "setup.repo.failed")
+		return
+	}
+	if err := s.saveSettings(func(st *config.Settings) { st.RepoDir = dir }); err != nil {
+		s.opt.Log.Error("setup: writing settings", "err", err)
+		s.renderLocked(w, http.StatusInternalServerError, "setup.write_failed")
+		return
+	}
+	s.opt.Settings.RepoDir = dir
+	s.opt.Log.Info("setup: fleet repository started", "dir", dir)
+	http.Redirect(w, r, "/setup", http.StatusSeeOther)
+}
+
+// saveSettings applies change to settings.json as it is on disk, so an
+// answer from an earlier step is never lost to a later one.
+func (s *Setup) saveSettings(change func(*config.Settings)) error {
+	cur, _, err := config.ReadDataDir(s.opt.DataDir)
+	if err != nil {
+		return err
+	}
+	change(&cur)
+	return config.WriteSettings(s.opt.DataDir, cur)
 }
 
 type setupStep struct {

@@ -1,6 +1,8 @@
 package web
 
 import (
+	"context"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -191,5 +193,71 @@ func TestNewSetupRefusesWithoutTokenOrDir(t *testing.T) {
 	}
 	if _, err := NewSetup(SetupOptions{Token: "x"}); err == nil {
 		t.Error("no data directory accepted")
+	}
+}
+
+var allKeys = config.Keys{SessionKey: "s", SecretKey: "k", CheckinToken: "c"}
+
+// Starting a repository records where it is, and the next step follows.
+func TestRepoStepStartsTheRepository(t *testing.T) {
+	dir := t.TempDir()
+	var seeded string
+	mux := newTestSetup(t, SetupOptions{DataDir: dir, Keys: allKeys,
+		SeedRepo: func(_ context.Context, d string) error { seeded = d; return nil }})
+
+	if w := do(mux, "POST", "/setup/repo", url.Values{}, true); w.Code != http.StatusSeeOther {
+		t.Fatalf("%d", w.Code)
+	}
+	want := filepath.Join(dir, "overlay")
+	if seeded != want {
+		t.Fatalf("seeded %q, want %q", seeded, want)
+	}
+	s, _, err := config.ReadDataDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.RepoDir != want {
+		t.Fatalf("settings.json repoDir %q, want %q", s.RepoDir, want)
+	}
+	if w := do(mux, "GET", "/setup", nil, true); strings.Contains(w.Body.String(), `action="/setup/repo"`) {
+		t.Fatal("still on the repository step")
+	}
+}
+
+// A repository that cannot be started records nothing, so the next try
+// starts from the same place.
+func TestRepoStepFailureRecordsNothing(t *testing.T) {
+	dir := t.TempDir()
+	mux := newTestSetup(t, SetupOptions{DataDir: dir, Keys: allKeys,
+		SeedRepo: func(context.Context, string) error { return errors.New("disk full") }})
+	if w := do(mux, "POST", "/setup/repo", url.Values{}, true); w.Code != http.StatusInternalServerError {
+		t.Fatalf("%d", w.Code)
+	}
+	if _, err := os.Stat(filepath.Join(dir, config.SettingsFile)); !os.IsNotExist(err) {
+		t.Fatal("settings written after a failed seed")
+	}
+}
+
+// Steps run in order: the repository is not started before the keys exist.
+func TestRepoStepWaitsForTheKeys(t *testing.T) {
+	called := false
+	mux := newTestSetup(t, SetupOptions{SeedRepo: func(context.Context, string) error { called = true; return nil }})
+	if w := do(mux, "POST", "/setup/repo", url.Values{}, true); w.Code != http.StatusSeeOther || called {
+		t.Fatalf("%d, seeded=%v", w.Code, called)
+	}
+}
+
+// Earlier answers survive a later step's write.
+func TestSaveSettingsKeepsEarlierAnswers(t *testing.T) {
+	dir := t.TempDir()
+	if err := config.WriteSettings(dir, config.Settings{PublicURL: "https://console.example.com"}); err != nil {
+		t.Fatal(err)
+	}
+	mux := newTestSetup(t, SetupOptions{DataDir: dir, Keys: allKeys,
+		SeedRepo: func(context.Context, string) error { return nil }})
+	do(mux, "POST", "/setup/repo", url.Values{}, true)
+	s, _, _ := config.ReadDataDir(dir)
+	if s.PublicURL != "https://console.example.com" || s.RepoDir == "" {
+		t.Fatalf("got %+v", s)
 	}
 }

@@ -997,6 +997,10 @@ var catalog = map[string]map[string]string{
 		"setup.continue":                       "Continue",
 		"setup.next_not_built":                 "This step is not available in this build yet.",
 		"setup.write_failed":                   "Sextant could not save to its data directory. The console log says why.",
+		"setup.repo.intro":                     "Sextant keeps the settings of every laptop in a git repository, so every change has an author and can be undone.",
+		"setup.repo.new":                       "Start a new repository",
+		"setup.repo.new_hint":                  "It is kept in the data directory on this server.",
+		"setup.repo.failed":                    "The repository could not be started. The console log says why.",
 	},
 	// #nosec G101 - Dutch UI translation strings, not credentials.
 	"nl": {
@@ -1986,5 +1990,9 @@ var catalog = map[string]map[string]string{
 		"setup.continue":                       "Verder",
 		"setup.next_not_built":                 "Deze stap zit nog niet in deze versie.",
 		"setup.write_failed":                   "Sextant kon niet opslaan in zijn gegevensmap. Het log van de console zegt waarom.",
+		"setup.repo.intro":                     "Sextant bewaart de instellingen van alle laptops in een git-repository, zodat elke wijziging een auteur heeft en terug te draaien is.",
+		"setup.repo.new":                       "Nieuwe repository beginnen",
+		"setup.repo.new_hint":                  "Hij komt in de gegevensmap op deze server.",
+		"setup.repo.failed":                    "De repository kon niet worden begonnen. Het log van de console zegt waarom.",
 	},
 }

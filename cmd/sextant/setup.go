@@ -1,14 +1,17 @@
 package main
 
 import (
+	"context"
 	"encoding/base64"
 	"log/slog"
 	"net"
 	"net/http"
 	"strings"
 
+	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/adapters/git"
 	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/http/web"
 	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/platform/config"
+	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/starter"
 )
 
 // setupMode reports whether the console starts in setup mode (design
@@ -41,6 +44,9 @@ func mountSetup(mux *http.ServeMux, cfg *config.Config, log *slog.Logger) bool {
 		Settings: config.Settings{PublicURL: cfg.PublicURL, RepoDir: cfg.RepoDir,
 			GitRemote: cfg.GitRemote, OIDCIssuer: cfg.OIDCIssuer, OIDCClientID: cfg.OIDCClientID,
 			OIDCGroupsClaim: cfg.OIDCGroupsClaim, OrgName: cfg.OrgName, OwnerSubjects: cfg.OwnerSubjects},
+		SeedRepo: func(ctx context.Context, dir string) error {
+			return git.Seed(ctx, dir, starter.Overlay(), "Start the fleet repository")
+		},
 		Log: log,
 	})
 	if err != nil {

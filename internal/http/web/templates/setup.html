@@ -53,6 +53,12 @@
       {{end}}
       <button type="submit" class="btn">{{.L.T "setup.continue"}}</button>
     </form>
+    {{else if eq .Step "repo"}}
+    <p class="mb-4">{{.L.T "setup.repo.intro"}}</p>
+    <form method="post" action="/setup/repo" class="flex flex-col gap-sm">
+      <button type="submit" class="btn">{{.L.T "setup.repo.new"}}</button>
+      <p class="muted">{{.L.T "setup.repo.new_hint"}}</p>
+    </form>
     {{else}}
     <p class="muted">{{.L.T "setup.next_not_built"}}</p>
     {{end}}
