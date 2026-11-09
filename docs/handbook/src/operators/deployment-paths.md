@@ -28,6 +28,9 @@ services.sextant = {
   write = true;
   gate = "eval"; # this host has nix; the gate runs here
   publicUrl = "https://console.example.org"; # your TLS proxy in front
+  oidc.issuer = "https://id.example.org"; # secret: SEXTANT_OIDC_CLIENT_SECRET
+  oidc.clientId = "sextant";
+  ownerGroups = [ "it-admins" ];
   environmentFile = "/run/secrets/sextant.env"; # the keys; PostgreSQL runs on this host
 };
 ```

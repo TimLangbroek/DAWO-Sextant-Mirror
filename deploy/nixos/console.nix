@@ -34,6 +34,8 @@ let
   # DynamicUser is named after the unit.
   dbName = if dynamic then "sextant" else cfg.user;
   localDb = cfg.database.createLocally;
+  # A list option as the comma-separated flag the console takes, or nothing.
+  list = flag: xs: lib.optionals (xs != [ ]) [ flag (lib.concatStringsSep "," xs) ];
   needsRW = cfg.repo != null && !(inStateDir (toString cfg.repo));
   # DynamicUser is the right default for a read-only console: no account to
   # manage, no uid to leak. It is the wrong default the moment the console has
@@ -185,6 +187,61 @@ in
       '';
     };
 
+    oidc = {
+      issuer = lib.mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = null;
+        example = "https://id.example.org";
+        description = ''
+          The identity provider people sign in with. Its client secret goes
+          in environmentFile as SEXTANT_OIDC_CLIENT_SECRET, never here.
+          Register <publicUrl>/callback as the redirect URL.
+        '';
+      };
+      clientId = lib.mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = null;
+        description = "The console's client id at the identity provider.";
+      };
+      groupsClaim = lib.mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = null;
+        example = "roles";
+        description = "The ID-token claim that carries groups; unset means `groups`.";
+      };
+      scopes = lib.mkOption {
+        type = lib.types.listOf lib.types.str;
+        default = [ ];
+        example = [ "openid" "profile" "email" "groups" ];
+        description = "Scopes to ask for; empty means openid, profile and email.";
+      };
+    };
+
+    ownerGroups = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [ ];
+      description = "Identity-provider groups that own the whole organisation.";
+    };
+    editorGroups = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [ ];
+      description = "Groups that may change the fleet's configuration.";
+    };
+    viewerGroups = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [ ];
+      description = "Groups that may look but not change.";
+    };
+    ownerSubjects = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [ ];
+      description = ''
+        Sign-in subjects (the `sub` claim) that own the organisation
+        whatever their groups, so the first person in needs no group
+        mapping.
+      '';
+    };
+
     database.createLocally = lib.mkOption {
       type = lib.types.bool;
       default = true;
@@ -247,6 +304,10 @@ in
         # ReadWritePaths on a path that is not there stops the unit.
         assertion = !remote || !dynamic || inStateDir (toString cfg.repo);
         message = "services.sextant.repo outside ${stateDir} needs services.sextant.user, so the directory can be made for that user.";
+      }
+      {
+        assertion = (cfg.oidc.issuer == null) == (cfg.oidc.clientId == null);
+        message = "services.sextant.oidc.issuer and oidc.clientId go together.";
       }
       {
         assertion = cfg.gitRemote.netrcFile == null || lib.hasPrefix "/" cfg.gitRemote.netrcFile;
@@ -323,6 +384,14 @@ in
         ++ lib.optionals remote [ "--git-remote" "origin" ]
         ++ lib.optionals (cfg.gateUrl != null) [ "--gate-url" cfg.gateUrl ]
         ++ lib.optionals (cfg.publicUrl != null) [ "--public-url" cfg.publicUrl ]
+        ++ lib.optionals (cfg.oidc.issuer != null) [ "--oidc-issuer" cfg.oidc.issuer ]
+        ++ lib.optionals (cfg.oidc.clientId != null) [ "--oidc-client-id" cfg.oidc.clientId ]
+        ++ lib.optionals (cfg.oidc.groupsClaim != null) [ "--oidc-groups-claim" cfg.oidc.groupsClaim ]
+        ++ list "--oidc-scopes" cfg.oidc.scopes
+        ++ list "--owner-groups" cfg.ownerGroups
+        ++ list "--editor-groups" cfg.editorGroups
+        ++ list "--viewer-groups" cfg.viewerGroups
+        ++ list "--owner-subjects" cfg.ownerSubjects
         ++ lib.optional cfg.write "--write"
         ++ lib.optional cfg.allowUnvalidated "--allow-unvalidated"
         ++ lib.optional cfg.secureCookies "--secure-cookies"

@@ -34,6 +34,14 @@ let
     gate = "remote";
     gateUrl = "https://gate.example.org";
     publicUrl = "https://console.example.org";
+    oidc.issuer = "https://id.example.org";
+    oidc.clientId = "sextant";
+    oidc.groupsClaim = "roles";
+    oidc.scopes = [ "openid" "groups" ];
+    ownerGroups = [ "it" "board" ];
+    editorGroups = [ "helpdesk" ];
+    viewerGroups = [ "audit" ];
+    ownerSubjects = [ "u-1" ];
   };
   inState = mk {
     enable = true;
@@ -88,6 +96,10 @@ pkgs.runCommand "sextant-console-module-check"
     gitRemote.url = "https://forge.example.org/acme/fleet.git";
     gitRemote.netrcFile = "secrets/netrc";
   };
+  refusedHalfOidc = refusals {
+    enable = true;
+    oidc.issuer = "https://id.example.org";
+  };
   acceptedRemote = refusals {
     enable = true;
     gitRemote.url = "https://forge.example.org/acme/fleet.git";
@@ -105,7 +117,11 @@ pkgs.runCommand "sextant-console-module-check"
   # Every option that shapes the deployment has to reach the command line.
   for flag in "--addr 127.0.0.1:8080" "--gate remote" "--repo /srv/overlay" \
               "--gate-url https://gate.example.org" "--write" "--secure-cookies" \
-              "--public-url https://console.example.org"; do
+              "--public-url https://console.example.org" \
+              "--oidc-issuer https://id.example.org" "--oidc-client-id sextant" \
+              "--oidc-groups-claim roles" "--oidc-scopes openid,groups" \
+              "--owner-groups it,board" "--editor-groups helpdesk" \
+              "--viewer-groups audit" "--owner-subjects u-1"; do
     case "$execStart" in
       *"$flag"*) ;;
       *) fail "ExecStart is missing $flag: $execStart" ;;
@@ -146,6 +162,7 @@ pkgs.runCommand "sextant-console-module-check"
   case "$inStateExec" in
     *--git-remote*) fail "a console without a remote was told to push: $inStateExec" ;;
     *--public-url*) fail "a public url appeared without being set: $inStateExec" ;;
+    *--oidc-*|*-groups*|*--owner-subjects*) fail "sign-in flags appeared without being set: $inStateExec" ;;
   esac
 
   case "$refusedOutside" in
@@ -155,6 +172,10 @@ pkgs.runCommand "sextant-console-module-check"
   case "$refusedRelative" in
     *"netrcFile must be an absolute path"*) ;;
     *) fail "a relative netrcFile was accepted: '$refusedRelative'" ;;
+  esac
+  case "$refusedHalfOidc" in
+    *"go together"*) ;;
+    *) fail "an issuer without a client id was accepted: '$refusedHalfOidc'" ;;
   esac
   [ -z "$acceptedRemote" ] || fail "a fixed user with an outside repo was refused: '$acceptedRemote'"
 
