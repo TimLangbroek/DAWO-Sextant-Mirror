@@ -4,7 +4,6 @@
 package config
 
 import (
-	"encoding/base64"
 	"flag"
 	"fmt"
 	"strconv"
@@ -159,6 +158,21 @@ type Config struct {
 	// ConsoleURL is the console's public base (e.g. https://console.example.com),
 	// used to make notification e-mails clickable. Empty omits the link.
 	ConsoleURL string
+
+	// DataDir holds settings.json and keys.json, written by first-start setup
+	// (design 0013) and read below flags and environment. Empty reads nothing.
+	DataDir string
+	// PublicURL is the address people reach the console on. The OIDC redirect
+	// URL and ConsoleURL follow from it unless set explicitly.
+	PublicURL string
+	// OwnerSubjects are OIDC subjects with the org-wide owner role regardless
+	// of groups: whoever completes setup, so nobody has to map a group to get
+	// in the first time.
+	OwnerSubjects []string
+	// Deployment names the settings the deployment fixed (flag or
+	// environment), keyed by their environment name without the prefix.
+	// Setup shows these as set and does not offer to change them.
+	Deployment map[string]bool
 }
 
 // Getenv is the environment lookup used by Load. Injected so tests can supply
@@ -201,6 +215,8 @@ func Load(args []string, getenv Getenv) (*Config, error) {
 		OrgName:          envOr(getenv, "ORG_NAME", ""),
 		UpstreamRepo:     envOr(getenv, "UPSTREAM_REPO", ""),
 		ConsoleURL:       envOr(getenv, "CONSOLE_URL", ""),
+		DataDir:          envOr(getenv, "DATA_DIR", ""),
+		PublicURL:        envOr(getenv, "PUBLIC_URL", ""),
 	}
 	// Environment-only bools. Parsed with ParseBool rather than compared to
 	// the literal "true": the refusal message for --gate none tells operators
@@ -235,12 +251,9 @@ func Load(args []string, getenv Getenv) (*Config, error) {
 	}
 	// Session key: base64 of exactly 32 random bytes. Environment-only.
 	if v := getenv(EnvPrefix + "SESSION_KEY"); v != "" {
-		key, err := base64.StdEncoding.DecodeString(v)
+		key, err := decodeSessionKey(v)
 		if err != nil {
-			return nil, fmt.Errorf("%sSESSION_KEY: not valid base64: %w", EnvPrefix, err)
-		}
-		if len(key) != 32 {
-			return nil, fmt.Errorf("%sSESSION_KEY: must decode to exactly 32 bytes, got %d", EnvPrefix, len(key))
+			return nil, fmt.Errorf("%sSESSION_KEY: %w", EnvPrefix, err)
 		}
 		cfg.SessionKey = key
 	}
@@ -290,6 +303,9 @@ func Load(args []string, getenv Getenv) (*Config, error) {
 	viewers := fs.String("viewer-groups", "", "comma-separated IdP groups with org-wide viewer role")
 	editors := fs.String("editor-groups", "", "comma-separated IdP groups with org-wide editor role")
 	owners := fs.String("owner-groups", "", "comma-separated IdP groups with org-wide owner role")
+	ownerSubjects := fs.String("owner-subjects", envOr(getenv, "OWNER_SUBJECTS", ""), "comma-separated OIDC subjects with org-wide owner role")
+	fs.StringVar(&cfg.DataDir, "data-dir", cfg.DataDir, "directory with settings.json and keys.json from first-start setup")
+	fs.StringVar(&cfg.PublicURL, "public-url", cfg.PublicURL, "address people reach the console on (derives the OIDC redirect URL)")
 	if err := fs.Parse(args); err != nil {
 		return nil, err
 	}
@@ -297,6 +313,10 @@ func Load(args []string, getenv Getenv) (*Config, error) {
 	cfg.ViewerGroups = splitList(*viewers)
 	cfg.EditorGroups = splitList(*editors)
 	cfg.OwnerGroups = splitList(*owners)
+	cfg.OwnerSubjects = splitList(*ownerSubjects)
+	if err := cfg.applyDataDir(getenv, flagsSet(fs)); err != nil {
+		return nil, err
+	}
 	if err := cfg.validate(); err != nil {
 		return nil, err
 	}
