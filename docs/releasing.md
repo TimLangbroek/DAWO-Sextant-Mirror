@@ -11,8 +11,9 @@ A version TAG is the single lever. `.forgejo/workflows/release.yml` triggers on
 `v*` and builds and pushes every image, so no release reaches the registry from
 a developer laptop.
 
-1. bump `deploy/helm/Chart.yaml` (version AND appVersion), commit, push both
-   remotes
+1. bump `deploy/helm/Chart.yaml` (version AND appVersion) and `agent/Cargo.toml`
+   plus its entry in `agent/Cargo.lock` to the same number (the flake refuses
+   to evaluate when they disagree), commit, push both remotes
 2. `git tag -a v<x.y.z> -m "release <x.y.z>"` and push the tag to bbopen -
    that is what starts the build. Watch it with `scripts/ci-status.sh`.
 3. platform repo `apps/sextant/helmrelease.yaml` tag -> `git push origin main`.

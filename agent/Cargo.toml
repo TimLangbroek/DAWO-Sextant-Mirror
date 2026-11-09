@@ -1,6 +1,6 @@
 [package]
 name = "sextant-agent"
-version = "0.92.0"
+version = "0.93.0"
 edition = "2021"
 description = "Sextant device agent: reports deployed revision and hardware facts to the fleet console"
 license = "EUPL-1.2"
