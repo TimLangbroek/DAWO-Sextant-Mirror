@@ -10,6 +10,7 @@ import (
 	"crypto/rand"
 	"crypto/subtle"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -157,46 +158,53 @@ func (a *Authenticator) Login(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, url, http.StatusFound)
 }
 
-// Callback completes the flow: verify state, exchange the code (PKCE),
-// verify the ID token and nonce, authorize, then create the session.
-func (a *Authenticator) Callback(w http.ResponseWriter, r *http.Request) {
+// FlowError is a login callback that failed: the status to answer with,
+// and a message that is safe to show the browser.
+type FlowError struct {
+	Status int
+	Msg    string
+}
+
+func (e *FlowError) Error() string { return e.Msg }
+
+// Identify completes the flow up to who signed in: verify state, exchange
+// the code (PKCE), verify the ID token and nonce, read the claims and the
+// groups. It sets no session and asks Authorize nothing, so setup can show
+// an operator what their provider sends before anything depends on it.
+// Every error it returns is a *FlowError.
+func (a *Authenticator) Identify(w http.ResponseWriter, r *http.Request) (identity.User, error) {
+	fail := func(status int, msg string) (identity.User, error) {
+		return identity.User{}, &FlowError{Status: status, Msg: msg}
+	}
 	var fl flowData
 	if err := a.flow.get(r, &fl); err != nil || time.Now().Unix() > fl.Exp {
-		http.Error(w, "login flow expired, try again", http.StatusBadRequest)
-		return
+		return fail(http.StatusBadRequest, "login flow expired, try again")
 	}
 	a.flow.clear(w)
 	if q := r.URL.Query(); q.Get("error") != "" {
-		http.Error(w, "idp error: "+q.Get("error"), http.StatusBadRequest)
-		return
+		return fail(http.StatusBadRequest, "idp error: "+q.Get("error"))
 	}
 	if subtle.ConstantTimeCompare([]byte(r.URL.Query().Get("state")), []byte(fl.State)) != 1 {
-		http.Error(w, "bad state", http.StatusBadRequest)
-		return
+		return fail(http.StatusBadRequest, "bad state")
 	}
 	tok, err := a.oauth.Exchange(r.Context(), r.URL.Query().Get("code"), oauth2.VerifierOption(fl.Verifier))
 	if err != nil {
-		http.Error(w, "token exchange failed", http.StatusUnauthorized)
-		return
+		return fail(http.StatusUnauthorized, "token exchange failed")
 	}
 	rawID, ok := tok.Extra("id_token").(string)
 	if !ok {
-		http.Error(w, "no id_token in response", http.StatusUnauthorized)
-		return
+		return fail(http.StatusUnauthorized, "no id_token in response")
 	}
 	idt, err := a.verifier.Verify(r.Context(), rawID)
 	if err != nil {
-		http.Error(w, "id_token verification failed", http.StatusUnauthorized)
-		return
+		return fail(http.StatusUnauthorized, "id_token verification failed")
 	}
 	if subtle.ConstantTimeCompare([]byte(idt.Nonce), []byte(fl.Nonce)) != 1 {
-		http.Error(w, "nonce mismatch", http.StatusUnauthorized)
-		return
+		return fail(http.StatusUnauthorized, "nonce mismatch")
 	}
 	var claims map[string]any
 	if err := idt.Claims(&claims); err != nil {
-		http.Error(w, "cannot read claims", http.StatusInternalServerError)
-		return
+		return fail(http.StatusInternalServerError, "cannot read claims")
 	}
 	groups := groupsFromClaims(claims, a.groupsClaim)
 	// Entra groups overage: >150 groups means no groups claim, only a
@@ -210,16 +218,29 @@ func (a *Authenticator) Callback(w http.ResponseWriter, r *http.Request) {
 			// only and return a generic message to the browser, which is
 			// IdP-authenticated but not yet authorized at this point.
 			a.log.Error("entra groups overage: graph membership lookup failed", "err", err)
-			http.Error(w, "group membership lookup failed", http.StatusBadGateway)
-			return
+			return fail(http.StatusBadGateway, "group membership lookup failed")
 		}
 		groups = fetched
 	}
-	u := identity.User{
+	return identity.User{
 		Subject: idt.Subject,
 		Name:    firstStr(claims, "name", "preferred_username", "email"),
 		Email:   str(claims["email"]),
 		Groups:  groups,
+	}, nil
+}
+
+// Callback completes the flow: identify the user, authorize, then create
+// the session.
+func (a *Authenticator) Callback(w http.ResponseWriter, r *http.Request) {
+	u, err := a.Identify(w, r)
+	if err != nil {
+		var fe *FlowError
+		if !errors.As(err, &fe) {
+			fe = &FlowError{Status: http.StatusInternalServerError, Msg: "login failed"}
+		}
+		http.Error(w, fe.Msg, fe.Status)
+		return
 	}
 	if !a.authorize(u) {
 		http.Error(w, "not authorized: no role grants console access to your account", http.StatusForbidden)
