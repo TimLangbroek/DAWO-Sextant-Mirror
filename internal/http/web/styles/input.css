@@ -20,7 +20,8 @@
   td { @apply border-b border-border-soft px-3 py-2.5 align-top; }
   tr:last-child td { @apply border-b-0; }
   label { @apply text-label-xs-caps uppercase tracking-wide text-text-tertiary; }
-  select, input[type="text"], input[type="number"], input:not([type]), textarea {
+  select, input[type="text"], input[type="number"], input[type="url"], input[type="email"],
+  input[type="password"], input:not([type]), textarea {
     @apply rounded-lg border border-outline-variant bg-canvas px-3 py-2 text-body-md text-on-surface
            focus:border-mint-vibrant focus:outline-none focus:ring-2 focus:ring-mint-vibrant/30;
   }
@@ -159,6 +160,10 @@
      lines up with the input of a stacked label+field beside it, not its
      vertical centre (the common "button floats above the field" misalign). */
   form:not(.inline) { @apply flex flex-wrap items-end gap-3; }
+  /* A form that reads top to bottom, label above field (setup). Its own
+     rule because the one above outranks a utility class on specificity. */
+  form.stack { @apply flex-col flex-nowrap items-stretch gap-2; }
+  form.stack > button, form.stack > .btn { @apply self-start; }
   form:not(.inline) textarea { @apply basis-full; }
   /* Bottom alignment is not enough on its own: a control is text-body-md
      (16px/1.5) plus py-2 plus a 1px border top and bottom = 42px, while a

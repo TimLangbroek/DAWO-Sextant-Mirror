@@ -55,7 +55,7 @@
     {{else}}
     <p class="muted mb-4">{{.L.T "setup.keys.recovery_by_deployment"}}</p>
     {{end}}
-    <form method="post" action="/setup/keys" class="flex flex-col gap-sm">
+    <form method="post" action="/setup/keys" class="stack">
       {{if .RecoveryOffered}}
       <label class="flex items-center gap-sm"><input type="checkbox" name="stored" value="yes" required>{{.L.T "setup.keys.stored"}}</label>
       {{end}}
@@ -63,13 +63,13 @@
     </form>
     {{else if eq .Step "repo"}}
     <p class="mb-4">{{.L.T "setup.repo.intro"}}</p>
-    <form method="post" action="/setup/repo" class="flex flex-col gap-sm mb-6">
+    <form method="post" action="/setup/repo" class="stack mb-6">
       <input type="hidden" name="choice" value="new">
       <button type="submit" class="btn">{{.L.T "setup.repo.new"}}</button>
       <p class="muted">{{.L.T "setup.repo.new_hint"}}</p>
     </form>
     <h2 class="text-body-sm font-bold text-ink mb-2">{{.L.T "setup.repo.existing"}}</h2>
-    <form method="post" action="/setup/repo" class="flex flex-col gap-sm">
+    <form method="post" action="/setup/repo" class="stack">
       <input type="hidden" name="choice" value="existing">
       <label for="repo-url">{{.L.T "setup.repo.url"}}</label>
       <input id="repo-url" name="url" type="url" value="{{.Repo.URL}}" placeholder="https://git.example.com/org/fleet.git" required>
@@ -107,7 +107,8 @@
     {{else}}
     <p class="mb-4">{{$.L.T "setup.signin.intro"}}</p>
     {{end}}
-    <form method="post" action="/setup/signin" class="flex flex-col gap-sm">
+    {{if .User}}<details><summary class="mb-2 cursor-pointer text-body-sm">{{$.L.T "setup.signin.change"}}</summary>{{end}}
+    <form method="post" action="/setup/signin" class="stack">
       <input type="hidden" name="action" value="check">
       <label for="signin-address">{{$.L.T "setup.signin.address"}}</label>
       {{if .PublicURLFixed}}
@@ -129,6 +130,7 @@
       <input id="signin-secret" name="client_secret" type="password" autocomplete="off" required>
       <button type="submit" class="btn">{{$.L.T "setup.signin.check"}}</button>
     </form>
+    {{if .User}}</details>{{end}}
     {{end}}
     {{else}}
     <p class="muted">{{.L.T "setup.next_not_built"}}</p>
