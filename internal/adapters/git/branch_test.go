@@ -242,3 +242,48 @@ func TestBranchMerged(t *testing.T) {
 		t.Error("a branch name that looks like a flag was accepted")
 	}
 }
+
+// A change's worktree inside the main tree stays out of its status, so the
+// operator's checkout stays clean and SourceKey does not move when a change
+// opens. The exclude line is written once, and a worktree elsewhere leaves
+// the file alone.
+func TestWorktreeInsideTheTreeIsExcluded(t *testing.T) {
+	dir := initRepo(t)
+	r := openRepo(t, dir, "")
+	ctx := context.Background()
+	before, err := r.SourceKey(ctx, "fleet.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []string{"cr-1", "cr-2"} {
+		if err := r.CreateBranch(ctx, id); err != nil {
+			t.Fatal(err)
+		}
+		if err := r.AddWorktree(ctx, filepath.Join(dir, ".cr", id), id); err != nil {
+			t.Fatalf("AddWorktree: %v", err)
+		}
+	}
+	if out := run(t, dir, "status", "--porcelain", "-uall"); out != "" {
+		t.Fatalf("status not clean with two changes open:\n%s", out)
+	}
+	if after, _ := r.SourceKey(ctx, "fleet.json"); after != before {
+		t.Fatal("opening a change moved the source key")
+	}
+	b, err := os.ReadFile(filepath.Join(dir, ".git", "info", "exclude"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n := strings.Count(string(b), "\n/.cr/\n"); n != 1 {
+		t.Fatalf("exclude has /.cr/ %d times:\n%s", n, b)
+	}
+
+	if err := r.CreateBranch(ctx, "cr-3"); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.AddWorktree(ctx, filepath.Join(t.TempDir(), "wt"), "cr-3"); err != nil {
+		t.Fatal(err)
+	}
+	if b2, _ := os.ReadFile(filepath.Join(dir, ".git", "info", "exclude")); string(b2) != string(b) {
+		t.Fatalf("a worktree outside the tree changed the exclude file:\n%s", b2)
+	}
+}

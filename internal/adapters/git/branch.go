@@ -2,8 +2,12 @@ package git
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io/fs"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -45,8 +49,58 @@ func (r *Repo) DeleteBranch(ctx context.Context, name string) error {
 // AddWorktree implements ports.BranchRepo. Same "--" guard as CreateBranch:
 // it stops a dir/branch starting with "-" from being misread as a flag.
 func (r *Repo) AddWorktree(ctx context.Context, dir, branch string) error {
+	if err := r.excludeLocally(ctx, dir); err != nil {
+		return err
+	}
 	_, err := gitRun(ctx, r.dir, "worktree", "add", "--", dir, branch)
 	return err
+}
+
+// excludeLocally keeps a worktree made inside the main tree out of that
+// tree's status, through the repository's own info/exclude: a line in a
+// file nobody commits, not a .gitignore in the fleet repository. Without
+// it the open changes show as untracked files, `git status` in the
+// operator's checkout is never clean, and SourceKey, which hashes the
+// status, moves every time a change opens or closes, dropping every
+// verdict the gate had memoised.
+func (r *Repo) excludeLocally(ctx context.Context, dir string) error {
+	// A path that cannot be made relative to the tree is not inside it.
+	rel, relErr := filepath.Rel(r.dir, dir)
+	inside := relErr == nil && rel != "." && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
+	if !inside {
+		return nil
+	}
+	pattern := "/" + strings.SplitN(filepath.ToSlash(rel), "/", 2)[0] + "/"
+	path, err := gitRun(ctx, r.dir, "rev-parse", "--git-path", "info/exclude")
+	if err != nil {
+		return err
+	}
+	if !filepath.IsAbs(path) {
+		path = filepath.Join(r.dir, path)
+	}
+	have, err := os.ReadFile(path)
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return err
+	}
+	for _, line := range strings.Split(string(have), "\n") {
+		if strings.TrimSpace(line) == pattern {
+			return nil
+		}
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	// #nosec G304 - the path git itself names for this repository's exclude file.
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+	if err != nil {
+		return err
+	}
+	sep := ""
+	if len(have) > 0 && !strings.HasSuffix(string(have), "\n") {
+		sep = "\n"
+	}
+	_, werr := fmt.Fprintf(f, "%s# worktrees of open changes, made by Sextant\n%s\n", sep, pattern)
+	return errors.Join(werr, f.Close())
 }
 
 // RemoveWorktree implements ports.BranchRepo. Same "--" guard as CreateBranch.
