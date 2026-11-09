@@ -24,7 +24,8 @@ RUN CGO_ENABLED=0 go build -mod=vendor -trimpath -ldflags="-s -w -X main.version
 # both runtime targets below so they cannot drift apart.
 FROM docker.io/library/alpine:3.22@sha256:14358309a308569c32bdc37e2e0e9694be33a9d99e68afb0f5ff33cc1f695dce AS runtime-base
 RUN apk add --no-cache tini git ca-certificates \
- && adduser -D -u 65532 sextant
+ && adduser -D -u 65532 sextant \
+ && install -d -o 65532 -g 65532 -m 0700 /data
 USER 65532:65532
 EXPOSE 8080
 
@@ -53,5 +54,12 @@ CMD ["fleetsim", "--help"]
 # tools target above, which is what the demo deployment pulls.
 FROM runtime-base AS server
 COPY --from=build /out/sextant /usr/local/bin/sextant
+# Setup mode keeps its answers and the fleet repository it starts here
+# (design 0013). Without it the data directory would land in / , which this
+# user cannot write, and setup would fail at its first step. A volume, so a
+# plain `podman run` keeps the answers across a restart of the container. A
+# deployment that configures everything itself never writes to it.
+ENV SEXTANT_DATA_DIR=/data
+VOLUME ["/data"]
 ENTRYPOINT ["/sbin/tini", "--", "sextant"]
 CMD ["--addr", "0.0.0.0:8080"]
