@@ -14,7 +14,22 @@ are the ones that actually bit.
 
 There is also a **NixOS module** (`nixosModules.default` in the flake) which
 runs the same binary under systemd with `DynamicUser`. It is the container path
-without the container; the same database and secret rules apply.
+without the container; the same database and secret rules apply. The fleet
+repository is one setting: give it an empty repository on any https forge and
+it is filled with a starter fleet before the console first starts.
+
+```nix
+services.sextant = {
+  enable = true;
+  gitRemote.url = "https://codeberg.org/acme/fleet.git";
+  # A netrc line for a credential that may push. A string, not a path
+  # literal, so the token never lands in the Nix store.
+  gitRemote.netrcFile = "/run/secrets/sextant-netrc";
+  write = true;
+  gate = "eval"; # this host has nix; the gate runs here
+  environmentFile = "/run/secrets/sextant.env"; # SEXTANT_PG_DSN and the keys
+};
+```
 
 ## 1. `deploy/compose`
 

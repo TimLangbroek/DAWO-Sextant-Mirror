@@ -25,6 +25,10 @@ let
   # rewritten to prevent: a console that starts, looks healthy and cannot
   # write.
   inStateDir = p: p == stateDir || lib.hasPrefix (stateDir + "/") p;
+  remote = cfg.gitRemote.url != null;
+  # HOME for git while it talks to the forge: the netrc is linked in here,
+  # on a tmpfs that goes away with the unit.
+  runDir = "/run/sextant";
   needsRW = cfg.repo != null && !(inStateDir (toString cfg.repo));
   # DynamicUser is the right default for a read-only console: no account to
   # manage, no uid to leak. It is the wrong default the moment the console has
@@ -68,16 +72,55 @@ in
 
     repo = lib.mkOption {
       type = lib.types.nullOr lib.types.path;
-      default = null;
+      default = if remote then "${stateDir}/overlay" else null;
+      defaultText = lib.literalExpression
+        ''if gitRemote.url != null then "${stateDir}/overlay" else null'';
       example = "/var/lib/sextant/overlay";
       description = ''
         The overlay working tree: the fleet's configuration, which this
         service reads and commits to. Without it the console runs with no
         config plane - it starts and can change nothing.
 
-        A path outside ${stateDir} is added to ReadWritePaths automatically;
-        it still has to exist and be owned by the unit's user.
+        With gitRemote.url set this is filled from the remote before the
+        console starts. A path outside ${stateDir} is added to
+        ReadWritePaths automatically; it then needs a fixed `user`, so the
+        directory can be made for that user before the unit starts.
       '';
+    };
+
+    gitRemote = {
+      url = lib.mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = null;
+        example = "https://github.com/acme/fleet.git";
+        description = ''
+          The fleet repository, on any https forge (GitHub, Codeberg,
+          GitLab, Forgejo). Before the console starts, `sextant
+          prepare-repo` clones it into `repo`, or fills it with a starter
+          fleet and pushes when it is still empty, and the console pushes
+          every change back to it. An empty repository and this one line
+          are the whole setup.
+        '';
+      };
+
+      branch = lib.mkOption {
+        type = lib.types.str;
+        default = "main";
+        description = "The branch devices follow.";
+      };
+
+      netrcFile = lib.mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = null;
+        example = "/run/secrets/sextant-netrc";
+        description = ''
+          A file with a netrc line for the forge
+          (`machine github.com login <account> password <token>`), for a
+          credential that may push. The unit reads it with LoadCredential,
+          so it can stay root-only. Give it as a string: a Nix path literal
+          would copy the token into the world-readable store.
+        '';
+      };
     };
 
     write = lib.mkOption {
@@ -163,6 +206,21 @@ in
         assertion = !cfg.write || cfg.repo != null;
         message = "services.sextant.write needs services.sextant.repo: there is nothing to commit to.";
       }
+      {
+        assertion = !remote || cfg.repo != null;
+        message = "services.sextant.gitRemote.url needs services.sextant.repo to clone into; leave repo unset for the default.";
+      }
+      {
+        # A DynamicUser's uid does not exist before the unit starts, so a
+        # directory outside the state directory cannot be made for it, and
+        # ReadWritePaths on a path that is not there stops the unit.
+        assertion = !remote || !dynamic || inStateDir (toString cfg.repo);
+        message = "services.sextant.repo outside ${stateDir} needs services.sextant.user, so the directory can be made for that user.";
+      }
+      {
+        assertion = cfg.gitRemote.netrcFile == null || lib.hasPrefix "/" cfg.gitRemote.netrcFile;
+        message = "services.sextant.gitRemote.netrcFile must be an absolute path.";
+      }
     ];
 
     users.users = lib.mkIf (!dynamic) {
@@ -174,8 +232,8 @@ in
     };
     users.groups = lib.mkIf (!dynamic) { ${cfg.user} = { }; };
 
-    # The repository has to exist and be the service's before it starts: the
-    # console does not clone it, it expects a working tree.
+    # The repository directory has to be the service's before it starts.
+    # Empty is fine: prepare-repo clones into it.
     systemd.tmpfiles.rules = lib.optional (!dynamic && cfg.repo != null)
       "d ${toString cfg.repo} 0750 ${cfg.user} ${cfg.user} -";
 
@@ -184,16 +242,40 @@ in
       wantedBy = [ "multi-user.target" ];
       after = [ "network-online.target" ];
       wants = [ "network-online.target" ];
+      # A forge that is not reachable yet at boot fails prepare-repo; the
+      # unit keeps retrying with a growing delay instead of giving up after
+      # five quick failures.
+      startLimitIntervalSec = 0;
       # git for the config plane; nix only when this host runs the gate
       # itself. A remote gate keeps nix off the console host on purpose.
       path = [ pkgs.git ] ++ lib.optional (cfg.gate == "eval") pkgs.nix;
+      environment = lib.mkIf remote { HOME = runDir; };
       serviceConfig = {
+        ExecStartPre = lib.optionals remote (
+          # %d is the unit's credentials directory: the token is linked,
+          # not copied, and disappears with the unit.
+          lib.optional (cfg.gitRemote.netrcFile != null)
+            "${pkgs.coreutils}/bin/ln -sfn %d/netrc ${runDir}/.netrc"
+          ++ [
+            (lib.escapeShellArgs [
+              (lib.getExe cfg.package)
+              "prepare-repo"
+              "--repo" (toString cfg.repo)
+              "--url" cfg.gitRemote.url
+              "--branch" cfg.gitRemote.branch
+            ])
+          ]);
+        LoadCredential = lib.optional (remote && cfg.gitRemote.netrcFile != null)
+          "netrc:${cfg.gitRemote.netrcFile}";
+        RuntimeDirectory = lib.mkIf remote "sextant";
+        RuntimeDirectoryMode = lib.mkIf remote "0700";
         ExecStart = lib.escapeShellArgs ([
           (lib.getExe cfg.package)
           "--addr" cfg.addr
           "--gate" cfg.gate
         ]
         ++ lib.optionals (cfg.repo != null) [ "--repo" (toString cfg.repo) ]
+        ++ lib.optionals remote [ "--git-remote" "origin" ]
         ++ lib.optionals (cfg.gateUrl != null) [ "--gate-url" cfg.gateUrl ]
         ++ lib.optional cfg.write "--write"
         ++ lib.optional cfg.allowUnvalidated "--allow-unvalidated"
@@ -211,6 +293,8 @@ in
         TimeoutStopSec = 30;
         Restart = "on-failure";
         RestartSec = 2;
+        RestartSteps = 6;
+        RestartMaxDelaySec = 120;
         # Hardening.
         NoNewPrivileges = true;
         ProtectSystem = "strict";
