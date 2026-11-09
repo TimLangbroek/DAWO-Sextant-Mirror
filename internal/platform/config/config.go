@@ -4,6 +4,7 @@
 package config
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"net"
@@ -348,22 +349,53 @@ func splitList(s string) []string {
 	return out
 }
 
+// docBase is where the refusals point for more.
+const docBase = "https://docs.sextantfleet.com/operators/"
+
+// Refusal is a configuration the console will not start with: what is
+// wrong, in words an operator who has never read the code can act on,
+// what to do about it, and where to read more.
+type Refusal struct {
+	Problem string
+	Fix     string
+	// Doc is a page of the operators' handbook, with an anchor if useful.
+	Doc string
+}
+
+func (r *Refusal) Error() string {
+	s := r.Problem + "\n    fix: " + r.Fix
+	if r.Doc != "" {
+		s += "\n    see: " + docBase + r.Doc
+	}
+	return s
+}
+
+// validate collects every refusal at once, so an operator fixes them in one
+// round instead of meeting them one restart at a time.
 func (c *Config) validate() error {
+	var refused []error
+	refuse := func(problem, fix, doc string) {
+		refused = append(refused, &Refusal{Problem: problem, Fix: fix, Doc: doc})
+	}
 	switch c.LogLevel {
 	case "debug", "info", "warn", "error":
 	default:
-		return fmt.Errorf("log-level %q: must be debug|info|warn|error", c.LogLevel)
+		refuse(fmt.Sprintf("log level %q is not one this console knows", c.LogLevel),
+			"set --log-level (SEXTANT_LOG_LEVEL) to debug, info, warn or error", "")
 	}
 	switch c.LogFormat {
 	case "text", "json":
 	default:
-		return fmt.Errorf("log-format %q: must be text|json", c.LogFormat)
+		refuse(fmt.Sprintf("log format %q is not one this console knows", c.LogFormat),
+			"set --log-format (SEXTANT_LOG_FORMAT) to text or json", "")
 	}
 	if c.Addr == "" {
-		return fmt.Errorf("addr must not be empty")
+		refuse("there is no address to listen on",
+			"set --addr (SEXTANT_ADDR), for example 127.0.0.1:8080", "")
 	}
 	if c.ShutdownGrace <= 0 {
-		return fmt.Errorf("shutdown-grace must be positive")
+		refuse("the time allowed for a clean shutdown is not longer than zero",
+			"set --shutdown-grace (SEXTANT_SHUTDOWN_GRACE) to a duration such as 10s", "")
 	}
 	switch c.GateMode {
 	case "eval":
@@ -372,42 +404,69 @@ func (c *Config) validate() error {
 		// commit configuration nothing checked, and a bad fleet.json reaches
 		// devices. Refuse unless explicitly acknowledged (local dev / tests).
 		if c.Write && !c.AllowUnvalidated {
-			return fmt.Errorf("refusing --write with --gate none: unvalidated commits reach devices; use --gate eval|remote, or acknowledge with --allow-unvalidated (SEXTANT_ALLOW_UNVALIDATED=1) for local dev")
+			refuse("saving changes is on (--write) but nothing checks them (--gate none), so a broken fleet.json would reach the devices",
+				"run a gate-runner and set --gate remote with --gate-url (deploy/compose shows how); for a throwaway console only, --allow-unvalidated",
+				"deployment-paths.html")
 		}
 	case "remote":
 		if c.GateURL == "" {
-			return fmt.Errorf("gate remote requires --gate-url")
+			refuse("--gate remote is set without an address for the gate-runner",
+				"set --gate-url (SEXTANT_GATE_URL) to the gate-runner, for example http://127.0.0.1:8090",
+				"deployment-paths.html")
 		}
 	default:
-		return fmt.Errorf("gate %q: must be eval|remote|none", c.GateMode)
+		refuse(fmt.Sprintf("gate %q is not one this console knows", c.GateMode),
+			"set --gate to remote (with a gate-runner), eval or none", "deployment-paths.html")
 	}
 	if c.Write && c.RepoDir == "" {
-		return fmt.Errorf("--write needs --repo")
+		refuse("saving changes is on (--write) but there is no fleet repository (--repo)",
+			"set --repo to the checkout of your fleet repository, or start with nothing set and let setup make one",
+			"deploy.html")
 	}
 	if c.OIDCIssuer != "" {
-		if c.OIDCClientID == "" || c.OIDCClientSecret == "" || c.OIDCRedirectURL == "" {
-			return fmt.Errorf("oidc needs --oidc-client-id, --oidc-redirect-url and SEXTANT_OIDC_CLIENT_SECRET")
+		var missing []string
+		if c.OIDCClientID == "" {
+			missing = append(missing, "a client id (--oidc-client-id)")
+		}
+		if c.OIDCClientSecret == "" {
+			missing = append(missing, "a client secret (SEXTANT_OIDC_CLIENT_SECRET)")
+		}
+		if c.OIDCRedirectURL == "" {
+			missing = append(missing, "the console's own address (--public-url)")
+		}
+		if len(missing) > 0 {
+			refuse("sign-in is half set up: there is an identity provider (--oidc-issuer) but not "+strings.Join(missing, ", "),
+				"set what is missing, or remove the issuer and let setup ask for all of it", "deploy.html")
 		}
 		if len(c.SessionKey) != 32 {
-			return fmt.Errorf("oidc needs SEXTANT_SESSION_KEY (base64 of 32 random bytes)")
+			refuse("sign-in has no key to seal its cookies with (SEXTANT_SESSION_KEY)",
+				"set SEXTANT_SESSION_KEY to 32 random bytes in base64 (head -c 32 /dev/urandom | base64), or remove the issuer and let setup make one",
+				"deploy.html")
 		}
 		// Session auth over anything but loopback must mark cookies Secure -
 		// otherwise a session cookie can be sent in the clear on a
 		// misconfigured (non-TLS, or TLS-terminating-proxy) deployment. Fail
 		// fast rather than ship an insecure default.
 		if !c.SecureCookies && !isLoopback(c.Addr) && !IsLoopbackURL(c.PublicURL) {
-			return fmt.Errorf("session auth on non-loopback --addr %q requires --secure-cookies (or SEXTANT_SECURE_COOKIES=true, or an https --public-url); refusing to ship session cookies without the Secure flag", c.Addr)
+			refuse(fmt.Sprintf("sign-in on %s, which other machines can reach, would send session cookies without the Secure flag", c.Addr),
+				"put TLS in front and set --public-url to the https address, which turns the flag on, or set --secure-cookies (SEXTANT_SECURE_COOKIES=true)",
+				"deploy.html#troubleshooting")
 		}
 	}
 	if c.DevAuth {
 		if !isLoopback(c.Addr) {
-			return fmt.Errorf("--dev-auth requires a loopback --addr, got %s", c.Addr)
+			refuse(fmt.Sprintf("--dev-auth lets anyone in as owner, and %s is reachable from other machines", c.Addr),
+				"listen on 127.0.0.1 for --dev-auth, or set up an identity provider", "")
 		}
 		if c.OIDCIssuer != "" {
-			return fmt.Errorf("--dev-auth and --oidc-issuer are mutually exclusive")
+			refuse("--dev-auth and an identity provider (--oidc-issuer) are both set",
+				"use one: the identity provider for anything real", "")
 		}
 	}
-	return nil
+	if len(refused) == 0 {
+		return nil
+	}
+	return fmt.Errorf("will not start with this configuration:\n%w", errors.Join(refused...))
 }
 
 // isLoopback reports whether addr's host part is a loopback address.

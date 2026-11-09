@@ -37,6 +37,9 @@ import (
 var version = "dev"
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "check-config" {
+		os.Exit(checkConfig(os.Args[2:], os.Getenv, os.Stdout, os.Stderr))
+	}
 	err := run(context.Background(), os.Args[1:], os.Getenv, os.Stderr)
 	if errors.Is(err, errRestart) {
 		err = restartSelf()
@@ -45,6 +48,45 @@ func main() {
 		fmt.Fprintln(os.Stderr, "sextant:", err)
 		os.Exit(1)
 	}
+}
+
+// checkConfig loads the configuration the way a start would and says what
+// the console would run with, without starting it or writing anything. No
+// secret is printed, not even whether it looks right: only whether it is
+// set. It returns the exit code.
+func checkConfig(args []string, getenv config.Getenv, stdout, stderr io.Writer) int {
+	cfg, err := config.Load(args, getenv)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, "sextant:", err)
+		return 1
+	}
+	signin := "none yet: setup mode, the console asks for it in the browser"
+	switch {
+	case cfg.DevAuth:
+		signin = "dev-auth: anyone on this machine is owner"
+	case cfg.OIDCIssuer != "":
+		signin = "identity provider " + cfg.OIDCIssuer + ", returning to " + cfg.OIDCRedirectURL
+	}
+	repo := "none yet: setup starts one"
+	if cfg.RepoDir != "" {
+		repo = cfg.RepoDir
+	}
+	saving := "off: the console only reads"
+	if cfg.Write {
+		saving = "on, checked by the " + cfg.GateMode + " gate"
+		if cfg.GateMode == "remote" {
+			saving += " at " + cfg.GateURL
+		}
+	}
+	db := "none: no device status, no imaging line"
+	if cfg.PgDSN != "" {
+		db = "set"
+	}
+	_, _ = fmt.Fprintf(stdout, "the console will start with this configuration\n"+
+		"  listen:           %s\n  sign-in:          %s\n  fleet repository: %s\n"+
+		"  saving changes:   %s\n  database:         %s\n",
+		cfg.Addr, signin, repo, saving, db)
+	return 0
 }
 
 // errRestart ends run so main starts the console again. Setup returns it

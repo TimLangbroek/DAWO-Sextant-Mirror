@@ -80,7 +80,7 @@ func TestInvalid(t *testing.T) {
 				"SEXTANT_OIDC_CLIENT_SECRET": "secret",
 				"SEXTANT_SESSION_KEY":        validSessionKey,
 			},
-			"requires --secure-cookies",
+			"without the Secure flag",
 		},
 		{
 			"plain-http public url that is not on this machine",
@@ -94,7 +94,7 @@ func TestInvalid(t *testing.T) {
 				"SEXTANT_OIDC_CLIENT_SECRET": "secret",
 				"SEXTANT_SESSION_KEY":        validSessionKey,
 			},
-			"requires --secure-cookies",
+			"without the Secure flag",
 		},
 		{
 			"https public url, secure cookies switched off explicitly",
@@ -109,13 +109,13 @@ func TestInvalid(t *testing.T) {
 				"SEXTANT_SESSION_KEY":        validSessionKey,
 				"SEXTANT_SECURE_COOKIES":     "false",
 			},
-			"requires --secure-cookies",
+			"without the Secure flag",
 		},
 		{
 			"dev-auth on non-loopback",
 			[]string{"--dev-auth", "--addr", "0.0.0.0:8080"},
 			nil,
-			"--dev-auth requires a loopback",
+			"lets anyone in as owner",
 		},
 		{
 			"dev-auth and oidc mutually exclusive",
@@ -129,7 +129,7 @@ func TestInvalid(t *testing.T) {
 				"SEXTANT_OIDC_CLIENT_SECRET": "secret",
 				"SEXTANT_SESSION_KEY":        validSessionKey,
 			},
-			"mutually exclusive",
+			"are both set",
 		},
 		{
 			"oidc missing session key",
@@ -151,19 +151,19 @@ func TestInvalid(t *testing.T) {
 				"--oidc-redirect-url", "https://console.example.com/callback",
 			},
 			map[string]string{"SEXTANT_SESSION_KEY": validSessionKey},
-			"oidc needs",
+			"sign-in",
 		},
 		{
 			"gate remote without gate-url",
 			[]string{"--gate", "remote"},
 			nil,
-			"gate remote requires --gate-url",
+			"without an address for the gate-runner",
 		},
 		{
 			"write with gate none unacknowledged",
 			[]string{"--write", "--repo", "/tmp/x", "--gate", "none"},
 			nil,
-			"refusing --write with --gate none",
+			"nothing checks them",
 		},
 		{
 			"bad secure-cookies env",

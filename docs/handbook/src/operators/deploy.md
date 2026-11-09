@@ -150,6 +150,11 @@ one console instance per repo. See `docs/adr/` for the decisions behind this.
 
 ## Troubleshooting
 
+**Check before you restart.** `sextant check-config` with the same flags and
+environment as the console says what it would run with (address, sign-in,
+fleet repository, gate, database) or lists every reason it would refuse,
+each with what to do about it. It starts nothing and prints no secret.
+
 **The console refuses to start / refuses session cookies.**
 Behind TLS on a non-loopback `--addr`, Sextant refuses to ship session
 cookies without the Secure flag - this is deliberate fail-closed behaviour,
