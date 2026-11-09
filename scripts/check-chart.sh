@@ -48,9 +48,25 @@ helm template deploy/helm $R --set gateMode=remote --set gateRunner.enabled=true
   --set releaseCache=true >/dev/null
 helm template deploy/helm $R --set gateMode=eval >/dev/null
 helm template deploy/helm $R --set allowUnvalidated=true >/dev/null
-if helm template deploy/helm $R >/dev/null 2>&1; then
-  echo "P4 guard did not fire: default write+gateMode=none rendered without ack"; exit 1
+if helm template deploy/helm $R --set gateMode=none >/dev/null 2>&1; then
+  echo "P4 guard did not fire: write+gateMode=none rendered without ack"; exit 1
 fi
+
+# The defaults are a working install: remote gate, a gate-runner beside the
+# console, and a bearer token they share without anybody making one up.
+def=$(helm template sx deploy/helm $R)
+echo "$def" | grep -q -- '--gate=remote' || { echo "default is not the remote gate"; exit 1; }
+echo "$def" | grep -q -- '--gate-url=http://sx-gate:8090' || { echo "remote gate without its address"; exit 1; }
+echo "$def" | grep -q 'name: sx-gate$' || { echo "remote gate rendered no gate-runner"; exit 1; }
+echo "$def" | grep -q 'name: sx-gate-token$' || { echo "no generated gate token"; exit 1; }
+[ "$(echo "$def" | grep -c 'name: sx-gate-token$')" = 3 ] || { echo "gate token not referenced by both console and runner"; exit 1; }
+echo "$def" | grep -A1 'secretRef:' | grep -q 'name: sextant }' || { echo "default secretName is not sextant"; exit 1; }
+# Under eval or none there is no runner unless one is asked for, which is
+# how a runner is warmed up before switching (ADR 0012).
+ev=$(helm template sx deploy/helm $R --set gateMode=eval)
+echo "$ev" | grep -qE 'name: sx-gate(-token)?$|SEXTANT_GATE_TOKEN' && { echo "eval rendered a gate-runner nobody asked for"; exit 1; }
+helm template sx deploy/helm $R --set gateMode=eval --set gateRunner.enabled=true \
+  | grep -q 'name: sx-gate$' || { echo "gateRunner.enabled no longer runs a runner ahead of the switch"; exit 1; }
 if helm template deploy/helm $R --set gateMode=eval --set replicaCount=2 \
   --set persistence.enabled=true >/dev/null 2>&1; then
   echo "HA guard did not fire: PVC + replicaCount>1 rendered"; exit 1

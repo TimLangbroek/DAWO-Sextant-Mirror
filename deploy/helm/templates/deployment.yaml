@@ -164,12 +164,12 @@ spec:
             # Authorization header and every direct gate call is refused (401)
             # while CR-staged edits appear to work (their build step is a no-op
             # in remote mode) - an easy misconfiguration to miss.
+            {{- if include "sextant.gateRunner" . }}
             - name: SEXTANT_GATE_TOKEN
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.secretName }}
-                  key: GATE_TOKEN
-                  optional: true
+                  {{- include "sextant.gateTokenRef" . | nindent 18 }}
+            {{- end }}
             {{- with .Values.orgName }}
             - { name: SEXTANT_ORG_NAME, value: {{ . | quote }} }
             {{- end }}

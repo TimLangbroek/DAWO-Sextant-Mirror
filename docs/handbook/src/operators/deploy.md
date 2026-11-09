@@ -18,7 +18,7 @@ there is nothing else to wire.
   to roles by group. Optional LDAP for the group-picker source.
 - **A validation gate** - `eval` runs nix in-process; `remote` delegates to a
   small nix-capable gate-runner (the console image itself ships no nix). Use
-  `remote` in production; it is fail-closed.
+  `remote` in production; it is fail-closed, and it is the chart's default.
 
 ## Before you start
 
@@ -117,8 +117,11 @@ and so on); `sextant --help` lists the flags.
    set `--public-url https://...` (or `--secure-cookies`): the console refuses
    session cookies without the Secure flag on a non-loopback address, and an
    https public URL turns that flag on.
-3. Deploy a gate-runner if `gateMode: remote`; it keeps a warm clone of the
-   overlay and evaluates each candidate before the console commits.
+3. Under Helm the gate-runner comes with `gateMode: remote`, the default, and
+   shares a bearer token with the console that the chart generates and keeps
+   (a `GATE_TOKEN` in your secret wins, if you set one). Elsewhere, run one
+   beside the console. It keeps a warm clone of the overlay and evaluates
+   each candidate before the console commits.
 4. Log in via your IdP. Enroll a device, assign it to a group, edit settings -
    every change passes the gate and commits to the overlay. Stage a rollout to
    land updates in waves.
@@ -173,8 +176,10 @@ on the host's loopback) needs neither.
 
 **Every write is refused with `gateMode: remote`.**
 The gate is fail-closed: no reachable gate-runner means no writes, by
-design. Check the gate-runner's `/healthz` before flipping `gateMode` to
-`remote`, and after any gate-runner redeploy.
+design. On a first install the runner waits for the repository the console
+fills, so writes start working a minute or so after the console is up.
+Moving an existing install to `remote`: set `gateRunner.enabled: true`
+first, check the gate-runner's `/healthz`, then flip `gateMode`.
 
 **A rollout wave never leaves "Building".**
 With build-before-promote enabled (`releaseCache: true` +

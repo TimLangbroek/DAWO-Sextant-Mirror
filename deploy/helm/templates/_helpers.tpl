@@ -24,6 +24,36 @@ towards allowing a volume that is too small.
 {{- end -}}
 
 {{/*
+sextant.gateRunner says whether the release runs a gate-runner: always with
+gateMode remote, which cannot work without one, and on request before that,
+so a runner can be warmed up ahead of switching the console to it (ADR 0012).
+*/}}
+{{- define "sextant.gateRunner" -}}
+{{- if or .Values.gateRunner.enabled (eq .Values.gateMode "remote") -}}true{{- end -}}
+{{- end -}}
+
+{{/*
+sextant.gateTokenRef is where the gate-runner's bearer token comes from: the
+app secret when it carries GATE_TOKEN (set by hand, as before), otherwise the
+Secret this chart generates once and keeps (gate-runner.yaml). lookup sees
+nothing under `helm template`, so a plain render always shows the generated
+one.
+*/}}
+{{- define "sextant.gateTokenOwn" -}}
+{{- $app := lookup "v1" "Secret" .Release.Namespace .Values.secretName -}}
+{{- if not (and $app (hasKey ($app.data | default dict) "GATE_TOKEN")) -}}true{{- end -}}
+{{- end -}}
+{{- define "sextant.gateTokenRef" -}}
+{{- if include "sextant.gateTokenOwn" . -}}
+name: {{ .Release.Name }}-gate-token
+key: token
+{{- else -}}
+name: {{ .Values.secretName }}
+key: GATE_TOKEN
+{{- end -}}
+{{- end -}}
+
+{{/*
 sextant.dbMode resolves database.mode with the pre-0.93 behaviour as the
 fallback, so values files that only know cnpg.enabled keep rendering the same.
 */}}

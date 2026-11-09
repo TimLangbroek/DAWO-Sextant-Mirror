@@ -36,7 +36,7 @@ spec:
         - ports:
             - port: "443"
               protocol: TCP
-    {{- if .Values.gateRunner.enabled }}
+    {{- if include "sextant.gateRunner" . }}
     # The gate-runner (in-cluster) on 8090 for remote validation.
     - toEndpoints:
         - matchLabels:
@@ -47,7 +47,7 @@ spec:
               protocol: TCP
     {{- end }}
 {{- end }}
-{{- if and (eq .Values.networkPolicy.engine "cilium") .Values.gateRunner.enabled }}
+{{- if and (eq .Values.networkPolicy.engine "cilium") (include "sextant.gateRunner" .) }}
 ---
 # gate-runner egress: DNS + HTTPS to the overlay git remote, cache.nixos.org
 # and the flake inputs it evaluates. Once selected, Cilium denies all other

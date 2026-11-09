@@ -36,24 +36,27 @@ replicaCount: 1
 # Removing a key makes every value sealed under it unreadable, so keep it until
 # nothing needs it. If you do lose it, the error says which key id is missing
 # rather than pretending the data is corrupt.
-secretName: sextant-v2
+secretName: sextant
 
 write: true
-# Validation gate. remote (recommended for any real deploy) delegates to the
-# gate-runner; eval runs in-pod nix (the console image ships none, so eval is
-# effectively dev-only); none commits WITHOUT validation. A write-enabled
-# console with gateMode: none refuses to start unless allowUnvalidated: true
-# is set explicitly - a bad fleet.json otherwise reaches devices.
-gateMode: none # none | eval | remote
+# Validation gate. remote, the default, runs a gate-runner next to the
+# console and checks every change before it is committed. eval runs nix in
+# the console pod (the console image ships none, so eval is effectively
+# dev-only); none commits WITHOUT validation. A write-enabled console with
+# gateMode: none refuses to start unless allowUnvalidated: true is set
+# explicitly - a bad fleet.json otherwise reaches devices.
+gateMode: remote # remote | eval | none
 # allowUnvalidated acknowledges a deliberate no-gate write deploy (a demo /
 # dev cell). Never set this on a cell that manages real devices.
 allowUnvalidated: false
 
-# gate-runner: nix-capable validation gate for gateMode=remote. The console
-# image ships no nix; when enabled the runner evaluates the overlay generator
-# out of process. Deploy it (enabled) and verify /healthz before flipping the
-# console to gateMode=remote (remote is fail-closed: writes reject if the
-# runner is down).
+# gate-runner: the nix-capable validation gate. The console image ships no
+# nix; the runner evaluates the overlay generator out of process. It runs
+# whenever gateMode is remote. enabled: true also runs it under eval or none,
+# to warm it up and check /healthz before switching the console over (remote
+# is fail-closed: writes reject while the runner is down). Its bearer token
+# is GATE_TOKEN in the app secret when that has one, and otherwise a Secret
+# the chart generates once and keeps.
 gateRunner:
   enabled: false
   image:

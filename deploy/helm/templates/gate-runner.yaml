@@ -1,4 +1,4 @@
-{{- if .Values.gateRunner.enabled }}
+{{- if include "sextant.gateRunner" . }}
 # gate-runner: the nix-capable validation gate the console delegates to when
 # gateMode=remote. It keeps its own warm overlay clone and a persistent /nix
 # store so evaluations are fast after the first. Never exposed via ingress -
@@ -83,16 +83,13 @@ spec:
             # 28% of a system evaluation in collection. See values.yaml.
             - { name: GC_INITIAL_HEAP_SIZE, value: {{ . | quote }} }
             {{- end }}
-            # Bearer token the console must present to /validate. Optional so a
-            # loopback/dev runner may go without; when the key is set in the
-            # app secret, a networked runner requires it (fail-closed) and the
-            # console picks up the same value via envFrom the same secret.
+            # Bearer token the console must present to /validate; a networked
+            # runner refuses to start without one (fail-closed). The console
+            # reads the same reference (sextant.gateTokenRef).
             - name: GATE_TOKEN
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.secretName }}
-                  key: GATE_TOKEN
-                  optional: true
+                  {{- include "sextant.gateTokenRef" . | nindent 18 }}
             # Guards the read-only cache. Optional and separate from
             # GATE_TOKEN: every device needs this one and no device needs the
             # gate's, so one secret for both would hand a build trigger to
@@ -224,7 +221,7 @@ spec:
 {{- end }}
 {{- end }}
 
-{{- if and .Values.gateRunner.enabled .Values.gateRunner.cache.keySecret .Values.gateRunner.cache.persistent }}
+{{- if and (include "sextant.gateRunner" .) .Values.gateRunner.cache.keySecret .Values.gateRunner.cache.persistent }}
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -239,4 +236,27 @@ spec:
   resources:
     requests:
       storage: {{ .Values.gateRunner.cache.sizeLimit }}
+{{- end }}
+
+{{- /* The gate's bearer token, when the app secret does not bring one:
+       generated once and read back on every upgrade (lookup), the same way
+       the embedded database keeps its password. Nobody has to make it up,
+       and console and runner always share it. */}}
+{{- if and (include "sextant.gateRunner" .) (include "sextant.gateTokenOwn" .) }}
+{{- $name := printf "%s-gate-token" .Release.Name }}
+{{- $token := randAlphaNum 48 }}
+{{- with (lookup "v1" "Secret" .Release.Namespace $name) }}
+  {{- with index .data "token" }}
+    {{- $token = . | b64dec }}
+  {{- end }}
+{{- end }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ $name }}
+  labels: { app: {{ .Release.Name }}-gate }
+type: Opaque
+stringData:
+  token: {{ $token | quote }}
 {{- end }}

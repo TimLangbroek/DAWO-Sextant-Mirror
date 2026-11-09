@@ -51,7 +51,7 @@ spec:
       ports:
         - port: 443
           protocol: TCP
-    {{- if .Values.gateRunner.enabled }}
+    {{- if include "sextant.gateRunner" . }}
     - to:
         - podSelector:
             matchLabels:
@@ -61,7 +61,7 @@ spec:
           protocol: TCP
     {{- end }}
 {{- end }}
-{{- if and (eq .Values.networkPolicy.engine "kubernetes") .Values.gateRunner.enabled }}
+{{- if and (eq .Values.networkPolicy.engine "kubernetes") (include "sextant.gateRunner" .) }}
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
