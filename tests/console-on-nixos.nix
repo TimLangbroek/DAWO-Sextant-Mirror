@@ -11,15 +11,6 @@ pkgs.testers.runNixOSTest {
   nodes.machine = { config, pkgs, ... }: {
     imports = [ self.nixosModules.default ];
 
-    services.postgresql = {
-      enable = true;
-      ensureDatabases = [ "sextant" ];
-      ensureUsers = [{
-        name = "sextant";
-        ensureDBOwnership = true;
-      }];
-    };
-
     services.sextant = {
       enable = true;
       addr = "127.0.0.1:8080";
@@ -45,18 +36,11 @@ pkgs.testers.runNixOSTest {
       secureCookies = false;
       extraArgs = [ "--dev-auth" ];
       environmentFile = "/etc/sextant.env";
+      # No database settings: the module runs PostgreSQL on this host and
+      # connects over the socket, which /station below depends on.
     };
 
-    # The console connects over TCP, so only that line is added. Overriding
-    # the whole file with mkForce broke postgres own admin connection
-    # (peer auth for user "postgres"), which is a good reminder that a
-    # test-only shortcut can create the failure it was meant to avoid.
-    services.postgresql.authentication = ''
-      host all all 127.0.0.1/32 trust
-    '';
-
     environment.etc."sextant.env".text = ''
-      SEXTANT_PG_DSN=postgres://sextant@127.0.0.1/sextant?sslmode=disable
       SEXTANT_CHECKIN_TOKEN=vm-test
     '';
 

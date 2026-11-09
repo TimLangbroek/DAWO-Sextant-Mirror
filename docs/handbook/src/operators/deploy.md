@@ -25,7 +25,7 @@ there is nothing else to wire.
 | | |
 |---|---|
 | Go | 1.25 or newer, to build from source |
-| PostgreSQL | The chart brings its own via CloudNativePG, and `deploy/compose` starts one. The container and the NixOS module expect one |
+| PostgreSQL | The chart brings its own via CloudNativePG, `deploy/compose` and the NixOS module start one. The container expects one |
 | Kubernetes | any recent version; the chart uses no alpha APIs. Helm 3 |
 | CloudNativePG | the operator must be installed before the chart, which creates a `postgresql.cnpg.io/v1` Cluster. Skip it with `cnpg.enabled: false` and bring your own database |
 | Nix | only on the gate-runner. The console image ships none, deliberately |

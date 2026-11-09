@@ -29,6 +29,11 @@ let
   # HOME for git while it talks to the forge: the netrc is linked in here,
   # on a tmpfs that goes away with the unit.
   runDir = "/run/sextant";
+  # The database role and name. Postgres matches it to the unit's user over
+  # the socket (peer authentication), so there is no password anywhere; a
+  # DynamicUser is named after the unit.
+  dbName = if dynamic then "sextant" else cfg.user;
+  localDb = cfg.database.createLocally;
   needsRW = cfg.repo != null && !(inStateDir (toString cfg.repo));
   # DynamicUser is the right default for a read-only console: no account to
   # manage, no uid to leak. It is the wrong default the moment the console has
@@ -180,6 +185,20 @@ in
       '';
     };
 
+    database.createLocally = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = ''
+        Run PostgreSQL on this host for the console's observed plane
+        (check-ins, device tokens, image jobs, and the only copy of the
+        disk recovery keys) and connect over the local socket, with no
+        password to keep. Back it up like any database that matters.
+
+        Set it to false and put SEXTANT_PG_DSN in environmentFile to use a
+        database elsewhere.
+      '';
+    };
+
     environmentFile = lib.mkOption {
       type = lib.types.nullOr lib.types.path;
       default = null;
@@ -235,6 +254,15 @@ in
       }
     ];
 
+    services.postgresql = lib.mkIf localDb {
+      enable = true;
+      ensureDatabases = [ dbName ];
+      ensureUsers = [{
+        name = dbName;
+        ensureDBOwnership = true;
+      }];
+    };
+
     users.users = lib.mkIf (!dynamic) {
       ${cfg.user} = {
         isSystemUser = true;
@@ -252,8 +280,9 @@ in
     systemd.services.sextant = {
       description = "Sextant fleet control-plane";
       wantedBy = [ "multi-user.target" ];
-      after = [ "network-online.target" ];
+      after = [ "network-online.target" ] ++ lib.optional localDb "postgresql.target";
       wants = [ "network-online.target" ];
+      requires = lib.optional localDb "postgresql.target";
       # A forge that is not reachable yet at boot fails prepare-repo; the
       # unit keeps retrying with a growing delay instead of giving up after
       # five quick failures.
@@ -261,7 +290,11 @@ in
       # git for the config plane; nix only when this host runs the gate
       # itself. A remote gate keeps nix off the console host on purpose.
       path = [ pkgs.git ] ++ lib.optional (cfg.gate == "eval") pkgs.nix;
-      environment = lib.mkIf remote { HOME = runDir; };
+      # environmentFile is read after these, so a DSN there still wins.
+      environment = lib.optionalAttrs remote { HOME = runDir; }
+        // lib.optionalAttrs localDb {
+          SEXTANT_PG_DSN = "postgres://${dbName}@/${dbName}?host=/run/postgresql";
+        };
       serviceConfig = {
         ExecStartPre = lib.optionals remote (
           # %d is the unit's credentials directory: the token is linked,

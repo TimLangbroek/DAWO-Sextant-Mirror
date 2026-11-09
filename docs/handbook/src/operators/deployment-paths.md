@@ -28,7 +28,7 @@ services.sextant = {
   write = true;
   gate = "eval"; # this host has nix; the gate runs here
   publicUrl = "https://console.example.org"; # your TLS proxy in front
-  environmentFile = "/run/secrets/sextant.env"; # SEXTANT_PG_DSN and the keys
+  environmentFile = "/run/secrets/sextant.env"; # the keys; PostgreSQL runs on this host
 };
 ```
 
@@ -111,8 +111,9 @@ The full walk-through, including the values that bite, is
 
 The console is the same binary in all three. What changes:
 
-- **The database.** The compose stack starts one in a volume; the container
-  and the NixOS module expect one; the chart creates one.
+- **The database.** The compose stack starts one in a volume, the NixOS
+  module runs one on the host (`database.createLocally`, on by default), the
+  chart creates one; the container expects one.
 - **Validation.** The compose stack runs the remote gate, as production does.
   The container and the chart should use
   `--gate remote` with a nix-capable gate-runner - the console image ships no

@@ -58,9 +58,19 @@ let
     gate = "eval";
   }).systemd.services.sextant;
   remote = remoteSvc.serviceConfig;
+  # The database: local by default, over the socket, as the unit's user.
+  dbDefault = eval { enable = true; user = "fleet"; };
+  dbOff = (eval { enable = true; database.createLocally = false; }).systemd.services.sextant;
 in
 pkgs.runCommand "sextant-console-module-check"
 {
+  dbDsn = dbDefault.systemd.services.sextant.environment.SEXTANT_PG_DSN;
+  dbAfter = builtins.concatStringsSep "," dbDefault.systemd.services.sextant.after;
+  dbRequires = builtins.concatStringsSep "," dbDefault.systemd.services.sextant.requires;
+  dbPg = if dbDefault.services.postgresql.enable then "on" else "off";
+  dbOwner = builtins.toJSON dbDefault.services.postgresql.ensureUsers;
+  dbOffDsn = dbOff.environment.SEXTANT_PG_DSN or "";
+  dbOffAfter = builtins.concatStringsSep "," dbOff.after;
   remotePre = builtins.concatStringsSep "|" remote.ExecStartPre;
   remoteExec = remote.ExecStart;
   remoteCred = builtins.concatStringsSep "," remote.LoadCredential;
@@ -147,6 +157,19 @@ pkgs.runCommand "sextant-console-module-check"
     *) fail "a relative netrcFile was accepted: '$refusedRelative'" ;;
   esac
   [ -z "$acceptedRemote" ] || fail "a fixed user with an outside repo was refused: '$acceptedRemote'"
+
+  # The observed plane needs a database; by default it is on this host,
+  # reached over the socket as the unit's own user, with no password.
+  [ "$dbPg" = on ] || fail "createLocally did not enable postgresql"
+  [ "$dbDsn" = "postgres://fleet@/fleet?host=/run/postgresql" ] || fail "DSN = '$dbDsn'"
+  case "$dbOwner" in
+    *'"name":"fleet"'*) ;;
+    *) fail "no database role for the unit's user: $dbOwner" ;;
+  esac
+  case ",$dbAfter," in *,postgresql.target,*) ;; *) fail "not ordered after postgresql.target: $dbAfter" ;; esac
+  case ",$dbRequires," in *,postgresql.target,*) ;; *) fail "does not require postgresql.target: $dbRequires" ;; esac
+  [ -z "$dbOffDsn" ] || fail "createLocally = false still set a DSN: $dbOffDsn"
+  case ",$dbOffAfter," in *,postgresql.target,*) fail "createLocally = false still waits for postgres" ;; esac
 
   touch $out
 ''
