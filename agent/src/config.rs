@@ -13,7 +13,7 @@ use std::time::Duration;
 /// field must never reach a log line, even from future debug statements.
 #[derive(Clone)]
 pub struct Config {
-    /// Console base URL, e.g. "https://console.bb-open.com".
+    /// Console base URL, e.g. "https://console.example.com".
     pub url: String,
     /// Device asset tag as enrolled in the fleet.
     pub tag: String,

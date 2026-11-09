@@ -12,12 +12,12 @@
 # load" will pass. Any page that does not end in </html> is truncated.
 #
 # Usage:
-#   scripts/e2e-smoke.sh https://sextant.bb-open.com [expected-version]
+#   scripts/e2e-smoke.sh https://console.example.com [expected-version]
 #
 # Authentication: the console is behind OIDC, so pages answer 302 to the login
 # unless you pass a session. Export SEXTANT_COOKIE with a browser session
 # cookie to check them as a logged-in user:
-#   SEXTANT_COOKIE='session=...' scripts/e2e-smoke.sh https://sextant.bb-open.com
+#   SEXTANT_COOKIE='session=...' scripts/e2e-smoke.sh https://console.example.com
 # Without it the script still proves the console is up, serving, and on the
 # expected build, and it says plainly that the pages were not checked rather
 # than reporting a 302 as a pass.

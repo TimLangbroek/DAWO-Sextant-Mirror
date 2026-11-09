@@ -52,7 +52,7 @@ func TestIntegrationCardSavesAsOneForm(t *testing.T) {
 	resp, err := c.PostForm(ts.URL+"/settings", url.Values{
 		"csrf": {"dev-csrf"}, "scope": {"org"},
 		"v:netbird.enable":        {"true"},
-		"v:netbird.managementUrl": {"https://netbird.bb-open.com"},
+		"v:netbird.managementUrl": {"https://netbird.example.com"},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -62,7 +62,7 @@ func TestIntegrationCardSavesAsOneForm(t *testing.T) {
 		t.Fatalf("card save = %d", resp.StatusCode)
 	}
 	own, _, _ := cfg.Fleet().ScopeSettings("org")
-	if own["netbird.enable"] != true || own["netbird.managementUrl"] != "https://netbird.bb-open.com" {
+	if own["netbird.enable"] != true || own["netbird.managementUrl"] != "https://netbird.example.com" {
 		t.Fatalf("card values not saved: %v", own)
 	}
 	// The seed org sets desktop; a card save must never clear it.

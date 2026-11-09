@@ -28,7 +28,7 @@ spec:
         - ports:
             - port: "5432"
               protocol: TCP
-    # OIDC issuer (id.bb-open.com) and other HTTPS egress (git remotes).
+    # OIDC issuer and other HTTPS egress (git remotes).
     - toEntities:
         - world
         - cluster

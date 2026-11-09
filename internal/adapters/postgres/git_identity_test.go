@@ -22,7 +22,7 @@ func TestForgeIdentityRoundTripsSealed(t *testing.T) {
 	sealed := []byte{0x00, 0x01, 0xff, 0xfe, 0x00} // opaque bytes, NUL included
 
 	id := forge.Identity{
-		Host:      "forgejo.bb-open.com",
+		Host:      "forge.example.com",
 		Username:  "sextant-console",
 		TokenEnc:  sealed,
 		UpdatedBy: "ada",
@@ -65,7 +65,7 @@ func TestForgeIdentityRotationReplaces(t *testing.T) {
 	// Rotation is the point of this store: a revoked token must stop being
 	// reachable, not sit beside its replacement.
 	time.Sleep(2 * time.Millisecond)
-	second := forge.Identity{Host: "forgejo.bb-open.com", Username: "sextant-console", TokenEnc: []byte("b"), UpdatedBy: "grace"}
+	second := forge.Identity{Host: "forge.example.com", Username: "sextant-console", TokenEnc: []byte("b"), UpdatedBy: "grace"}
 	if err := s.PutForgeIdentity(ctx, "t1", second); err != nil {
 		t.Fatal(err)
 	}

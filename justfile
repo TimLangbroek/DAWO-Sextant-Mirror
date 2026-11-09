@@ -62,7 +62,7 @@ icon-font:
 
 # Every page answers, answers with a WHOLE document, and reports the build you
 # think you are testing. SEXTANT_COOKIE checks the pages behind the login too.
-#   just smoke URL=https://console.bb-open.com
+#   just smoke URL=https://console.example.com
 #
 # Smoke a running console
 smoke URL="http://127.0.0.1:8080" VERSION="":

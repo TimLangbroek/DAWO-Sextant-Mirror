@@ -5,7 +5,7 @@
 #   services.sextant-agent = {
 #     enable = true;
 #     tag = "lt-00042";
-#     url = "https://console.bb-open.com";
+#     url = "https://console.example.com";
 #   };
 #
 # The per-device credential is runtime state (never in the nix store):
