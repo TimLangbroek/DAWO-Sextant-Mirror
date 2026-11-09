@@ -6,7 +6,7 @@ default: ci
 # ci mirrors .forgejo/workflows/ci.yml - the REAL merge bar. If a step is
 # added there, add it here (and vice versa); a narrower local bar teaches
 # people the wrong definition of green.
-ci: fmt-check vet lint test coverage-floor build nix-build catalog-check css-check agent-ci
+ci: fmt-check vet lint test coverage-floor build nix-build catalog-check css-check chart-check agent-ci
 
 # The logic layer must stay above the floor enforced below. Transport, ports,
 # logging and the capability wiring are excluded: they are glue, and counting
@@ -49,6 +49,10 @@ nix-build:
 
 catalog-check:
     examples/overlay/regen-catalog.sh --check
+
+# The chart renders and its refusals fire (scripts/check-chart.sh).
+chart-check:
+    scripts/check-chart.sh
 
 agent-ci:
     cd agent && cargo fmt --check && cargo clippy --all-targets -- -D warnings && cargo test
