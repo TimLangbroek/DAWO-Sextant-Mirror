@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log/slog"
 	"os"
@@ -9,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 // clone_test.go covers the two functions that decide whether the runner
@@ -182,5 +184,48 @@ func TestEnsureCloneSurfacesAnUnreachableRemote(t *testing.T) {
 	}
 	if err := s.cloneUsable(context.Background()); err == nil {
 		t.Error("cloneUsable is happy after a failed clone; /readyz would lie")
+	}
+}
+
+// A first install starts the runner before the console has filled an empty
+// fleet repository. The runner waits for it, backing off, instead of
+// exiting into a crash loop, and stops waiting when it is told to stop.
+func TestWaitForCloneOutlastsAnEmptyRemote(t *testing.T) {
+	var calls int
+	var logs strings.Builder
+	s := testServer(t, filepath.Join(t.TempDir(), "overlay"), "https://example.test/fleet.git")
+	s.log = slog.New(slog.NewTextHandler(&logs, nil))
+	s.gitRun = func(_ context.Context, _ string, args ...string) error {
+		calls++
+		if calls < 4 {
+			return errors.New("Remote branch main not found in upstream origin")
+		}
+		return nil
+	}
+	if !s.waitForClone(context.Background(), time.Millisecond, 2*time.Millisecond) {
+		t.Fatal("gave up on a remote that came")
+	}
+	if calls != 4 {
+		t.Fatalf("%d clone attempts, want 4", calls)
+	}
+	// Doubling, capped: 1ms, 2ms, then 2ms again rather than 4ms.
+	if got := strings.Count(logs.String(), "retry_in=2ms"); got != 2 || !strings.Contains(logs.String(), "retry_in=1ms") {
+		t.Fatalf("backoff not doubling up to the cap:\n%s", logs.String())
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	s.gitRun = func(context.Context, string, ...string) error {
+		cancel()
+		return errors.New("still empty")
+	}
+	done := make(chan bool)
+	go func() { done <- s.waitForClone(ctx, time.Hour, time.Hour) }()
+	select {
+	case ok := <-done:
+		if ok {
+			t.Fatal("reported a clone that never came")
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("kept waiting after shutdown")
 	}
 }

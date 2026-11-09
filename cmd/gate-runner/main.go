@@ -153,10 +153,13 @@ func main() {
 		log.Error("cache-dir and cache-key must be set together (refusing an unsigned cache)")
 		os.Exit(2)
 	}
-	if err := srv.ensureClone(context.Background()); err != nil {
-		log.Error("initial overlay clone failed", "err", err)
-		os.Exit(1)
-	}
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
+	defer stop()
+	// On a first install the fleet repository may still be empty while this
+	// pod starts: the console fills it in its own init step. Waiting instead
+	// of exiting keeps a new install from opening with a crash loop. Until
+	// the clone exists, /validate fails and the console's writes fail closed.
+	go srv.waitForClone(ctx, 2*time.Second, time.Minute)
 
 	checks := health.New(5 * time.Second)
 	checks.SetLogger(log)
@@ -181,8 +184,6 @@ func main() {
 		WriteTimeout: time.Duration(*evalSecs+30) * time.Second,
 	}
 
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
-	defer stop()
 	go func() {
 		log.Info("gate-runner listening", "addr", *addr, "branch", *branch, "workdir", *workdir, "max_concurrent", *maxConcurrent)
 		if err := httpSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -494,6 +495,29 @@ func isLoopback(addr string) bool {
 		return true
 	}
 	return false
+}
+
+// waitForClone runs ensureClone until it succeeds or ctx ends, waiting
+// first, then twice as long after each failure, up to most. It holds the
+// evaluation lock while it works, so a request never meets half a clone.
+func (s *server) waitForClone(ctx context.Context, first, most time.Duration) bool {
+	wait := first
+	for {
+		s.mu.Lock()
+		err := s.ensureClone(ctx)
+		s.mu.Unlock()
+		if err == nil {
+			s.log.Info("overlay clone ready", "workdir", s.workdir)
+			return true
+		}
+		s.log.Warn("waiting for the fleet repository", "remote", s.remote, "branch", s.branch, "retry_in", wait.String(), "err", err)
+		select {
+		case <-ctx.Done():
+			return false
+		case <-time.After(wait):
+		}
+		wait = min(2*wait, most)
+	}
 }
 
 // ensureClone clones the overlay if the workdir is not yet a repo.
