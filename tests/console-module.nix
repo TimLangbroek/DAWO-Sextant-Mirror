@@ -33,6 +33,7 @@ let
     write = true;
     gate = "remote";
     gateUrl = "https://gate.example.org";
+    publicUrl = "https://console.example.org";
   };
   inState = mk {
     enable = true;
@@ -93,7 +94,8 @@ pkgs.runCommand "sextant-console-module-check"
 
   # Every option that shapes the deployment has to reach the command line.
   for flag in "--addr 127.0.0.1:8080" "--gate remote" "--repo /srv/overlay" \
-              "--gate-url https://gate.example.org" "--write" "--secure-cookies"; do
+              "--gate-url https://gate.example.org" "--write" "--secure-cookies" \
+              "--public-url https://console.example.org"; do
     case "$execStart" in
       *"$flag"*) ;;
       *) fail "ExecStart is missing $flag: $execStart" ;;
@@ -133,6 +135,7 @@ pkgs.runCommand "sextant-console-module-check"
   [ -z "$inStatePre" ] || fail "prepare-repo ran without a remote: $inStatePre"
   case "$inStateExec" in
     *--git-remote*) fail "a console without a remote was told to push: $inStateExec" ;;
+    *--public-url*) fail "a public url appeared without being set: $inStateExec" ;;
   esac
 
   case "$refusedOutside" in

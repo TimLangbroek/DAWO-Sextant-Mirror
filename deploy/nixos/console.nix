@@ -159,6 +159,18 @@ in
       '';
     };
 
+    publicUrl = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      example = "https://console.example.org";
+      description = ''
+        The address people reach the console on, through your TLS proxy.
+        Sign-in's redirect URL (<publicUrl>/callback, to register at the
+        identity provider) and the links in notification mail follow from
+        it.
+      '';
+    };
+
     secureCookies = lib.mkOption {
       type = lib.types.bool;
       default = true;
@@ -277,6 +289,7 @@ in
         ++ lib.optionals (cfg.repo != null) [ "--repo" (toString cfg.repo) ]
         ++ lib.optionals remote [ "--git-remote" "origin" ]
         ++ lib.optionals (cfg.gateUrl != null) [ "--gate-url" cfg.gateUrl ]
+        ++ lib.optionals (cfg.publicUrl != null) [ "--public-url" cfg.publicUrl ]
         ++ lib.optional cfg.write "--write"
         ++ lib.optional cfg.allowUnvalidated "--allow-unvalidated"
         ++ lib.optional cfg.secureCookies "--secure-cookies"

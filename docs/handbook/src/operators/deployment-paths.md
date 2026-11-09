@@ -27,6 +27,7 @@ services.sextant = {
   gitRemote.netrcFile = "/run/secrets/sextant-netrc";
   write = true;
   gate = "eval"; # this host has nix; the gate runs here
+  publicUrl = "https://console.example.org"; # your TLS proxy in front
   environmentFile = "/run/secrets/sextant.env"; # SEXTANT_PG_DSN and the keys
 };
 ```
