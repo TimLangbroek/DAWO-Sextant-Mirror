@@ -91,7 +91,7 @@ during one.
 
 ## The binary cache is gone
 
-Devices substitute from `https://cache.sextant.bb-open.com/cache`, with its
+Devices substitute from `https://<cache host>/cache`, with its
 key in `extra-trusted-public-keys` (checked - the key is present, which is not
 something to assume: an untrusted substituter is silently ignored rather than
 refused).

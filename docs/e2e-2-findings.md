@@ -82,7 +82,7 @@ hardware.
    Fixed by owning the directory with a tmpfiles rule instead of
    `StateDirectory`, so nothing chowns it back. Proven on the device: after
    a single `chown -R wazuh:wazuh`, agentd read its keys and its config and
-   reported `Connected to the server ([siem.bb-open.com]:1514/tcp)`.
+   reported `Connected to the server ([<SIEM host>]:1514/tcp)`.
 
 **Result.** The agent enrols, reads its configuration and connects to the
 manager.

@@ -9,17 +9,17 @@ cluster-internal and become reachable through the mesh.
 
 | Integration | Infra | Overlay config | Blocker |
 |---|---|---|---|
-| NetBird | management: https://netbird.bb-open.com (live) | empty | reusable setup key (Bram, dashboard) |
-| LDAP | ldap-bb-open in the cluster; sextant-ro bind proven (#29) | empty | route device->LDAP (mesh or LDAPS expose: a design choice) |
+| NetBird | management: https://netbird.example.com (live) | empty | reusable setup key (Bram, dashboard) |
+| LDAP | the LDAP service in the cluster; sextant-ro bind proven (#29) | empty | route device->LDAP (mesh or LDAPS expose: a design choice) |
 | Wazuh | NO manager found | empty | stand up a manager (separate platform app) |
 | Zitadel | live; console RBAC works | n/a | role verification only |
 
 ## Phase 1 - NetBird on the t495s (the key to the rest)
-1. Bram: create a reusable setup key (dashboard netbird.bb-open.com), put
+1. Bram: create a reusable setup key (dashboard netbird.example.com), put
    the value in the overlay as the agenix secret `netbird-setup-key` plus a
    secret reference in fleet.json.
 2. Console: on group pilot set `netbird.enable=true`,
-   `netbird.managementUrl=https://netbird.bb-open.com`,
+   `netbird.managementUrl=https://netbird.example.com`,
    `netbird.setupKey=<secret-ref>`.
 3. Merge -> delivery-on-merge rolls it out (test wave -> group). Proof: the
    t495s appears as a peer in the NetBird dashboard.

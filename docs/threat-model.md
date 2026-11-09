@@ -246,7 +246,7 @@ side, reveal stays Owner-only + audited.
 
 ## Control 8 - The public binary cache, and what a store path is worth
 
-`cache.sextant.bb-open.com` is reachable from the internet and answers
+The binary cache host is reachable from the internet and answers
 `WantMassQuery: 1`. That is normal for a Nix cache and it is a deliberate
 choice, so it is recorded here rather than left to be discovered.
 
