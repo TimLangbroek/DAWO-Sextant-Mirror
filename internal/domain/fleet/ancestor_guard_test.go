@@ -16,7 +16,7 @@ func guarded() *Fleet {
 		Org:     &Scope{Settings: map[string]any{}},
 		Groups: map[string]Group{
 			"gemeente-a": {},
-			"stad":   {Parent: "gemeente-a"},
+			"stad":       {Parent: "gemeente-a"},
 			"kantoor":    {},
 		},
 		Devices: map[string]Device{"lt-1": {Groups: []string{"stad"}}},

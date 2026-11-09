@@ -15,7 +15,7 @@ func nested() *Fleet {
 		Org:     &Scope{Settings: map[string]any{"desktop": "gnome", "ssh.enable": true}},
 		Groups: map[string]Group{
 			"gemeente-a": {Settings: map[string]any{"desktop": "plasma", "timesync.enable": true}},
-			"stad":   {Parent: "gemeente-a", Settings: map[string]any{"desktop": "kde"}},
+			"stad":       {Parent: "gemeente-a", Settings: map[string]any{"desktop": "kde"}},
 			"kantoor":    {Settings: map[string]any{"ssh.enable": false}},
 		},
 		Devices: map[string]Device{
