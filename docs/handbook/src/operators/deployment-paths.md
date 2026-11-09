@@ -80,6 +80,10 @@ kubectl -n sextant create secret generic sextant \
 helm install sextant ./deploy/helm -n sextant -f my-values.yaml
 ```
 
+`my-values.yaml` needs at least `gitRemote.url`: the chart refuses to render
+without a fleet repository. An empty one is fine; the chart fills it before
+the console starts.
+
 This is the only path that brings its own database: the chart creates a
 CloudNativePG cluster and wires the console to it, so `SEXTANT_PG_DSN` is not
 in that secret. It needs the CloudNativePG operator installed first.

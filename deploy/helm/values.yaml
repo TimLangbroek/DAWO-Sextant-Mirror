@@ -160,12 +160,14 @@ gateRunner:
     requests: { cpu: 100m, memory: 512Mi }
     limits: { cpu: "2", memory: 4Gi }
 
-# Git remote as the source of truth (M1): when url is set, the init
-# container clones it instead of self-seeding, and the server runs with
-# --git-remote=origin (sync loop + HA push). netrcSecret must contain a
-# `netrc` key with credentials for the remote host.
+# The fleet repository, required: devices follow it, so it is the fleet's
+# source of truth. Any https forge works (GitHub, Codeberg, GitLab, Forgejo).
+# An empty repository is enough: before the console starts, `sextant
+# prepare-repo` clones it and, when it is empty, pushes a starter fleet.
+# netrcSecret names a Secret with a `netrc` key holding a credential that may
+# push; without one the repository must be public and the console read-only.
 gitRemote:
-  url: ""
+  url: "" # https://github.com/<org>/<fleet>.git
   branch: main
   netrcSecret: ""
 logFormat: json
@@ -358,12 +360,6 @@ devAuth:
 simulator:
   enabled: false
   interval: 30s
-  # Without gitRemote.url the console self-seeds an empty overlay, and a
-  # simulator against an empty fleet shows nothing. devices > 0 generates
-  # that many simulated devices into the seed (fleetsim -gen), so a demo
-  # with no git remote at all still shows a fleet. Ignored with a remote:
-  # that repository's fleet.json is the fleet.
-  devices: 0
   # fleetsim lives in the TOOLS image, not the console image: it can invent
   # device state from nothing but the shared check-in token, so the control
   # plane does not carry it. Empty values default to the console repository

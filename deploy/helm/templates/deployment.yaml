@@ -1,3 +1,14 @@
+{{/* The fleet lives in a git repository that devices follow, and this
+     chart only runs against one. An empty repository is enough: the console
+     fills it with a starter fleet before it starts (sextant prepare-repo). */}}
+{{- if not .Values.gitRemote.url }}
+  {{- fail "gitRemote.url is required: the fleet lives in a git repository that devices follow. Create an empty repository on any https forge (GitHub, Codeberg, GitLab, Forgejo), set gitRemote.url to it, and gitRemote.netrcSecret to a Secret holding a netrc with a credential that may push. The console fills an empty repository itself." }}
+{{- end }}
+{{- with .Values.image.tag }}
+  {{- if and (regexMatch "^v?[0-9]+\\.[0-9]+\\.[0-9]+" .) (semverCompare "<0.94.0-0" .) }}
+    {{- fail (printf "image.tag %s predates `sextant prepare-repo`, which this chart runs before the console starts; an older binary would start a server in the init container and the pod would never come up. Use image 0.94.0 or newer, or the chart from the release that matches the image." .) }}
+  {{- end }}
+{{- end }}
 {{/* Passwordless demo guards. Each of these combinations renders something
      that looks like it works and is not what anybody meant, so the chart
      refuses instead of shipping it. */}}
@@ -45,82 +56,33 @@ spec:
         fsGroup: 65532
         seccompProfile: { type: RuntimeDefault }
       initContainers:
-        {{- if and .Values.simulator.enabled (not .Values.gitRemote.url) (gt (int .Values.simulator.devices) 0) }}
-        # A fleet for the self-seeded overlay. fleetsim lives in the tools
-        # image, so this is a separate container; it writes the document the
-        # seed below commits, and only on a fresh volume.
-        - name: gen-fleet
-          image: "{{ .Values.simulator.image.repository | default .Values.image.repository }}:{{ .Values.simulator.image.tag | default (printf "%s-tools" (.Values.image.tag | default .Chart.AppVersion)) }}"
-          command: ["/bin/sh", "-c"]
-          args:
-            - |
-              set -eu
-              if [ ! -d /data/overlay/.git ]; then
-                fleetsim -gen {{ int .Values.simulator.devices }} > /data/seed-fleet.json
-              fi
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities: { drop: [ALL] }
-          resources:
-            requests: { cpu: 10m, memory: 32Mi }
-            limits: { cpu: 200m, memory: 128Mi }
-          volumeMounts:
-            - { name: data, mountPath: /data }
-        {{- end }}
-        # Self-seed: an empty data volume gets a git overlay repo with a
-        # minimal v3 fleet document, so the console starts standalone. An
-        # existing repo is left untouched.
-        - name: seed-overlay
+        # The fleet repository: cloned on a fresh volume, filled with the
+        # starter fleet when the remote is still empty, and pointed at the
+        # remote again on every start. The same step every install path runs.
+        - name: prepare-repo
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           command: ["/bin/sh", "-c"]
           args:
             - |
               set -eu
-              {{- if .Values.gitRemote.url }}
-              export HOME=/data
               {{- if .Values.gitRemote.netrcSecret }}
               install -m 0600 /netrc-secret/netrc /data/.netrc
               {{- end }}
-              if [ ! -d /data/overlay/.git ]; then
-                # Fresh volume: clone the source of truth.
-                git clone --branch {{ .Values.gitRemote.branch }} \
-                  {{ .Values.gitRemote.url }} /data/overlay
-              else
-                # Existing volume: ensure it points at the remote and is in
-                # sync (idempotent - safe on every restart).
-                git -C /data/overlay remote get-url origin >/dev/null 2>&1 \
-                  || git -C /data/overlay remote add origin {{ .Values.gitRemote.url }}
-                git -C /data/overlay remote set-url origin {{ .Values.gitRemote.url }}
-                git -C /data/overlay fetch -q origin {{ .Values.gitRemote.branch }}
-                git -C /data/overlay branch --set-upstream-to=origin/{{ .Values.gitRemote.branch }} {{ .Values.gitRemote.branch }} 2>/dev/null || true
-              fi
-              {{- else }}
-              if [ ! -d /data/overlay/.git ]; then
-                mkdir -p /data/overlay
-                cd /data/overlay
-                git init -q -b main
-                if [ -s /data/seed-fleet.json ]; then
-                  mv /data/seed-fleet.json fleet.json
-                else
-                cat > fleet.json <<'EOF'
-              {
-                "version": 3,
-                "org": {"settings": {"desktop": "plasma"}},
-                "groups": {"pilot": {}},
-                "devices": {}
-              }
-              EOF
-                fi
-                git add fleet.json
-                git -c user.name=sextant -c user.email=seed@sextant commit -qm "seed overlay"
-              fi
-              {{- end }}
+              exec sextant prepare-repo --repo /data/overlay \
+                --url {{ .Values.gitRemote.url | quote }} \
+                --branch {{ .Values.gitRemote.branch | default "main" | quote }}
+          env:
+            # git reads /data/.netrc for the remote's credential.
+            - { name: HOME, value: /data }
           securityContext:
             allowPrivilegeEscalation: false
             capabilities: { drop: [ALL] }
+          resources:
+            requests: { cpu: 10m, memory: 32Mi }
+            limits: { cpu: 500m, memory: 256Mi }
           volumeMounts:
             - { name: data, mountPath: /data }
-            {{- if and .Values.gitRemote.url .Values.gitRemote.netrcSecret }}
+            {{- if .Values.gitRemote.netrcSecret }}
             - { name: netrc, mountPath: /netrc-secret, readOnly: true }
             {{- end }}
       containers:
@@ -148,9 +110,7 @@ spec:
             {{- if and .Values.write (eq .Values.gateMode "none") (not .Values.allowUnvalidated) }}
             {{- fail "gateMode: none with write: true commits unvalidated config to devices. Use gateMode: remote (recommended) or eval, or set allowUnvalidated: true for a deliberate dev/demo cell." }}
             {{- end }}
-            {{- if .Values.gitRemote.url }}
             - --git-remote=origin
-            {{- end }}
             - --log-format={{ .Values.logFormat }}
             - --secure-cookies
             - --trust-proxy
@@ -181,11 +141,9 @@ spec:
           envFrom:
             - secretRef: { name: {{ .Values.secretName }} }
           env:
-            {{- if .Values.gitRemote.url }}
             # git reads /data/.netrc (written by the init container) for
             # the overlay remote's credentials.
             - { name: HOME, value: /data }
-            {{- end }}
             {{- $db := include "sextant.dbMode" . }}
             {{- if eq $db "cnpg" }}
             - name: SEXTANT_PG_DSN
@@ -326,18 +284,10 @@ spec:
           args:
             - |
               set -eu
-              {{- if .Values.gitRemote.url }}
-              git clone -q --depth 1 --branch {{ .Values.gitRemote.branch }} {{ .Values.gitRemote.url }} /tmp/overlay
-              {{- end }}
               exec fleetsim -url http://127.0.0.1:8080 \
                 -token "$SEXTANT_CHECKIN_TOKEN" \
-                {{- if .Values.gitRemote.url }}
-                -repo {{ .Values.gitRemote.url }} \
-                -fleet /tmp/overlay/fleet.json \
-                {{- else }}
                 -repo /data/overlay \
                 -fleet /data/overlay/fleet.json \
-                {{- end }}
                 -interval {{ .Values.simulator.interval | default "30s" }} \
                 {{- with .Values.simulator.station }}
                 {{- if .tag }}
@@ -355,13 +305,12 @@ spec:
           resources:
             requests: { cpu: 10m, memory: 32Mi }
             limits: { cpu: 200m, memory: 128Mi }
-          {{- if not .Values.gitRemote.url }}
-          # The console's own overlay, read-only: fleetsim only runs
+          # The console's own clone, read-only: fleetsim only runs
           # `git ls-remote` on it, and two writers on one working tree is
-          # how a repository gets corrupted.
+          # how a repository gets corrupted. Reading it rather than cloning
+          # again also means no second copy of the credential.
           volumeMounts:
             - { name: data, mountPath: /data, readOnly: true }
-          {{- end }}
         {{- end }}
 
       volumes:
@@ -374,7 +323,7 @@ spec:
             items:
               - { key: ca.crt, path: ca.crt }
         {{- end }}
-        {{- if and .Values.gitRemote.url .Values.gitRemote.netrcSecret }}
+        {{- if .Values.gitRemote.netrcSecret }}
         - name: netrc
           secret:
             secretName: {{ .Values.gitRemote.netrcSecret }}

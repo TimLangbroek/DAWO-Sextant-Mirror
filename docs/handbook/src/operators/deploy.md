@@ -43,18 +43,24 @@ Point the console at the repo and a push remote:
 --git-remote origin         # the push remote (HA source of truth)
 ```
 
-Under Helm (`deploy/helm`), the same as values:
+Under Helm (`deploy/helm`), the same as values. The chart requires
+`gitRemote.url` and refuses to render without it:
 
 ```yaml
 gitRemote:
-  url: https://your-forge.example.com/org/sextant-overlay.git
+  url: https://github.com/your-org/fleet.git   # any https forge
   branch: main
-  netrcSecret: sextant-overlay-netrc   # credentials for a private remote
+  netrcSecret: sextant-overlay-netrc   # a credential that may push
 gateMode: remote                       # or eval / none
 oidc:
   issuer: https://id.example.com
   clientId: "<client-id>"
 ```
+
+The repository may be empty. Before the console starts, `sextant
+prepare-repo` clones it and, when there is nothing in it yet, pushes a
+starter fleet; a credential that can read but not push fails that step with
+a message that says so. On every later start it only fetches.
 
 The console clones the repo, keeps its snapshot in sync (the remote is
 authoritative - commits made by engineers or CI show up without a restart),
@@ -84,8 +90,9 @@ and so on); `sextant --help` lists the flags.
 
 ## First deploy, end to end
 
-1. Create the overlay repo from your NixOS core (a `fleet.json` with your org and
-   the core as a flake input). Push it to your forge.
+1. Create a repository on your forge (GitHub, Codeberg, GitLab, Forgejo). Under
+   Helm it may stay empty: the chart fills it with a starter fleet. Put a
+   netrc with a credential that may push in a Secret for `gitRemote.netrcSecret`.
 2. Deploy the console from the chart in this repository:
 
    ```sh
