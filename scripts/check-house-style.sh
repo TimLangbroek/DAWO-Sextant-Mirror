@@ -53,6 +53,21 @@ raw=$("${diff_cmd[@]}" -- \
 # from a non-empty diff is an error, never a pass.
 added=$(printf '%s\n' "$raw" | grep -E '^[+]' | grep -vE '^[+][+][+]' | sed 's/^+//' || true)
 
+# Our own infrastructure does not belong in the public tree. A mesh address or
+# an internal service name in an example reads as a dependency, and in a
+# measurement it maps the maintainers' network for whoever opens the file.
+# ADRs and audit reports are records and keep their wording. Checked before
+# the early exits below, and over YAML too, so a values-only change is read.
+internal_re='(siem|netbird|cache\.sextant|id|ldap[a-z-]*)\.bb-open\.com|ldap-bb[-]open|(^|[^0-9.])100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.[0-9]{1,3}\.[0-9]{1,3}'
+infra=$("${diff_cmd[@]}" -- \
+  '*.md' '*.go' '*.rs' '*.nix' '*.sh' '*.json' '*.yaml' '*.yml' \
+  ':(exclude)docs/adr/*' ':(exclude)docs/audit/*' || true)
+if bad=$(printf '%s\n' "$infra" | grep -E '^[+]' | grep -vE '^[+][+][+]' | grep -nE "$internal_re" || true); [ -n "$bad" ]; then
+  report "a maintainer hostname or mesh address in the public tree; use example.com, or say it in words" \
+    "$(printf '%s\n' "$bad" | head -5)"
+  exit 1
+fi
+
 if [ -z "$raw" ]; then
   echo "house style: nothing added to check"
   exit 0

@@ -54,6 +54,11 @@ quoting Bram: translate rather than paste.
 Enforced for commit messages by `scripts/check-commit-message.sh` and for
 changed lines by `scripts/check-house-style.sh`.
 
+**No maintainer infrastructure in the tree.** Examples use `example.com`, and
+a measurement says where it was taken in words, not with a mesh address or the
+name of one of our own services. ADRs and audit reports are records and keep
+their wording. Enforced for changed lines by `scripts/check-house-style.sh`.
+
 **No decorative punctuation.** No exclamation marks, no ellipses standing in
 for thought, no bolded intensifiers. Bold is for the one claim a reader must
 not miss, not for emphasis in general.
