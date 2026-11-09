@@ -162,6 +162,52 @@ func decodeSessionKey(v string) ([]byte, error) {
 	return key, nil
 }
 
+// WriteSettings and WriteKeys replace one file of the data directory. Both
+// are written 0600 into a 0700 directory, through a temporary file and a
+// rename, so a crash leaves the old file or the new one and never half of
+// either: a half-written keys.json would fail the next start, and the
+// refusal would read as corruption of something the operator never touched.
+func WriteSettings(dir string, s Settings) error { return writeJSON(dir, SettingsFile, s) }
+
+// WriteKeys writes keys.json; see WriteSettings.
+func WriteKeys(dir string, k Keys) error { return writeJSON(dir, KeysFile, k) }
+
+func writeJSON(dir, name string, v any) error {
+	if dir == "" {
+		return errors.New("no data directory configured (--data-dir)")
+	}
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return err
+	}
+	raw, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		return err
+	}
+	tmp, err := os.CreateTemp(dir, "."+name+"-*")
+	if err != nil {
+		return err
+	}
+	defer func() { _ = os.Remove(tmp.Name()) }() // a no-op once renamed
+	// CreateTemp already opens 0600; set it anyway so the rule does not hang
+	// on a library default.
+	if err := tmp.Chmod(0o600); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if _, err := tmp.Write(append(raw, '\n')); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Sync(); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	return os.Rename(tmp.Name(), filepath.Join(dir, name))
+}
+
 // flagsSet returns the names of the flags given on the command line.
 func flagsSet(fs *flag.FlagSet) map[string]bool {
 	out := map[string]bool{}

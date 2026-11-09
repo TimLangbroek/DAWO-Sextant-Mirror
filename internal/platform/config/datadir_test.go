@@ -123,3 +123,41 @@ func TestEmptyOrMissingDataDirChangesNothing(t *testing.T) {
 		}
 	}
 }
+
+// What setup writes, the next start reads back, and the files it leaves are
+// ones the reader accepts: a writer that produced mode 0644 would lock the
+// console out of its own keys on the next start.
+func TestWriteThenReadDataDir(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "fresh")
+	s := Settings{OIDCIssuer: "https://id.example.com", OwnerSubjects: []string{"sub-1"}}
+	k := Keys{SessionKey: testSessionKey, SecretKey: "sk"}
+	if err := WriteSettings(dir, s); err != nil {
+		t.Fatal(err)
+	}
+	if err := WriteKeys(dir, k); err != nil {
+		t.Fatal(err)
+	}
+	for name, want := range map[string]os.FileMode{"": 0o700, SettingsFile: 0o600, KeysFile: 0o600} {
+		info, err := os.Stat(filepath.Join(dir, name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := info.Mode().Perm(); got != want {
+			t.Errorf("%q: mode %o, want %o", name, got, want)
+		}
+	}
+	gs, gk, err := ReadDataDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if gs.OIDCIssuer != s.OIDCIssuer || len(gs.OwnerSubjects) != 1 || gk.SessionKey != k.SessionKey || gk.SecretKey != "sk" {
+		t.Fatalf("round trip lost data: %+v %+v", gs, gk)
+	}
+	entries, _ := os.ReadDir(dir)
+	if len(entries) != 2 {
+		t.Fatalf("temporary files left behind: %v", entries)
+	}
+	if err := WriteKeys("", k); err == nil {
+		t.Fatal("writing without a data directory must fail")
+	}
+}

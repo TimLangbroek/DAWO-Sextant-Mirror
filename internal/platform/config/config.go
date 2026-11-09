@@ -160,7 +160,10 @@ type Config struct {
 	ConsoleURL string
 
 	// DataDir holds settings.json and keys.json, written by first-start setup
-	// (design 0013) and read below flags and environment. Empty reads nothing.
+	// (design 0013) and read below flags and environment. Defaults to
+	// ./sextant-data, so a binary started by hand keeps its answers next to
+	// where it ran; the NixOS module and the image set an absolute path.
+	// Empty reads nothing and disables setup.
 	DataDir string
 	// PublicURL is the address people reach the console on. The OIDC redirect
 	// URL and ConsoleURL follow from it unless set explicitly.
@@ -215,7 +218,7 @@ func Load(args []string, getenv Getenv) (*Config, error) {
 		OrgName:          envOr(getenv, "ORG_NAME", ""),
 		UpstreamRepo:     envOr(getenv, "UPSTREAM_REPO", ""),
 		ConsoleURL:       envOr(getenv, "CONSOLE_URL", ""),
-		DataDir:          envOr(getenv, "DATA_DIR", ""),
+		DataDir:          envOr(getenv, "DATA_DIR", "sextant-data"),
 		PublicURL:        envOr(getenv, "PUBLIC_URL", ""),
 	}
 	// Environment-only bools. Parsed with ParseBool rather than compared to

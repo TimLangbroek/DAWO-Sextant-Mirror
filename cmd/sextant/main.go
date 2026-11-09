@@ -90,8 +90,9 @@ func run(args []string, getenv config.Getenv) error {
 	}
 	mounted := capability.Mount(mux, log, caps...)
 
-	// Without a console, the root serves a plain identity line.
-	if !slices.Contains(mounted, "console") {
+	// Without a console, a console nobody can sign in to offers setup, and
+	// anything else serves a plain identity line on the root.
+	if !slices.Contains(mounted, "console") && (!setupMode(cfg) || !mountSetup(mux, cfg, log)) {
 		mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, _ *http.Request) {
 			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 			_, _ = fmt.Fprintln(w, "Sextant - declarative fleet control-plane for NixOS")
