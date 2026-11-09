@@ -55,6 +55,24 @@ func TestGroupsFromClaims(t *testing.T) {
 			[]string{"a", "b", "c"},
 		},
 		{
+			"a string in the configured claim is one group (#180)",
+			map[string]any{"urn:example:uid": "id-of-alice"},
+			"urn:example:uid",
+			[]string{"id-of-alice"},
+		},
+		{
+			"a string under roles is not harvested",
+			map[string]any{"roles": "owner"},
+			"groups",
+			nil,
+		},
+		{
+			"an empty string is no group",
+			map[string]any{"groups": ""},
+			"groups",
+			nil,
+		},
+		{
 			"non-string entries ignored",
 			map[string]any{"groups": []any{"ok", 42, nil}},
 			"groups",

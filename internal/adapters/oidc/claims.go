@@ -30,6 +30,14 @@ func groupsFromClaims(claims map[string]any, groupsClaim string) []string {
 	}
 	add(strSlice(claims[groupsClaim]))
 	add(mapKeys(claims[groupsClaim])) // configured claim is itself a roles map
+	// A string counts as one group (#180). Some providers carry no groups at
+	// all, only an identifier of their own; pointing the groups claim at it
+	// and listing identifiers as owner groups is how such an organisation
+	// gets in. Read only from the configured claim, so a string that merely
+	// sits under a documented roles name does not start granting anything.
+	if s, ok := claims[groupsClaim].(string); ok {
+		add([]string{s})
+	}
 	for k, v := range claims {
 		if isDocumentedRolesClaim(k) {
 			add(mapKeys(v))
