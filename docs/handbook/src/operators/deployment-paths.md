@@ -8,7 +8,7 @@ are the ones that actually bit.
 
 | | What it is | What it is for |
 |---|---|---|
-| `just demo` | console, throwaway database, simulated fleet | seeing it work, in a minute, on your own machine |
+| `deploy/compose` | console, gate-runner, a test identity provider, a database | trying it, and testing a change, on your own machine |
 | A container | one image, your database, your proxy | a single host, NixOS or anything else that runs podman |
 | The Helm chart | console, gate-runner, CloudNativePG | a cluster, and the only path with HA and backups |
 
@@ -16,23 +16,21 @@ There is also a **NixOS module** (`nixosModules.default` in the flake) which
 runs the same binary under systemd with `DynamicUser`. It is the container path
 without the container; the same database and secret rules apply.
 
-## 1. `just demo`
+## 1. `deploy/compose`
 
 ```sh
-git clone https://codeberg.org/DAWO/DAWO-Sextant.git && cd DAWO-Sextant
-just demo
+git clone https://codeberg.org/DAWO/DAWO-Sextant.git && cd DAWO-Sextant/deploy/compose
+podman-compose up -d
 ```
 
-Console on **http://127.0.0.1:8080** with sixty simulated devices, a wave plan
-and a working imaging line. Ctrl-c stops everything and deletes the directory,
-including the database.
+Console on **http://127.0.0.1:8080**. Choose **Sign in with SSO**, then **a
+test user**, and you are owner. Every change you save goes through the
+remote validation gate, as it does in production.
 
-Needs `initdb`, `pg_ctl` and `createdb` on PATH; `nix develop` provides them.
-
-It runs `--dev-auth --gate none --allow-unvalidated`, which is why it is a demo:
-a synthetic owner session on loopback and no Nix validation. **The gate cannot
-be exercised locally at all** - the example overlay takes Sextant as a path
-input, which stops resolving once the overlay is a git repository (issue #74).
+It brings its own identity provider (Dex, with one test person and no
+password), so it is for your own machine only. The
+[compose README](https://codeberg.org/DAWO/DAWO-Sextant/src/branch/main/deploy/compose/README.md)
+says what runs and how to start over.
 
 ## 2. A container, on NixOS or anywhere
 
@@ -92,9 +90,10 @@ The full walk-through, including the values that bite, is
 
 The console is the same binary in all three. What changes:
 
-- **The database.** The demo makes one and throws it away; the container and
-  the NixOS module expect one; the chart creates one.
-- **Validation.** The demo has no gate. The container and the chart should use
+- **The database.** The compose stack starts one in a volume; the container
+  and the NixOS module expect one; the chart creates one.
+- **Validation.** The compose stack runs the remote gate, as production does.
+  The container and the chart should use
   `--gate remote` with a nix-capable gate-runner - the console image ships no
   nix on purpose.
 - **Backups.** Only the chart has an opinion, and its backup is **off** by

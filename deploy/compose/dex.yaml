@@ -1,0 +1,23 @@
+# A test identity provider, nothing more. The mock connector logs anyone
+# who clicks it in as one fixed person in the group "authors", which the
+# console maps to owner. No password exists, so none can leak, and the
+# provider listens on loopback only. Replace it with your own provider
+# before anyone but you can reach the console.
+issuer: http://127.0.0.1:5556/dex
+storage:
+  type: memory
+web:
+  http: 127.0.0.1:5556
+oauth2:
+  skipApprovalScreen: true
+enablePasswordDB: false
+staticClients:
+  - id: sextant
+    name: Sextant
+    secretEnv: DEX_CLIENT_SECRET
+    redirectURIs:
+      - http://127.0.0.1:8080/callback
+connectors:
+  - type: mockCallback
+    id: mock
+    name: a test user

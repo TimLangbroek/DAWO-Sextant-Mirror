@@ -16,7 +16,6 @@ coverage.html
 
 # Local environment
 .env
-.pg_password
 .direnv/
 
 # Design inputs (Stitch export, mintlify draft) - not shippable code

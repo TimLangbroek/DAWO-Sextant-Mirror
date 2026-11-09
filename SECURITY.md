@@ -31,7 +31,7 @@ gate, the imaging station and the Helm chart.
 
 Deployments are not. `console.bb-open.com` is BB Open's own instance, not a
 test target; please do not probe it. If you want something to attack, run your
-own — `docker-compose.yml` gets you a local one.
+own: `deploy/compose` starts one on your machine, signed in and validating.
 
 ## What we consider serious
 

@@ -1,0 +1,120 @@
+# Sextant on one machine, signed in and validating, from one command:
+#
+#   podman-compose up -d        (or: docker compose up -d)
+#   open http://127.0.0.1:8080 and choose "a test user"
+#
+# For trying Sextant and for testing a change, not for running a fleet:
+# the identity provider lets anyone who reaches it in as owner. Everything
+# listens on 127.0.0.1 only, on the host network, so the browser and the
+# console see the identity provider at the same address.
+#
+#   8080  console        5556  identity provider (Dex)
+#   8090  gate-runner   55432  postgres
+#
+# Secrets are generated on the first `up` into the `secrets` volume and never
+# leave it. `down -v` throws everything away, keys included.
+
+x-sextant-flake: &sextant-flake https://codeberg.org/DAWO/DAWO-Sextant/archive/v0.93.0.tar.gz
+
+services:
+  init:
+    image: localhost/sextant-compose:dev
+    build: { context: ../.., dockerfile: Dockerfile }
+    user: "0:0"
+    entrypoint: ["/bin/sh", "/compose/init.sh"]
+    environment:
+      SEXTANT_FLAKE: *sextant-flake
+    volumes:
+      - ./init.sh:/compose/init.sh:ro,z
+      - ../../examples/overlay:/overlay-src:ro,z
+      - secrets:/secrets
+      - data:/data
+      - shared:/shared
+    network_mode: host
+
+  postgres:
+    image: docker.io/library/postgres:17-alpine@sha256:3540c0362c809df084ffac0ae69fe794515f9de92692f02178bcdce0ef0302ac
+    # Waits for init the same way the other services do (see init.sh).
+    entrypoint: ["/bin/sh", "-c", "until [ -f /secrets/.ready ]; do sleep 1; done; exec docker-entrypoint.sh \"$$@\"", "wait-for-init"]
+    command: ["postgres", "-c", "listen_addresses=127.0.0.1", "-p", "55432"]
+    environment:
+      POSTGRES_DB: sextant
+      POSTGRES_USER: sextant
+      POSTGRES_PASSWORD_FILE: /secrets/pg
+    volumes:
+      - secrets:/secrets:ro
+      - pgdata:/var/lib/postgresql/data
+    network_mode: host
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -p 55432 -U sextant -d sextant"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  dex:
+    image: ghcr.io/dexidp/dex:v2.46.1@sha256:65b72ca0f4b0bf6d4ada84ec21da8851782563404ac7b8f926923d27ceced9ab
+    user: "65532:65532"
+    entrypoint: ["/bin/sh", "/compose/dex.sh"]
+    volumes:
+      - ./dex.sh:/compose/dex.sh:ro,z
+      - ./dex.yaml:/etc/dex/sextant.yaml:ro,z
+      - secrets:/secrets:ro
+    network_mode: host
+    # The console asks the provider for its discovery document once, at
+    # start; a provider that is not up yet leaves the console without a
+    # login until it is restarted.
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:5556/dex/.well-known/openid-configuration >/dev/null"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  gate-runner:
+    image: localhost/sextant-gate-runner-compose:dev
+    build: { context: ../.., dockerfile: Dockerfile.gate-runner }
+    entrypoint: ["/bin/sh", "/compose/gate-runner.sh"]
+    command: ["--addr", "127.0.0.1:8090"]
+    environment:
+      GATE_OVERLAY_REMOTE: file:///shared/fleet.git
+      GATE_WORKDIR: /data/overlay
+    volumes:
+      - ./gate-runner.sh:/compose/gate-runner.sh:ro,z
+      - secrets:/secrets:ro
+      - shared:/shared
+      - gatedata:/data
+    network_mode: host
+
+  sextant:
+    image: localhost/sextant-compose:dev
+    build: { context: ../.., dockerfile: Dockerfile }
+    entrypoint: ["/bin/sh", "/compose/sextant.sh"]
+    command:
+      - --addr=127.0.0.1:8080
+      - --repo=/data/overlay
+      - --state-dir=/data/state
+      - --git-remote=origin
+      - --write
+      - --gate=remote
+      - --gate-url=http://127.0.0.1:8090
+      - --oidc-issuer=http://127.0.0.1:5556/dex
+      - --oidc-client-id=sextant
+      - --oidc-redirect-url=http://127.0.0.1:8080/callback
+      - --oidc-scopes=openid,profile,email,groups
+      - --owner-groups=authors
+    volumes:
+      - ./sextant.sh:/compose/sextant.sh:ro,z
+      - secrets:/secrets:ro
+      - data:/data
+      - shared:/shared
+    network_mode: host
+    depends_on:
+      postgres: { condition: service_healthy }
+      dex: { condition: service_healthy }
+      gate-runner: { condition: service_started }
+
+volumes:
+  secrets:
+  data:
+  shared:
+  pgdata:
+  gatedata:
