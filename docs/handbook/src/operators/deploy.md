@@ -25,14 +25,14 @@ there is nothing else to wire.
 | | |
 |---|---|
 | Go | 1.25 or newer, to build from source |
-| PostgreSQL | The chart brings its own via CloudNativePG. For `just demo` you need the client tools (`initdb`, `pg_ctl`, `createdb`) on your PATH |
+| PostgreSQL | The chart brings its own via CloudNativePG, and `deploy/compose` starts one. The container and the NixOS module expect one |
 | Kubernetes | any recent version; the chart uses no alpha APIs. Helm 3 |
 | CloudNativePG | the operator must be installed before the chart, which creates a `postgresql.cnpg.io/v1` Cluster. Skip it with `cnpg.enabled: false` and bring your own database |
 | Nix | only on the gate-runner. The console image ships none, deliberately |
 
-To see it working before you deploy anything, `just demo` starts a console, a
-throwaway database, sixty simulated devices and an imaging line on your own
-machine, and deletes all of it on ctrl-c.
+To see it working before you deploy anything, `deploy/compose` starts a
+console, a database, the validation gate and a test identity provider on
+your own machine; see [the three ways to run Sextant](./deployment-paths.md).
 
 ## Connect the console to your overlay repo
 

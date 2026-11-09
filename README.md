@@ -29,64 +29,29 @@ you hoped it would.
 
 ## Quickstart
 
-Two commands and a browser. No cluster, no account, nothing that leaves your
+One command and a browser. No cluster, no account, nothing that leaves your
 machine.
 
 ```sh
-git clone https://codeberg.org/DAWO/DAWO-Sextant.git && cd DAWO-Sextant
-just demo          # console, database, simulated fleet and imaging line
+git clone https://codeberg.org/DAWO/DAWO-Sextant.git && cd DAWO-Sextant/deploy/compose
+podman-compose up -d          # or: docker compose up -d
 ```
 
-Then open **http://127.0.0.1:8080**. You get a console with sixty simulated
-devices checking in, a wave plan to promote a release through, and machines
-waiting on an imaging line. Enroll one, change a setting, watch the change
-become a git commit.
+Then open **http://127.0.0.1:8080**, choose **Sign in with SSO** and then
+**a test user**, and you are the owner. What runs is what production runs:
+the console, its database, and the gate-runner that validates every change
+before it becomes a commit. The identity provider is a test one that lets
+anyone in, which is why everything listens on 127.0.0.1 only.
 
-Ctrl-c stops everything and deletes the directory it made, including the
-database.
+The first `up` builds two images and takes a few minutes; `down -v` throws
+everything away again. The [compose README](deploy/compose/README.md) says
+what runs and how to start over.
 
-**It needs `initdb`, `pg_ctl` and `createdb` on your PATH** (any PostgreSQL
-package; `nix develop` provides them). The demo starts a throwaway database of
-its own on a unix socket - no container, no port, no root. That is not
-ceremony: the observed plane lives in Postgres, so without one the console
-mounts three capabilities instead of five and no device ever has a status.
-
-<details>
-<summary>No <code>just</code>?</summary>
-
-```sh
-go build -o sextant ./cmd/sextant
-go build -o fleetsim ./cmd/fleetsim
-
-# a throwaway database
-initdb -D /tmp/sxdemo/pg -U sextant --auth=trust
-pg_ctl -D /tmp/sxdemo/pg -o "-k /tmp/sxdemo -h ''" -w start
-createdb -h /tmp/sxdemo -U sextant sextant
-
-# the config plane is a git working tree, so give the demo one
-cp -r examples/overlay /tmp/sxdemo/overlay
-./fleetsim -gen 60 > /tmp/sxdemo/overlay/fleet.json
-git -C /tmp/sxdemo/overlay init -q -b main
-git -C /tmp/sxdemo/overlay add -A
-git -C /tmp/sxdemo/overlay -c user.name=demo -c user.email=demo@localhost commit -qm "example fleet"
-
-export SEXTANT_PG_DSN="postgres://sextant@/sextant?host=/tmp/sxdemo"
-export SEXTANT_CHECKIN_TOKEN="demo-checkin-token"
-./sextant --repo /tmp/sxdemo/overlay --dev-auth --gate none --allow-unvalidated --write &
-
-./fleetsim -fleet /tmp/sxdemo/overlay/fleet.json -repo /tmp/sxdemo/overlay \
-  -url http://127.0.0.1:8080 -token "$SEXTANT_CHECKIN_TOKEN" -station st-1
-```
-
-`--dev-auth` mints a synthetic owner session and only works on loopback;
-`--gate none` skips Nix validation, which is why it makes you say
-`--allow-unvalidated` out loud. Neither belongs anywhere near a real fleet.
-
-Leaving out the database and the simulator still gives you a console and the
-config plane - enough to click through settings and see a commit - but no
-device status, no compliance verdicts and no imaging line.
-
-</details>
+To install it for real, start the console with nothing configured. It opens
+in **setup mode**, prints a one-time link in its log, and asks in the
+browser for what it needs - keys, the fleet repository, your identity
+provider - then restarts with you signed in as owner. See
+[Install and configure Sextant](docs/handbook/src/operators/deploy.md).
 
 ## Why this exists
 
