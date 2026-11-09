@@ -83,6 +83,35 @@ func TestInvalid(t *testing.T) {
 			"requires --secure-cookies",
 		},
 		{
+			"plain-http public url that is not on this machine",
+			[]string{
+				"--addr", "0.0.0.0:8080",
+				"--public-url", "http://console.example.com",
+				"--oidc-issuer", "https://idp.example.com",
+				"--oidc-client-id", "sextant",
+			},
+			map[string]string{
+				"SEXTANT_OIDC_CLIENT_SECRET": "secret",
+				"SEXTANT_SESSION_KEY":        validSessionKey,
+			},
+			"requires --secure-cookies",
+		},
+		{
+			"https public url, secure cookies switched off explicitly",
+			[]string{
+				"--addr", "0.0.0.0:8080",
+				"--public-url", "https://console.example.com",
+				"--oidc-issuer", "https://idp.example.com",
+				"--oidc-client-id", "sextant",
+			},
+			map[string]string{
+				"SEXTANT_OIDC_CLIENT_SECRET": "secret",
+				"SEXTANT_SESSION_KEY":        validSessionKey,
+				"SEXTANT_SECURE_COOKIES":     "false",
+			},
+			"requires --secure-cookies",
+		},
+		{
 			"dev-auth on non-loopback",
 			[]string{"--dev-auth", "--addr", "0.0.0.0:8080"},
 			nil,
@@ -198,6 +227,19 @@ func TestValid(t *testing.T) {
 			},
 		},
 		{
+			"oidc on non-loopback reached at a plain-http loopback address",
+			[]string{
+				"--addr", "0.0.0.0:8080",
+				"--public-url", "http://127.0.0.1:8080",
+				"--oidc-issuer", "https://idp.example.com",
+				"--oidc-client-id", "sextant",
+			},
+			map[string]string{
+				"SEXTANT_OIDC_CLIENT_SECRET": "secret",
+				"SEXTANT_SESSION_KEY":        validSessionKey,
+			},
+		},
+		{
 			"dev-auth on loopback",
 			[]string{"--dev-auth", "--addr", "127.0.0.1:8080"},
 			nil,
@@ -219,6 +261,48 @@ func TestValid(t *testing.T) {
 				t.Fatalf("want no error, got %v", err)
 			}
 		})
+	}
+}
+
+// An https public address turns Secure cookies on by itself, which is what
+// lets a console started from what setup wrote sign people in behind a
+// proxy without a second setting.
+func TestHTTPSPublicURLMeansSecureCookies(t *testing.T) {
+	args := []string{
+		"--addr", "0.0.0.0:8080",
+		"--public-url", "https://console.example.com",
+		"--oidc-issuer", "https://idp.example.com",
+		"--oidc-client-id", "sextant",
+	}
+	cfg, err := Load(args, env(map[string]string{
+		"SEXTANT_OIDC_CLIENT_SECRET": "secret",
+		"SEXTANT_SESSION_KEY":        validSessionKey,
+	}))
+	if err != nil {
+		t.Fatalf("want no error, got %v", err)
+	}
+	if !cfg.SecureCookies {
+		t.Fatal("an https public url left cookies without the Secure flag")
+	}
+	if cfg.OIDCRedirectURL != "https://console.example.com/callback" {
+		t.Fatalf("redirect = %q", cfg.OIDCRedirectURL)
+	}
+}
+
+func TestIsLoopbackURL(t *testing.T) {
+	cases := map[string]bool{
+		"http://localhost:8080":   true,
+		"http://127.0.0.1:8080":   true,
+		"http://[::1]:8080":       true,
+		"https://localhost:8080":  false,
+		"http://console.example":  false,
+		"http://192.168.1.5:8080": false,
+		"":                        false,
+	}
+	for u, want := range cases {
+		if got := isLoopbackURL(u); got != want {
+			t.Errorf("isLoopbackURL(%q) = %v, want %v", u, got, want)
+		}
 	}
 }
 

@@ -64,8 +64,9 @@ deployment uses an IdP and does not need it.
 Verified on 0.91.0: five capabilities mounted, `/station` answered 200, and a
 setting saved in the console landed in `fleet.json` inside the mounted overlay.
 
-Put TLS in front of it. Behind TLS on a non-loopback address the console
-refuses to ship session cookies without `--secure-cookies`, deliberately.
+Put TLS in front of it and set `--public-url` to the https address. Behind
+TLS on a non-loopback address the console refuses to ship session cookies
+without the Secure flag, deliberately; an https public URL turns it on.
 
 ## 3. The Helm chart
 

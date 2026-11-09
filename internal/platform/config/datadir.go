@@ -161,6 +161,12 @@ func (c *Config) applyDataDir(getenv Getenv, setByFlag map[string]bool) error {
 			c.ConsoleURL = base
 		}
 	}
+	// An https address means TLS sits in front, so cookies can be Secure
+	// and should be. Without this, the address setup writes would leave the
+	// next start refusing sign-in on any listener but loopback.
+	if !set("secure-cookies", "SECURE_COOKIES") && strings.HasPrefix(c.PublicURL, "https://") {
+		c.SecureCookies = true
+	}
 	return nil
 }
 

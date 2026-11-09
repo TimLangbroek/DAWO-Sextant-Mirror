@@ -107,8 +107,9 @@ and so on); `sextant --help` lists the flags.
 
    Or the container, or the NixOS module, with the
    `gitRemote`, `gateMode`, `oidc` and Postgres settings above. Behind TLS,
-   set `--secure-cookies` (the console refuses session cookies without it on a
-   non-loopback address).
+   set `--public-url https://...` (or `--secure-cookies`): the console refuses
+   session cookies without the Secure flag on a non-loopback address, and an
+   https public URL turns that flag on.
 3. Deploy a gate-runner if `gateMode: remote`; it keeps a warm clone of the
    overlay and evaluates each candidate before the console commits.
 4. Log in via your IdP. Enroll a device, assign it to a group, edit settings -
@@ -151,8 +152,12 @@ one console instance per repo. See `docs/adr/` for the decisions behind this.
 
 **The console refuses to start / refuses session cookies.**
 Behind TLS on a non-loopback `--addr`, Sextant refuses to ship session
-cookies without `--secure-cookies` (or `SEXTANT_SECURE_COOKIES=true`) - this
-is deliberate fail-closed behaviour, not a bug. Set the flag.
+cookies without the Secure flag - this is deliberate fail-closed behaviour,
+not a bug. Set `--public-url` to the https address people use, which turns
+the flag on, or set `--secure-cookies` (`SEXTANT_SECURE_COOKIES=true`). A
+console reached only at a plain-http loopback address
+(`--public-url http://localhost:8080`, a container with its port published
+on the host's loopback) needs neither.
 
 **Every write is refused with `gateMode: remote`.**
 The gate is fail-closed: no reachable gate-runner means no writes, by
