@@ -16,7 +16,7 @@ platform, which is the same reasoning that put the canonical copy on
 code.overheid.nl. What makes this open source is the licence and the code, not
 the address.
 
-There is a third: **forgejo.bb-open.com/bb-open/DAWO-Sextant**, BB Open's
+There is a third: **git.edano.eu/bb-open/DAWO-Sextant**, BB Open's
 workshop, which is where a release is built and where the registry lives. The
 README's "Where this repository lives" table says what each forge is for and
 is the one place that description is maintained.
@@ -27,7 +27,7 @@ address nobody maintains, so do not open anything there.
 **The two forges are held to different standards, deliberately** (ADR 0024).
 Codeberg is run as a public project: templates, labels, milestones per release,
 releases with notes, and nothing lands there half-finished.
-`forgejo.bb-open.com` is the workshop and keeps no such obligation - scratch
+`git.edano.eu` is the workshop and keeps no such obligation - scratch
 branches and force-pushed ring refs belong there. The rule is not "be tidy
 everywhere", which nobody sustains; it is that the public project has a floor
 and the workshop does not.

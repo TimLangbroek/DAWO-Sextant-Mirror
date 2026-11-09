@@ -30,7 +30,7 @@ are also data: `docs/project/issues.json`, applied by
 `scripts/codeberg-project-setup.sh`. Writing one there means it gets the same
 review as code and can be recreated on any Forgejo-family forge.
 
-`forgejo.bb-open.com` is the workshop and keeps no such obligation. Scratch
+`git.edano.eu` is the workshop and keeps no such obligation. Scratch
 branches and force-pushed ring refs belong there.
 
 **Push to Codeberg and to code.overheid.nl.** Those two are kept in step;
