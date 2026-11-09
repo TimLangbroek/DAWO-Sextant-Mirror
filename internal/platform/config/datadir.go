@@ -33,6 +33,11 @@ type Settings struct {
 	OIDCGroupsClaim string   `json:"oidcGroupsClaim,omitempty"`
 	OrgName         string   `json:"orgName,omitempty"`
 	OwnerSubjects   []string `json:"ownerSubjects,omitempty"`
+	// ForgeHost and ForgeUser go with Keys.ForgeToken: the credential setup
+	// cloned an existing repository with, waiting to be handed to the
+	// console's own forge identity on the next start.
+	ForgeHost string `json:"forgeHost,omitempty"`
+	ForgeUser string `json:"forgeUser,omitempty"`
 }
 
 // Keys is the secret half. Base64 where the environment variable is base64,
@@ -42,6 +47,9 @@ type Keys struct {
 	SecretKey        string `json:"secretKey,omitempty"`
 	CheckinToken     string `json:"checkinToken,omitempty"`
 	OIDCClientSecret string `json:"oidcClientSecret,omitempty"`
+	// ForgeToken lives here only until the next start moves it into the
+	// database, sealed, where the console can rotate it (ADR 0022).
+	ForgeToken string `json:"forgeToken,omitempty"`
 }
 
 // ReadDataDir reads both files. A missing file is an empty half, not an
@@ -124,6 +132,11 @@ func (c *Config) applyDataDir(getenv Getenv, setByFlag map[string]bool) error {
 	if !set("owner-subjects", "OWNER_SUBJECTS") && len(s.OwnerSubjects) > 0 {
 		c.OwnerSubjects = s.OwnerSubjects
 	}
+	// Not settings anyone sets from the deployment: a forge credential the
+	// deployment manages arrives as a mounted netrc, as it always did.
+	if k.ForgeToken != "" {
+		c.SetupForge = &SetupForge{Host: s.ForgeHost, User: s.ForgeUser, Token: k.ForgeToken}
+	}
 
 	// Secrets: environment or keys.json, never a flag.
 	fill(&c.SecretKey, "", "SECRET_KEY", k.SecretKey)
@@ -160,6 +173,20 @@ func decodeSessionKey(v string) ([]byte, error) {
 		return nil, fmt.Errorf("must decode to exactly 32 bytes, got %d", len(key))
 	}
 	return key, nil
+}
+
+// DropForgeToken removes the forge token from keys.json once the console
+// holds it sealed. The rest of the file stays as it was.
+func DropForgeToken(dir string) error {
+	_, k, err := ReadDataDir(dir)
+	if err != nil {
+		return err
+	}
+	if k.ForgeToken == "" {
+		return nil
+	}
+	k.ForgeToken = ""
+	return WriteKeys(dir, k)
 }
 
 // WriteSettings and WriteKeys replace one file of the data directory. Both

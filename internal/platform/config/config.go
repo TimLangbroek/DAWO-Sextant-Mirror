@@ -176,6 +176,15 @@ type Config struct {
 	// environment), keyed by their environment name without the prefix.
 	// Setup shows these as set and does not offer to change them.
 	Deployment map[string]bool
+	// SetupForge is the credential setup cloned an existing repository with,
+	// still waiting in the data directory to be handed to the forge identity
+	// service. Nil once it has been.
+	SetupForge *SetupForge
+}
+
+// SetupForge is a forge credential left by setup.
+type SetupForge struct {
+	Host, User, Token string
 }
 
 // Getenv is the environment lookup used by Load. Injected so tests can supply

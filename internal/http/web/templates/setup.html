@@ -35,7 +35,7 @@
       {{end}}
     </ol>
 
-    {{if .Error}}<div class="error mb-4" role="alert">{{$.L.T .Error}}</div>{{end}}
+    {{if .Error}}<div class="error mb-4" role="alert">{{$.L.T .Error}}{{if .Detail}}<div class="font-mono text-body-sm">{{.Detail}}</div>{{end}}</div>{{end}}
 
     {{if eq .Step "keys"}}
     <p class="mb-4">{{.L.T "setup.keys.intro"}}</p>
@@ -55,9 +55,26 @@
     </form>
     {{else if eq .Step "repo"}}
     <p class="mb-4">{{.L.T "setup.repo.intro"}}</p>
-    <form method="post" action="/setup/repo" class="flex flex-col gap-sm">
+    <form method="post" action="/setup/repo" class="flex flex-col gap-sm mb-6">
+      <input type="hidden" name="choice" value="new">
       <button type="submit" class="btn">{{.L.T "setup.repo.new"}}</button>
       <p class="muted">{{.L.T "setup.repo.new_hint"}}</p>
+    </form>
+    <h2 class="text-body-sm font-bold text-ink mb-2">{{.L.T "setup.repo.existing"}}</h2>
+    <form method="post" action="/setup/repo" class="flex flex-col gap-sm">
+      <input type="hidden" name="choice" value="existing">
+      <label for="repo-url">{{.L.T "setup.repo.url"}}</label>
+      <input id="repo-url" name="url" type="url" value="{{.Repo.URL}}" placeholder="https://git.example.com/org/fleet.git" required>
+      <label for="repo-user">{{.L.T "setup.repo.user"}}</label>
+      <input id="repo-user" name="user" value="{{.Repo.User}}" autocomplete="username">
+      <label for="repo-token">{{.L.T "setup.repo.token"}}</label>
+      <input id="repo-token" name="token" type="password" autocomplete="off">
+      <p class="muted">{{.L.T "setup.repo.token_hint"}}</p>
+      {{if .Repo.Tested}}<p class="mb-2" role="status">{{.L.T "setup.repo.test_ok"}}</p>{{end}}
+      <div class="flex gap-sm">
+        <button type="submit" name="action" value="test" class="btn">{{.L.T "setup.repo.test"}}</button>
+        <button type="submit" name="action" value="use" class="btn">{{.L.T "setup.repo.use"}}</button>
+      </div>
     </form>
     {{else}}
     <p class="muted">{{.L.T "setup.next_not_built"}}</p>

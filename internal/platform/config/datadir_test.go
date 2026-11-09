@@ -161,3 +161,34 @@ func TestWriteThenReadDataDir(t *testing.T) {
 		t.Fatal("writing without a data directory must fail")
 	}
 }
+
+// The forge credential setup leaves reaches the config, and dropping it
+// leaves every other key in place.
+func TestSetupForgeCredential(t *testing.T) {
+	dir := t.TempDir()
+	writeData(t, dir, SettingsFile, `{"forgeHost":"git.example.com","forgeUser":"alice"}`, 0o600)
+	writeData(t, dir, KeysFile, `{"forgeToken":"tok","checkinToken":"ct"}`, 0o600)
+	c, err := Load([]string{"--data-dir", dir}, env(nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.SetupForge == nil || *c.SetupForge != (SetupForge{Host: "git.example.com", User: "alice", Token: "tok"}) {
+		t.Fatalf("SetupForge = %+v", c.SetupForge)
+	}
+	if err := DropForgeToken(dir); err != nil {
+		t.Fatal(err)
+	}
+	_, k, err := ReadDataDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if k.ForgeToken != "" || k.CheckinToken != "ct" {
+		t.Fatalf("after drop: %+v", k)
+	}
+	if c, _ := Load([]string{"--data-dir", dir}, env(nil)); c.SetupForge != nil {
+		t.Fatal("SetupForge still set after the token was dropped")
+	}
+	if err := DropForgeToken(dir); err != nil {
+		t.Fatalf("second drop: %v", err)
+	}
+}

@@ -217,6 +217,9 @@ func (d *deps) buildConfigPlane() error {
 	}
 
 	var conv ports.ConvergenceSource = noConvergence{}
+	if cfg.PgDSN == "" && cfg.SetupForge != nil {
+		log.Warn("the forge token from setup stays in keys.json until this console has a database to keep it in")
+	}
 	if cfg.PgDSN != "" {
 		pg, err := postgres.Open(d.ctx, cfg.PgDSN)
 		if err != nil {
@@ -297,6 +300,10 @@ func (d *deps) buildConfigPlane() error {
 		} else if netrcPath != "" {
 			log.Info("no forge credential stored; using the mounted one", "netrc", netrcPath)
 		}
+		// A credential setup cloned an existing repository with moves into
+		// the same store now, so it can be rotated like any other (design
+		// 0013). After Apply, so a credential already stored wins.
+		handOverSetupForge(d.ctx, d.forgeID, cfg, log)
 		// Compliance/incidents read the observed plane, so they light up with
 		// Postgres alongside the inventory service.
 		d.compliance = app.NewComplianceService(d.svc, d.inv, clock)

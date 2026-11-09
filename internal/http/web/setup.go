@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -43,7 +44,12 @@ type SetupOptions struct {
 	// SeedRepo creates the starter fleet repository in dir, leaving an
 	// existing repository as it is.
 	SeedRepo func(ctx context.Context, dir string) error
-	Log      *slog.Logger
+	// TestRepo checks that an existing repository answers with the given
+	// credential; CloneRepo clones it into dir. The credential is used for
+	// that one command.
+	TestRepo  func(ctx context.Context, url, user, token string) error
+	CloneRepo func(ctx context.Context, url, user, token, dir string) error
+	Log       *slog.Logger
 }
 
 // Setup serves the first-start pages.
@@ -265,7 +271,15 @@ func (s *Setup) handleKeys(w http.ResponseWriter, r *http.Request) {
 func (s *Setup) handleRepo(w http.ResponseWriter, r *http.Request) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.step() != "repo" || s.opt.SeedRepo == nil {
+	if s.step() != "repo" {
+		http.Redirect(w, r, "/setup", http.StatusSeeOther)
+		return
+	}
+	if r.PostFormValue("choice") == "existing" {
+		s.useExistingRepo(w, r)
+		return
+	}
+	if s.opt.SeedRepo == nil {
 		http.Redirect(w, r, "/setup", http.StatusSeeOther)
 		return
 	}
@@ -285,6 +299,77 @@ func (s *Setup) handleRepo(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/setup", http.StatusSeeOther)
 }
 
+// useExistingRepo tests or clones a repository the organisation already
+// has. Test answers on the same page; use clones it and records where the
+// credential should go, which the next start hands to the console's own
+// forge identity (ADR 0022). The token is never put back into the page.
+func (s *Setup) useExistingRepo(w http.ResponseWriter, r *http.Request) {
+	in := repoForm{URL: strings.TrimSpace(r.PostFormValue("url")), User: strings.TrimSpace(r.PostFormValue("user"))}
+	token := strings.TrimSpace(r.PostFormValue("token"))
+	page := func(status int, errKey, detail string) {
+		p := s.page(errKey)
+		p.Detail, p.Repo = detail, in
+		s.render(w, status, p)
+	}
+	if s.opt.TestRepo == nil || s.opt.CloneRepo == nil {
+		page(http.StatusNotImplemented, "setup.repo.existing_unavailable", "")
+		return
+	}
+	if (token == "") != (in.User == "") {
+		page(http.StatusUnprocessableEntity, "setup.repo.account_and_token", "")
+		return
+	}
+	if r.PostFormValue("action") != "use" {
+		if err := s.opt.TestRepo(r.Context(), in.URL, in.User, token); err != nil {
+			page(http.StatusUnprocessableEntity, "setup.repo.test_failed", err.Error())
+			return
+		}
+		in.Tested = true
+		page(http.StatusOK, "", "")
+		return
+	}
+	dir := filepath.Join(s.opt.DataDir, "overlay")
+	if err := s.opt.CloneRepo(r.Context(), in.URL, in.User, token, dir); err != nil {
+		page(http.StatusUnprocessableEntity, "setup.repo.test_failed", err.Error())
+		return
+	}
+	host := ""
+	if u, err := url.Parse(in.URL); err == nil && u.Scheme != "file" {
+		host = u.Hostname()
+	}
+	if token != "" && host != "" {
+		_, keys, err := config.ReadDataDir(s.opt.DataDir)
+		if err == nil {
+			keys.ForgeToken = token
+			err = config.WriteKeys(s.opt.DataDir, keys)
+		}
+		if err != nil {
+			s.opt.Log.Error("setup: writing the forge token", "err", err)
+			page(http.StatusInternalServerError, "setup.write_failed", "")
+			return
+		}
+	}
+	if err := s.saveSettings(func(st *config.Settings) {
+		st.RepoDir, st.GitRemote = dir, "origin"
+		if token != "" && host != "" {
+			st.ForgeHost, st.ForgeUser = host, in.User
+		}
+	}); err != nil {
+		s.opt.Log.Error("setup: writing settings", "err", err)
+		page(http.StatusInternalServerError, "setup.write_failed", "")
+		return
+	}
+	s.opt.Settings.RepoDir, s.opt.Settings.GitRemote = dir, "origin"
+	s.opt.Log.Info("setup: fleet repository cloned", "dir", dir, "host", host)
+	http.Redirect(w, r, "/setup", http.StatusSeeOther)
+}
+
+// repoForm refills the existing-repository form. Never the token.
+type repoForm struct {
+	URL, User string
+	Tested    bool
+}
+
 // saveSettings applies change to settings.json as it is on disk, so an
 // answer from an earlier step is never lost to a later one.
 func (s *Setup) saveSettings(change func(*config.Settings)) error {
@@ -302,11 +387,14 @@ type setupStep struct {
 }
 
 type setupPage struct {
-	L               Localizer
-	Step            string
-	Steps           []setupStep
-	Error           string
+	L     Localizer
+	Step  string
+	Steps []setupStep
+	Error string
+	// Detail is what the failing tool said, under the explanation in Error.
+	Detail          string
 	RecoveryOffered bool
+	Repo            repoForm
 }
 
 // step is the first one not yet done. Each is done when its answer is in

@@ -261,3 +261,117 @@ func TestSaveSettingsKeepsEarlierAnswers(t *testing.T) {
 		t.Fatalf("got %+v", s)
 	}
 }
+
+type fakeRepos struct {
+	testErr, cloneErr error
+	tested, cloned    []string
+}
+
+func (f *fakeRepos) opts(dir string) SetupOptions {
+	return SetupOptions{DataDir: dir, Keys: allKeys,
+		TestRepo: func(_ context.Context, u, user, token string) error {
+			f.tested = append(f.tested, u+"|"+user+"|"+token)
+			return f.testErr
+		},
+		CloneRepo: func(_ context.Context, u, user, token, d string) error {
+			f.cloned = append(f.cloned, u+"|"+user+"|"+token+"|"+d)
+			return f.cloneErr
+		}}
+}
+
+func existing(action, u, user, token string) url.Values {
+	return url.Values{"choice": {"existing"}, "action": {action}, "url": {u}, "user": {user}, "token": {token}}
+}
+
+// Test answers on the page, refills the address and the account, and never
+// puts the token back into the page.
+func TestExistingRepoTest(t *testing.T) {
+	f := &fakeRepos{}
+	mux := newTestSetup(t, f.opts(t.TempDir()))
+	w := do(mux, "POST", "/setup/repo", existing("test", "https://git.example.com/org/fleet.git", "alice", "tok-secret"), true)
+	if w.Code != http.StatusOK || len(f.tested) != 1 || f.tested[0] != "https://git.example.com/org/fleet.git|alice|tok-secret" {
+		t.Fatalf("%d, tested %v", w.Code, f.tested)
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, `role="status"`) || !strings.Contains(body, `value="https://git.example.com/org/fleet.git"`) {
+		t.Fatal("no success message or address not refilled")
+	}
+	if strings.Contains(body, "tok-secret") {
+		t.Fatal("the token was put back into the page")
+	}
+
+	f.testErr = errors.New("git ls-remote: fatal: Authentication failed")
+	w = do(mux, "POST", "/setup/repo", existing("test", "https://git.example.com/org/fleet.git", "alice", "wrong"), true)
+	if w.Code != http.StatusUnprocessableEntity || !strings.Contains(w.Body.String(), "Authentication failed") {
+		t.Fatalf("failed test: %d", w.Code)
+	}
+}
+
+func TestExistingRepoNeedsAccountAndTokenTogether(t *testing.T) {
+	f := &fakeRepos{}
+	mux := newTestSetup(t, f.opts(t.TempDir()))
+	for _, v := range []url.Values{existing("test", "https://x/r.git", "alice", ""), existing("use", "https://x/r.git", "", "tok")} {
+		if w := do(mux, "POST", "/setup/repo", v, true); w.Code != http.StatusUnprocessableEntity {
+			t.Errorf("%v: %d, want 422", v, w.Code)
+		}
+	}
+	if len(f.tested)+len(f.cloned) != 0 {
+		t.Fatal("git was run with half a credential")
+	}
+}
+
+// Use clones, records the repository, and leaves the credential where the
+// next start picks it up for the forge identity.
+func TestExistingRepoUse(t *testing.T) {
+	dir := t.TempDir()
+	f := &fakeRepos{}
+	mux := newTestSetup(t, f.opts(dir))
+	w := do(mux, "POST", "/setup/repo", existing("use", "https://git.example.com:3000/org/fleet.git", "alice", "tok"), true)
+	if w.Code != http.StatusSeeOther {
+		t.Fatalf("%d: %s", w.Code, w.Body.String())
+	}
+	if want := "https://git.example.com:3000/org/fleet.git|alice|tok|" + filepath.Join(dir, "overlay"); len(f.cloned) != 1 || f.cloned[0] != want {
+		t.Fatalf("cloned %v", f.cloned)
+	}
+	s, k, err := config.ReadDataDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.RepoDir != filepath.Join(dir, "overlay") || s.GitRemote != "origin" || s.ForgeHost != "git.example.com" || s.ForgeUser != "alice" {
+		t.Fatalf("settings %+v", s)
+	}
+	if k.ForgeToken != "tok" || k.SecretKey != "" {
+		t.Fatalf("keys %+v", k)
+	}
+	if w := do(mux, "GET", "/setup", nil, true); strings.Contains(w.Body.String(), `action="/setup/repo"`) {
+		t.Fatal("still on the repository step")
+	}
+}
+
+// A repository on this machine needs no credential and records none.
+func TestExistingLocalRepoRecordsNoCredential(t *testing.T) {
+	dir := t.TempDir()
+	f := &fakeRepos{}
+	mux := newTestSetup(t, f.opts(dir))
+	if w := do(mux, "POST", "/setup/repo", existing("use", "file:///srv/fleet.git", "", ""), true); w.Code != http.StatusSeeOther {
+		t.Fatalf("%d", w.Code)
+	}
+	s, k, _ := config.ReadDataDir(dir)
+	if s.ForgeHost != "" || s.ForgeUser != "" || k.ForgeToken != "" || s.RepoDir == "" {
+		t.Fatalf("settings %+v keys %+v", s, k)
+	}
+}
+
+func TestExistingRepoCloneFailureRecordsNothing(t *testing.T) {
+	dir := t.TempDir()
+	f := &fakeRepos{cloneErr: errors.New("git clone: fatal: repository not found")}
+	mux := newTestSetup(t, f.opts(dir))
+	if w := do(mux, "POST", "/setup/repo", existing("use", "https://git.example.com/org/fleet.git", "alice", "tok"), true); w.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("%d", w.Code)
+	}
+	for _, name := range []string{config.SettingsFile, config.KeysFile} {
+		if _, err := os.Stat(filepath.Join(dir, name)); !os.IsNotExist(err) {
+			t.Errorf("%s written after a failed clone", name)
+		}
+	}
+}

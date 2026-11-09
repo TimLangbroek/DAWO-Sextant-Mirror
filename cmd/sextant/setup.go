@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/adapters/git"
+	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/domain/forge"
 	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/http/web"
 	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/platform/config"
 	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/starter"
@@ -47,7 +48,9 @@ func mountSetup(mux *http.ServeMux, cfg *config.Config, log *slog.Logger) bool {
 		SeedRepo: func(ctx context.Context, dir string) error {
 			return git.Seed(ctx, dir, starter.Overlay(), "Start the fleet repository")
 		},
-		Log: log,
+		TestRepo:  git.LsRemote,
+		CloneRepo: git.Clone,
+		Log:       log,
 	})
 	if err != nil {
 		log.Error("setup mode not available", "err", err)
@@ -76,4 +79,47 @@ func setupLink(cfg *config.Config, tok string) string {
 		base = "http://" + net.JoinHostPort(host, port)
 	}
 	return base + "/setup?token=" + tok
+}
+
+// forgeStore is the part of the forge identity service the handover uses.
+type forgeStore interface {
+	Enabled() bool
+	Current(ctx context.Context) (forge.Identity, bool, error)
+	Set(ctx context.Context, host, username, token, by string) error
+}
+
+// handOverSetupForge moves the forge credential setup left in keys.json
+// into the console's own forge identity: sealed in the database, written to
+// the netrc, and replaceable from the console (ADR 0022). Then it leaves
+// keys.json. Anything that stops the move is logged and the token stays
+// where it was, so the next start tries again; nothing here stops the
+// console from starting.
+func handOverSetupForge(ctx context.Context, id forgeStore, cfg *config.Config, log *slog.Logger) {
+	sf := cfg.SetupForge
+	if sf == nil {
+		return
+	}
+	if !id.Enabled() {
+		log.Warn("the forge token from setup stays in keys.json: this console has no secret key or no home directory to write a netrc to")
+		return
+	}
+	_, stored, err := id.Current(ctx)
+	if err != nil {
+		log.Error("forge token from setup not moved; it stays in keys.json", "err", err)
+		return
+	}
+	// A credential stored from the console is newer than the one setup
+	// cloned with, so it wins and setup's copy simply goes.
+	if !stored {
+		if err := id.Set(ctx, sf.Host, sf.User, sf.Token, "setup"); err != nil {
+			log.Error("forge token from setup not stored; it stays in keys.json", "err", err)
+			return
+		}
+		log.Info("forge credential from setup stored", "host", sf.Host, "username", sf.User)
+	}
+	if err := config.DropForgeToken(cfg.DataDir); err != nil {
+		log.Error("forge token stored, but not removed from keys.json", "err", err)
+		return
+	}
+	cfg.SetupForge = nil
 }
