@@ -55,6 +55,17 @@ func TestFlagsOverrideEnv(t *testing.T) {
 	}
 }
 
+// A word that is not a flag is a mistyped command, not something to start a
+// server over.
+func TestStrayArgumentRefused(t *testing.T) {
+	for _, args := range [][]string{{"prepare-rep"}, {"--addr", "127.0.0.1:1", "serve"}} {
+		_, err := Load(args, env(nil))
+		if err == nil || !strings.Contains(err.Error(), "unexpected argument") || !strings.Contains(err.Error(), args[len(args)-1]) {
+			t.Errorf("%v: err = %v", args, err)
+		}
+	}
+}
+
 func TestInvalid(t *testing.T) {
 	cases := []struct {
 		name string

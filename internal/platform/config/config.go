@@ -324,6 +324,12 @@ func Load(args []string, getenv Getenv) (*Config, error) {
 	if err := fs.Parse(args); err != nil {
 		return nil, err
 	}
+	// A word that is not a flag used to be ignored, so a mistyped command
+	// (`sextant prepare-rep`) started a server instead of failing. In an
+	// init container that is a pod that never comes up.
+	if fs.NArg() > 0 {
+		return nil, fmt.Errorf("unexpected argument %q: the commands are check-config and prepare-repo, everything else is a --flag (sextant --help)", fs.Arg(0))
+	}
 	cfg.OIDCScopes = splitList(*scopes)
 	cfg.ViewerGroups = splitList(*viewers)
 	cfg.EditorGroups = splitList(*editors)
