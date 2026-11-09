@@ -152,6 +152,18 @@ echo "$cil" | grep -q "kind: CiliumNetworkPolicy" || { echo "engine=cilium rende
 non=$(helm template deploy/helm $R --set gateMode=eval --set networkPolicy.engine=none)
 echo "$non" | grep -qE "kind: (Cilium)?NetworkPolicy" && { echo "engine=none rendered a policy anyway"; exit 1; }
 
+# One public address. The console derives sign-in's redirect URL and the
+# mail links from it, so the chart passes that and never the redirect URL:
+# deriving the redirect from ingress.host tied sign-in to a value that looks
+# unused when the chart does not publish the console.
+pub=$(helm template sx deploy/helm $R --set ingress.host=sx.example.test --set oidc.issuer=https://idp.example.test)
+echo "$pub" | grep -qx -- " *- --public-url=https://sx.example.test" || { echo "public-url not derived from ingress.host"; exit 1; }
+echo "$pub" | grep -q -- "--oidc-redirect-url" && { echo "the chart still passes the redirect URL itself"; exit 1; }
+pub=$(helm template sx deploy/helm $R --set ingress.host=sx.example.test --set publicUrl=https://console.example.test/)
+echo "$pub" | grep -qx -- " *- --public-url=https://console.example.test" || { echo "publicUrl did not win over ingress.host, or kept its slash"; exit 1; }
+pub=$(helm template sx deploy/helm $R --set ingress.enabled=false --set ingress.host=)
+echo "$pub" | grep -q -- "--public-url" && { echo "a public url rendered without any address"; exit 1; }
+
 # Every setting the server reads from the environment is looked up
 # with a SEXTANT_ prefix (config.EnvPrefix). A chart env var without
 # it is not a typo the server complains about - it is silently

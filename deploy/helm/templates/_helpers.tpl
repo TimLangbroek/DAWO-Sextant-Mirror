@@ -85,3 +85,17 @@ cnpg.io/cluster: {{ .Values.cnpg.name }}
 app: {{ .Release.Name }}-pg
 {{- end -}}
 {{- end -}}
+
+{{/*
+The address people reach the console on. Sign-in's redirect URL and the
+links in notification mail follow from it in the console itself, so the
+chart passes this one value and not each URL. Without publicUrl it is the
+published host; without either the console has no public address.
+*/}}
+{{- define "sextant.publicUrl" -}}
+{{- if .Values.publicUrl -}}
+{{- trimSuffix "/" .Values.publicUrl -}}
+{{- else if .Values.ingress.host -}}
+https://{{ .Values.ingress.host }}
+{{- end -}}
+{{- end -}}

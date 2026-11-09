@@ -314,6 +314,13 @@ persistence:
   size: 1Gi
   storageClass: longhorn
 
+# The address people reach the console on, e.g. https://console.example.org.
+# Sign-in's redirect URL (<publicUrl>/callback, to paste into the identity
+# provider) and the links in notification mail follow from it. Empty means
+# https://<ingress.host>, which is right whenever the chart publishes the
+# console itself; set it when something in front of the chart does.
+publicUrl: ""
+
 ingress:
   enabled: true
   className: cilium
@@ -329,8 +336,8 @@ certManager:
 #   ingress    an Ingress from the ingress: block, the original behaviour
 #   httproute  a Gateway API HTTPRoute attached to gateway.name in
 #              gateway.namespace. TLS terminates on the Gateway, so certManager
-#              is not consulted; ingress.host is still the console's name and
-#              the OIDC redirect URL is derived from it
+#              is not consulted; ingress.host is still the console's name,
+#              and publicUrl follows from it unless set
 #   none       a Service only: a devAuth demo, or a platform that routes by
 #              itself
 #

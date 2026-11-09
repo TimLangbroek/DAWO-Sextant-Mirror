@@ -120,8 +120,8 @@ spec:
             {{- with .Values.oidc.clientId }}
             - --oidc-client-id={{ . }}
             {{- end }}
-            {{- if .Values.oidc.issuer }}
-            - --oidc-redirect-url=https://{{ .Values.ingress.host }}/callback
+            {{- with include "sextant.publicUrl" . }}
+            - --public-url={{ . }}
             {{- end }}
             {{- with .Values.oidc.groupsClaim }}
             - --oidc-groups-claim={{ . }}

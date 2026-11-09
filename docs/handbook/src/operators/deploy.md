@@ -55,7 +55,10 @@ gateMode: remote                       # or eval / none
 oidc:
   issuer: https://id.example.com
   clientId: "<client-id>"
+publicUrl: https://console.example.com # empty: https://<ingress.host>
 ```
+
+Register `<publicUrl>/callback` as the redirect URL at the identity provider.
 
 The repository may be empty. Before the console starts, `sextant
 prepare-repo` clones it and, when there is nothing in it yet, pushes a
