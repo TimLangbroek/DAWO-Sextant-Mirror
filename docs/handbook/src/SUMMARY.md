@@ -4,7 +4,7 @@
 
 # Operators
 
-- [Three ways to run Sextant](./operators/deployment-paths.md)
+- [Four ways to run Sextant](./operators/deployment-paths.md)
 - [Install and configure Sextant](./operators/deploy.md)
 - [Add a laptop](./operators/add-a-laptop.md)
 - [Set up an imaging station (NUC)](./operators/station-nuc.md)

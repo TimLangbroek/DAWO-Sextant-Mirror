@@ -32,7 +32,7 @@ there is nothing else to wire.
 
 To see it working before you deploy anything, `deploy/compose` starts a
 console, a database, the validation gate and a test identity provider on
-your own machine; see [the three ways to run Sextant](./deployment-paths.md).
+your own machine; see [the four ways to run Sextant](./deployment-paths.md).
 
 ## Connect the console to your overlay repo
 

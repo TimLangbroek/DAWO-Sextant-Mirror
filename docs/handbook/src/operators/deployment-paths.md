@@ -1,7 +1,10 @@
-# Three ways to run Sextant
+# Four ways to run Sextant
 
-One binary, three deployments. They differ in what carries the database, the
-secrets and the TLS, not in what the console does.
+One binary, four ways to run it. They differ in what carries the database,
+the secrets and the TLS, not in what the console does. This page helps you
+pick one and get it started; [Install and configure Sextant](./deploy.md) is
+what every path needs after that: the fleet repository, sign-in, the
+validation gate, and the settings that bite.
 
 Every command here was run on 2026-08-22 against release 0.91.0, and the traps
 are the ones that actually bit.
@@ -9,31 +12,12 @@ are the ones that actually bit.
 | | What it is | What it is for |
 |---|---|---|
 | `deploy/compose` | console, gate-runner, a test identity provider, a database | trying it, and testing a change, on your own machine |
-| A container | one image, your database, your proxy | a single host, NixOS or anything else that runs podman |
+| The NixOS module | the console under systemd, PostgreSQL on the same host | a NixOS server, which a NixOS fleet tends to have already |
+| A container | one image, your database, your proxy | a single host that runs podman or docker |
 | The Helm chart | console, gate-runner, CloudNativePG | a cluster, and the only path with HA and backups |
 
-There is also a **NixOS module** (`nixosModules.default` in the flake) which
-runs the same binary under systemd with `DynamicUser`. It is the container path
-without the container; the same database and secret rules apply. The fleet
-repository is one setting: give it an empty repository on any https forge and
-it is filled with a starter fleet before the console first starts.
-
-```nix
-services.sextant = {
-  enable = true;
-  gitRemote.url = "https://codeberg.org/acme/fleet.git";
-  # A netrc line for a credential that may push. A string, not a path
-  # literal, so the token never lands in the Nix store.
-  gitRemote.netrcFile = "/run/secrets/sextant-netrc";
-  write = true;
-  gate = "eval"; # this host has nix; the gate runs here
-  publicUrl = "https://console.example.org"; # your TLS proxy in front
-  oidc.issuer = "https://id.example.org"; # secret: SEXTANT_OIDC_CLIENT_SECRET
-  oidc.clientId = "sextant";
-  ownerGroups = [ "it-admins" ];
-  environmentFile = "/run/secrets/sextant.env"; # the keys; PostgreSQL runs on this host
-};
-```
+The NixOS module's first start, from nothing configured to a signed-in owner,
+is a VM test (`checks.setup-on-nixos`), so it is walked on every change.
 
 ## First start: the setup page
 
@@ -97,7 +81,42 @@ password), so it is for your own machine only. The
 [compose README](https://codeberg.org/DAWO/DAWO-Sextant/src/branch/main/deploy/compose/README.md)
 says what runs and how to start over.
 
-## 2. A container, on NixOS or anywhere
+## 2. The NixOS module
+
+`nixosModules.default` in the flake runs the console under systemd with
+`DynamicUser`, and starts PostgreSQL on the same host
+(`database.createLocally`, on by default). One line is enough to begin:
+
+```nix
+services.sextant.enable = true;
+```
+
+That console has nothing to sign in with, so it opens the setup page above;
+`journalctl -u sextant | grep setup:` gives the link. Whatever you set in
+the module is not asked again. Set it all and setup never appears:
+
+```nix
+services.sextant = {
+  enable = true;
+  gitRemote.url = "https://codeberg.org/acme/fleet.git";
+  # A netrc line for a credential that may push. A string, not a path
+  # literal, so the token never lands in the Nix store.
+  gitRemote.netrcFile = "/run/secrets/sextant-netrc";
+  write = true;
+  gate = "eval"; # this host has nix; the gate runs here
+  publicUrl = "https://console.example.org"; # your TLS proxy in front
+  oidc.issuer = "https://id.example.org"; # secret: SEXTANT_OIDC_CLIENT_SECRET
+  oidc.clientId = "sextant";
+  ownerGroups = [ "it-admins" ];
+  environmentFile = "/run/secrets/sextant.env"; # the keys; PostgreSQL runs on this host
+};
+```
+
+The fleet repository is one setting: give it an empty repository on any
+https forge and it is filled with a starter fleet before the console first
+starts.
+
+## 3. A container, on any host
 
 ```sh
 podman run -d --name sextant --network host \
@@ -133,7 +152,7 @@ Put TLS in front of it and set `--public-url` to the https address. Behind
 TLS on a non-loopback address the console refuses to ship session cookies
 without the Secure flag, deliberately; an https public URL turns it on.
 
-## 3. The Helm chart
+## 4. The Helm chart
 
 ```sh
 kubectl create namespace sextant
@@ -158,7 +177,7 @@ The full walk-through, including the values that bite, is
 
 ## What differs, and what does not
 
-The console is the same binary in all three. What changes:
+The console is the same binary in all four. What changes:
 
 - **The database.** The compose stack starts one in a volume, the NixOS
   module runs one on the host (`database.createLocally`, on by default), the
