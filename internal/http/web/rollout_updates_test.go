@@ -685,3 +685,58 @@ func TestMonitorShowsBuildingPhase(t *testing.T) {
 		t.Fatalf("building phase not shown: %.400s", page)
 	}
 }
+
+// #81: the confirmation page names the commits somebody marked high-risk in
+// the range the run brings, and says nothing when there are none.
+func TestRolloutConfirmationNamesHighRiskCommits(t *testing.T) {
+	ts, cfg, _ := newUpdatesConsole(t)
+	ctx := context.Background()
+	if code := postForm(t, ts, "/org/updates/policy", url.Values{
+		"testgroup": {"test"}, "percents": {"50, 50"},
+	}); code != 303 {
+		t.Fatalf("derive = %d", code)
+	}
+	head := func() string {
+		t.Helper()
+		log, err := cfg.AuditLog(ctx, 1)
+		if err != nil || len(log) == 0 {
+			t.Fatalf("audit log: %v", err)
+		}
+		return log[0].Hash
+	}
+	// The fleet was last promoted to here.
+	baseline := head()
+	for _, ring := range cfg.Fleet().Rollout.Rings {
+		for _, g := range ring.GroupList() {
+			if err := cfg.Apply(ctx, fleet.SetGroupPin(g, baseline), "rollout: pin ring ("+g+")",
+				ports.Author{Name: "sextant-rollout"}); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	confirm := func() string {
+		t.Helper()
+		code, page := postFormBody(t, ts, "/rollout", url.Values{"target": {head()}, "scope": {"*"}})
+		if code != 200 {
+			t.Fatalf("confirmation page = %d", code)
+		}
+		return page
+	}
+	if page := confirm(); strings.Contains(page, "data-risky") {
+		t.Fatal("a rollout without marked commits warns about them")
+	}
+
+	if err := cfg.Apply(ctx, fleet.SetScopeSetting("org", "apps.office", true),
+		"settings: office everywhere "+app.RiskHighMarker, ports.Author{Name: "alice"}); err != nil {
+		t.Fatal(err)
+	}
+	page := confirm()
+	for _, want := range []string{"data-risky", "High-risk changes in this rollout", "settings: office everywhere", "alice"} {
+		if !strings.Contains(page, want) {
+			t.Errorf("confirmation page misses %q", want)
+		}
+	}
+	if strings.Contains(page, app.RiskHighMarker) {
+		t.Error("the marker itself is shown")
+	}
+}

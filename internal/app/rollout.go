@@ -389,6 +389,41 @@ func (s *RolloutService) nonMachineCommitsSince(ctx context.Context, baseline st
 	return scan, nil
 }
 
+// RiskInRange lists the commits a run to target would bring to the fleet
+// that a writer marked high-risk, newest first: from target down to the
+// revision the fleet was last promoted to. The brake holds only the
+// automatic flow; a person starting a run by hand is making the decision
+// the brake exists to force, so the confirmation page names these (#81).
+// Nothing is listed when no ring group is pinned: the fleet already
+// follows HEAD, so a run brings nothing new.
+func (s *RolloutService) RiskInRange(ctx context.Context, target string) ([]ports.AuditEntry, error) {
+	f := s.cfg.Fleet()
+	if f.Rollout == nil || target == "" {
+		return nil, nil
+	}
+	baseline, _ := promotedBaseline(f)
+	if baseline == "" {
+		return nil, nil
+	}
+	entries, err := s.cfg.AuditLog(ctx, autoFlowLogDepth)
+	if err != nil {
+		return nil, err
+	}
+	var risky []ports.AuditEntry
+	inRange := false
+	for _, e := range entries {
+		if e.Hash == baseline {
+			break
+		}
+		// Commits newer than the target are not part of this run.
+		inRange = inRange || e.Hash == target || (len(target) >= 7 && strings.HasPrefix(e.Hash, target))
+		if inRange && !isMachineAuthor(e.Author) && strings.Contains(e.Subject, RiskHighMarker) {
+			risky = append(risky, e)
+		}
+	}
+	return risky, nil
+}
+
 // holdForRisk parks auto-flow behind a high-risk change and tells the owning
 // groups about it ONCE per commit: the hold is re-derived on every tick, so an
 // unguarded notify would refill the bell every interval until somebody

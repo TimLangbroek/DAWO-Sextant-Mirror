@@ -28,6 +28,16 @@
   </div>
   {{end}}
 
+  {{with .Risky}}
+  <div class="rounded-lg border border-status-warn/40 bg-status-warn/5 p-5" data-risky>
+    <h2 class="mt-0 mb-1 flex items-center gap-2 text-label-md font-bold text-ink"><span class="material-symbols-outlined msz-18 text-status-warn">warning</span>{{$.L.T "rollout.confirm_risky"}}</h2>
+    <p class="muted mb-3">{{$.L.T "rollout.confirm_risky_hint"}}</p>
+    <ul class="mb-0 flex flex-col gap-1 text-body-sm">
+      {{range .}}<li class="flex items-baseline gap-2"><span class="font-mono text-code-inline text-text-tertiary">{{short .Hash}}</span><span class="text-ink">{{.Subject}}</span><span class="text-text-tertiary">{{.Author}}</span></li>{{end}}
+    </ul>
+  </div>
+  {{end}}
+
   <div class="rounded-lg border border-border-hairline bg-canvas p-5 shadow-sm">
     <h2 class="mt-0 mb-3 text-label-md font-bold text-ink">{{.L.T "orgupd.plan_preview"}}</h2>
     <div class="overflow-x-auto rounded-md border border-border-soft">

@@ -123,7 +123,20 @@ func (s *Server) postRolloutStart(w http.ResponseWriter, r *http.Request, v view
 	}
 
 	if r.FormValue("confirmed") != "1" {
+		// Commits a writer marked high-risk did not roll out by themselves;
+		// this page is where a person decides they do (#81). Best-effort: a
+		// history that cannot be read leaves the page as it was, in the log.
+		var risky []riskyCommit
+		marked, err := s.svc.Rollouts.RiskInRange(r.Context(), target)
+		if err != nil {
+			s.log.Warn("rollout confirmation: high-risk commits not listed", "target", target, "err", err)
+		}
+		for _, e := range marked {
+			risky = append(risky, riskyCommit{Hash: e.Hash, Author: e.Author,
+				Subject: strings.TrimSpace(strings.ReplaceAll(e.Subject, app.RiskHighMarker, ""))})
+		}
 		data := map[string]any{
+			"Risky": risky,
 			"Title": "Confirm rollout", "Nav": "updates",
 			"Target": target, "TargetRelease": s.svc.Config.ReleaseNumber(r.Context(), target),
 			"Scope": scope, "ScopeFleet": scope == "",
@@ -154,6 +167,11 @@ func (s *Server) postRolloutStart(w http.ResponseWriter, r *http.Request, v view
 	http.Redirect(w, r, "/updates/rollout", http.StatusSeeOther)
 	return nil
 }
+
+// riskyCommit is one high-risk commit a rollout brings, as the confirmation
+// page lists it: the marker itself is what put it on the list, so it is left
+// out of the subject.
+type riskyCommit struct{ Hash, Subject, Author string }
 
 // normalizeScope maps the scope select's explicit fleet-wide sentinel ("*",
 // fix D - a real select value is needed once the placeholder claims "") back

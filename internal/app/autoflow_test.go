@@ -245,3 +245,48 @@ func TestRolloutAutoStartRiskBrake(t *testing.T) {
 		t.Fatalf("notifications = %d after the hold cleared, want 1", len(rec.sent))
 	}
 }
+
+// #81: starting a run by hand names the high-risk commits it brings, and
+// only those: not one newer than the target, not one the fleet already has.
+func TestRiskInRangeNamesTheMarkedCommitsARunBrings(t *testing.T) {
+	rs, svc, dir := autoFlowStack(t)
+	ctx := context.Background()
+	subjects := func(target string) []string {
+		t.Helper()
+		got, err := rs.RiskInRange(ctx, target)
+		if err != nil {
+			t.Fatal(err)
+		}
+		out := make([]string, 0, len(got))
+		for _, e := range got {
+			out = append(out, e.Subject)
+		}
+		return out
+	}
+
+	commitAs(t, dir, "alice", "settings: disk encryption "+RiskHighMarker)
+	first := headOf(t, dir)
+	commitAs(t, dir, "alice", "settings: wallpaper")
+	commitAs(t, dir, "bob", "settings: firewall "+RiskHighMarker)
+	commitAs(t, dir, "bob", "settings: clock")
+	head := headOf(t, dir)
+
+	if got := strings.Join(subjects(head), "|"); got !=
+		"settings: firewall "+RiskHighMarker+"|settings: disk encryption "+RiskHighMarker {
+		t.Fatalf("run to HEAD names %q", got)
+	}
+	if got := strings.Join(subjects(first[:12]), "|"); got != "settings: disk encryption "+RiskHighMarker {
+		t.Fatalf("run to the first marked commit names %q, want only that one", got)
+	}
+
+	// The fleet stands on the first marked commit: it is no longer news.
+	for _, g := range []string{"canary", "fleet"} {
+		if err := svc.Apply(ctx, fleet.SetGroupPin(g, first),
+			"rollout: pin ring ("+g+") to "+first, engineAuthor()); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := strings.Join(subjects(head), "|"); got != "settings: firewall "+RiskHighMarker {
+		t.Fatalf("after promoting past the first, a run to HEAD names %q", got)
+	}
+}

@@ -36,6 +36,11 @@ Once there is a current revision to ship, this section is either an active
 rollout in progress or the button to start one against the latest merged
 revision.
 
+Starting a rollout first shows what it will do: the revision, the wave plan,
+and every change in the range that somebody marked as high-risk when they
+saved it, with who did. Those did not roll out by themselves; confirming is
+the moment they do.
+
 Starting a rollout kicks off the wave plan from Step 3 (below) against the
 current revision. Each wave shows a live status label as it progresses:
 
