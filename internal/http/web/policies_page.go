@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"sort"
+	"strconv"
 	"strings"
 
 	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/app"
@@ -33,6 +34,8 @@ func (s *Server) policies(w http.ResponseWriter, r *http.Request, v view) {
 		EnforcedText    string
 		Controls        []string
 		ControlsText    string
+		Conditions      []fleet.Condition
+		ConditionRows   []conditionRow // the editor: every condition, then one empty row
 		Assignments     []arow
 		Profile         string // source profile name, "" for hand-made
 		Drift           bool   // the overlay's profile moved past this stamp
@@ -57,6 +60,7 @@ func (s *Server) policies(w http.ResponseWriter, r *http.Request, v view) {
 			Settings: p.Settings, SettingsText: strings.Join(lines, "\n"),
 			Enforced: p.Enforced, EnforcedText: strings.Join(p.Enforced, ", "),
 			Controls: p.Controls, ControlsText: strings.Join(p.Controls, ", "),
+			Conditions: p.Conditions, ConditionRows: conditionRows(p.Conditions),
 			Assignments: asn}
 		if name, _, ok := strings.Cut(p.Profile, "@"); ok {
 			row.Profile = name
@@ -119,6 +123,10 @@ func (s *Server) policies(w http.ResponseWriter, r *http.Request, v view) {
 		"Profiles": prof,
 		"Groups":   groups, "PolicyIDs": sortedKeys(f.Policies), "FilterIDs": sortedKeys(f.Filters),
 		"RuleRows": []int{0, 1, 2},
+		// The condition editor's metric picker: the closed vocabulary the
+		// observed plane supplies (#77), and a new policy's one empty row.
+		"ConditionMetrics": fleet.ConditionMetricNames(),
+		"NewConditionRows": conditionRows(nil),
 		// The filter editor's suggestion lists: the closed attribute
 		// vocabulary and the fleet's actual values, so rules are picked from
 		// what exists instead of typed from memory.
@@ -204,4 +212,22 @@ func profileState(pol fleet.Policy, src fleet.Profile) string {
 	default:
 		return "current"
 	}
+}
+
+// conditionRow is one row of the condition editor, numbered the way
+// postPolicyPut reads them back.
+type conditionRow struct {
+	Index                     int
+	Metric, Op, Value, Detail string
+}
+
+// conditionRows lists a policy's conditions for editing, then one empty row
+// for a new one.
+func conditionRows(cs []fleet.Condition) []conditionRow {
+	rows := make([]conditionRow, 0, len(cs)+1)
+	for i, c := range cs {
+		rows = append(rows, conditionRow{Index: i, Metric: c.Metric, Op: c.Op,
+			Value: strconv.FormatFloat(c.Value, 'f', -1, 64), Detail: c.Detail})
+	}
+	return append(rows, conditionRow{Index: len(cs), Op: ">="})
 }

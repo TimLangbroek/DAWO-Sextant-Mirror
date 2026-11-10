@@ -1,4 +1,5 @@
 {{define "content"}}
+<datalist id="condition-metrics">{{range .ConditionMetrics}}<option value="{{.}}"></option>{{end}}</datalist>
 <div class="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
   <div>
     <h1 class="mb-1 flex items-center gap-2">{{.L.T "nav.policies"}}
@@ -156,6 +157,7 @@
       <div class="flex flex-wrap items-center justify-between gap-2 border-t border-border-hairline px-5 py-3">
         <div class="flex flex-wrap items-center gap-1">
           {{range .Controls}}<span class="tag" title="{{$.L.T "policies.control_hint"}}"><span class="material-symbols-outlined msz-14">verified_user</span>{{.}}</span>{{end}}
+          {{range .Conditions}}<span class="tag font-mono" title="{{if .Detail}}{{.Detail}}{{else}}{{$.L.T "policies.conditions_hint"}}{{end}}" data-condition><span class="material-symbols-outlined msz-14">rule</span>{{.Metric}} {{.Op}} {{.Value}}</span>{{end}}
         </div>
         {{if $.CanOwn}}<label for="pol-{{.ID}}" class="btn quiet !min-h-0 !py-1"><span class="material-symbols-outlined msz-18">edit</span>{{$.L.T "common.edit"}}</label>{{end}}
       </div>
@@ -179,6 +181,7 @@
             <input id="pol-enf-{{.ID}}" name="enforced" value="{{.EnforcedText}}" class="font-mono"></div>
           <div class="flex flex-col gap-1"><label for="pol-ctl-{{.ID}}">{{$.L.T "policies.controls_placeholder"}}</label>
             <input id="pol-ctl-{{.ID}}" name="controls" value="{{.ControlsText}}" class="font-mono"></div>
+          {{template "conditionRows" (list $.L .ConditionRows)}}
           <div class="flex items-center justify-between gap-2">
             <button type="submit" formaction="/policies/{{.ID}}/delete" data-confirm="{{$.L.T "policies.delete_confirm"}} {{.ID}}" class="quiet !border-status-error/40 !text-status-error"><span class="material-symbols-outlined msz-18">delete</span>{{$.L.T "common.delete"}}</button>
             <span class="flex items-center gap-2">
@@ -201,9 +204,10 @@
         <input type="hidden" name="csrf" value="{{.CSRF}}">
         <input name="id" placeholder="{{.L.T "policies.id_placeholder"}}" required aria-label="{{.L.T "policies.id_placeholder"}}">
         <input name="description" placeholder="{{.L.T "common.description"}}" aria-label="{{.L.T "common.description"}}">
-        <textarea name="settings" rows="4" placeholder="apps.office = true&#10;desktop = plasma" required aria-label="apps.office = true&#10;desktop = plasma"></textarea>
+        <textarea name="settings" rows="4" placeholder="apps.office = true&#10;desktop = plasma" aria-label="apps.office = true&#10;desktop = plasma"></textarea>
         <input name="enforced" placeholder="{{.L.T "policies.locked_keys_placeholder"}} ({{.L.T "common.optional"}})" aria-label="{{.L.T "policies.locked_keys_placeholder"}} ({{.L.T "common.optional"}})">
         <input name="controls" placeholder="{{.L.T "policies.controls_placeholder"}} ({{.L.T "common.optional"}})" aria-label="{{.L.T "policies.controls_placeholder"}} ({{.L.T "common.optional"}})">
+        {{template "conditionRows" (list .L .NewConditionRows)}}
         <div class="flex items-center gap-3"><button type="submit">{{.L.T "common.create"}}</button><span class="muted">{{.L.T "policies.per_line_pre"}} <code>key = value</code> {{.L.T "policies.per_line_post"}}</span></div>
       </form>
     </div>
@@ -259,4 +263,25 @@
   </div>
   {{end}}
 </div>
+{{end}}
+
+{{define "conditionRows"}}{{$L := index . 0}}
+          <fieldset class="flex flex-col gap-2">
+            <legend>{{$L.T "policies.conditions"}}</legend>
+            <p class="muted m-0">{{$L.T "policies.conditions_hint"}}</p>
+            {{range index . 1}}
+            <div class="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_8rem_7rem]">
+              <input name="cmetric{{.Index}}" value="{{.Metric}}" list="condition-metrics" class="font-mono" placeholder="{{$L.T "policies.cond_metric"}}" aria-label="{{$L.T "policies.cond_metric"}}">
+              <select name="cop{{.Index}}" aria-label="{{$L.T "common.operator"}}">
+                <option value="&gt;="{{if eq .Op ">="}} selected{{end}}>{{$L.T "policies.cond_op_ge"}}</option>
+                <option value="&lt;="{{if eq .Op "<="}} selected{{end}}>{{$L.T "policies.cond_op_le"}}</option>
+                <option value="&gt;"{{if eq .Op ">"}} selected{{end}}>{{$L.T "policies.cond_op_gt"}}</option>
+                <option value="&lt;"{{if eq .Op "<"}} selected{{end}}>{{$L.T "policies.cond_op_lt"}}</option>
+                <option value="=="{{if eq .Op "=="}} selected{{end}}>{{$L.T "policies.cond_op_eq"}}</option>
+              </select>
+              <input name="cvalue{{.Index}}" value="{{.Value}}" type="number" step="any" placeholder="{{$L.T "common.value"}}" aria-label="{{$L.T "common.value"}}">
+              <input name="cdetail{{.Index}}" value="{{.Detail}}" class="sm:col-span-3" placeholder="{{$L.T "policies.cond_detail"}}" aria-label="{{$L.T "policies.cond_detail"}}">
+            </div>
+            {{end}}
+          </fieldset>
 {{end}}

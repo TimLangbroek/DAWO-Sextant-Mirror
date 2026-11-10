@@ -35,6 +35,12 @@ Showing "enforced" beside a free-disk-space requirement would promise something
 the system cannot deliver, so the console does not. Conditions appear as
 findings; settings appear as configuration.
 
+You write a condition in the policy editor on **Policies**: the measurement
+(the field suggests the ones devices report), *at least*, *at most*, *more
+than*, *less than* or *exactly*, a number, and one sentence for whoever reads
+the finding on **Compliance**. A policy can hold only conditions and no
+settings. Empty a row's measurement to remove that condition.
+
 There is a second rule that follows from the same honesty, and it is deliberate:
 **a device that never reported a metric is not accused of failing it.** An older
 agent, or a probe that did not run, produces silence - and silence is unknown,

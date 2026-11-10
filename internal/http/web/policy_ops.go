@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/app"
@@ -60,9 +61,16 @@ func (s *Server) postPolicyPut(w http.ResponseWriter, r *http.Request, v view) e
 		return err
 	}
 	id := strings.TrimSpace(r.FormValue("id"))
-	settings, err := s.parsePolicySettings(r.FormValue("settings"))
-	if err != nil {
-		return err
+	// A policy with conditions and no settings is a policy (ADR 0017), so a
+	// blank settings field is not parsed; the domain refuses one that sets
+	// nothing and requires nothing, with its own words.
+	var settings map[string]any
+	if raw := strings.TrimSpace(r.FormValue("settings")); raw != "" {
+		parsed, err := s.parsePolicySettings(raw)
+		if err != nil {
+			return err
+		}
+		settings = parsed
 	}
 	var enforced []string
 	for _, k := range strings.Split(r.FormValue("enforced"), ",") {
@@ -77,13 +85,23 @@ func (s *Server) postPolicyPut(w http.ResponseWriter, r *http.Request, v view) e
 			controls = append(controls, c)
 		}
 	}
+	conditions, carried, err := parsePolicyConditions(r)
+	if err != nil {
+		return err
+	}
 	p := fleet.Policy{Description: strings.TrimSpace(r.FormValue("description")),
-		Settings: settings, Enforced: enforced, Controls: controls}
+		Settings: settings, Enforced: enforced, Controls: controls, Conditions: conditions}
 	// A form edit must not strip what the form does not carry: the label and
 	// the profile provenance survive hand edits, so the console keeps
-	// comparing an edited policy against its source profile.
+	// comparing an edited policy against its source profile. Conditions
+	// too, from a form that has no condition rows: before the editor had
+	// them, saving a policy here silently dropped every condition the API
+	// had set (#77).
 	if prev, ok := s.svc.Config.Fleet().Policies[id]; ok {
 		p.Name, p.Profile = prev.Name, prev.Profile
+		if !carried {
+			p.Conditions = prev.Conditions
+		}
 	}
 	if err := s.applyGated(r, v, fleet.PutPolicy(id, p),
 		"policies: put "+id); err != nil {
@@ -91,6 +109,38 @@ func (s *Server) postPolicyPut(w http.ResponseWriter, r *http.Request, v view) e
 	}
 	http.Redirect(w, r, "/policies", http.StatusSeeOther)
 	return nil
+}
+
+// maxConditionRows bounds how many numbered condition rows a form is read for.
+const maxConditionRows = 50
+
+// parsePolicyConditions reads the condition editor's numbered rows. A row
+// without a metric is empty and skipped. carried says whether the form had
+// condition rows at all, so a form without them leaves a policy's
+// conditions alone instead of clearing them.
+func parsePolicyConditions(r *http.Request) (conds []fleet.Condition, carried bool, err error) {
+	if err := r.ParseForm(); err != nil {
+		return nil, false, err
+	}
+	for i := range maxConditionRows {
+		metric, present := r.PostForm[fmt.Sprintf("cmetric%d", i)]
+		if !present {
+			continue
+		}
+		carried = true
+		m := strings.TrimSpace(strings.Join(metric, ""))
+		if m == "" {
+			continue
+		}
+		raw := strings.TrimSpace(r.PostFormValue(fmt.Sprintf("cvalue%d", i)))
+		value, perr := strconv.ParseFloat(raw, 64)
+		if perr != nil {
+			return nil, true, fmt.Errorf("condition on %s: %q is not a number", m, raw)
+		}
+		conds = append(conds, fleet.Condition{Metric: m, Op: r.PostFormValue(fmt.Sprintf("cop%d", i)),
+			Value: value, Detail: strings.TrimSpace(r.PostFormValue(fmt.Sprintf("cdetail%d", i)))})
+	}
+	return conds, carried, nil
 }
 
 // postProfileApply instantiates an overlay profile as a regular policy plus
