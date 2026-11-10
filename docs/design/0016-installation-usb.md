@@ -87,10 +87,16 @@ This adds disko as an input of the Sextant flake, pinned like nixpkgs.
 The disk is encrypted from the first boot, and the first boot asks
 nobody for anything.
 
-- The installer creates the LUKS volume with a six-word phrase, as the
-  station does, and seals a TPM2 keyslot **without PCR binding**. The laptop
-  unlocks at first boot by itself; the disk is still useless outside this
-  machine.
+- The installer creates the LUKS volume with a phrase of five groups of
+  five characters from the administrator password's alphabet (no I, O, 0
+  or 1; 125 bits), and seals a TPM2 keyslot **without PCR binding**. The
+  laptop unlocks at first boot by itself; the disk is still useless outside
+  this machine. (The note said six words, "as the station does"; the
+  station's script is not in this repository, and a laptop without a TPM2
+  types this phrase at every start, so it follows the one alphabet Sextant
+  already has.)
+- The same phrase is staged as `luks-enroll.key` for **Secure this
+  laptop**, which shreds it once it has sealed to PCR 7.
 - The phrase goes into the agent's state directory as `recovery.key`. The
   agent's first check-in carries it to the console, which seals it and
   confirms; the agent then deletes its copy. That is the escrow path of
