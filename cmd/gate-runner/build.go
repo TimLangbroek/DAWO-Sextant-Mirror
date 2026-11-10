@@ -160,39 +160,45 @@ func (s *server) buildAtRev(ctx context.Context, req buildRequest) error {
 	// outlives the call that started it and must not die when that caller
 	// disconnects. What it must die for is an explicit cancel - see
 	// handleBuildCancel.
+	return s.atRevision(ctx, req.Rev, "build", func(scratch string) error {
+		if s.publishFn != nil {
+			return s.publishFn(ctx, scratch, req.Hosts)
+		}
+		s.publisher.HostVariants = s.variants
+		return s.publisher.Publish(ctx, scratch, req.Hosts)
+	})
+}
 
+// atRevision checks the overlay out at rev in a scratch worktree named for
+// the kind of job, runs fn in it, and removes the worktree again.
+func (s *server) atRevision(ctx context.Context, rev, kind string, fn func(scratch string) error) error {
 	// The revision may be newer than the last sync; fetch under the eval lock
 	// (the workdir's git state is shared with /validate).
 	s.mu.Lock()
 	err := s.git(ctx, s.workdir, "fetch", "--quiet", "origin", s.branch)
 	s.mu.Unlock()
 	if err != nil {
-		return fmt.Errorf("fetch before build: %w", err)
+		return fmt.Errorf("fetch before %s: %w", kind, err)
 	}
 
-	scratch := filepath.Join(filepath.Dir(s.workdir), "build-"+req.Rev)
+	scratch := filepath.Join(filepath.Dir(s.workdir), kind+"-"+rev)
 	// A leftover worktree from a crashed run: remove and re-create. This one
 	// stays silent on purpose - the normal case is that there is nothing to
 	// remove, and a warning that fires on the happy path teaches its reader to
 	// skip warnings.
 	_ = s.git(ctx, s.workdir, "worktree", "remove", "--force", scratch)
-	if err := s.git(ctx, s.workdir, "worktree", "add", "--detach", scratch, req.Rev); err != nil {
-		return fmt.Errorf("checkout %s: %w", req.Rev, err)
+	if err := s.git(ctx, s.workdir, "worktree", "add", "--detach", scratch, rev); err != nil {
+		return fmt.Errorf("checkout %s: %w", rev, err)
 	}
 	defer func() {
 		// This one is different: it removes a worktree this call just created,
 		// so a failure means a leaked checkout on the runner's disk, once per
-		// build, with nothing to notice it by.
+		// job, with nothing to notice it by.
 		if err := s.git(ctx, s.workdir, "worktree", "remove", "--force", scratch); err != nil {
-			s.log.Warn("build: scratch worktree not removed", "dir", scratch, "err", err)
+			s.log.Warn(kind+": scratch worktree not removed", "dir", scratch, "err", err)
 		}
 	}()
-
-	if s.publishFn != nil {
-		return s.publishFn(ctx, scratch, req.Hosts)
-	}
-	s.publisher.HostVariants = s.variants
-	return s.publisher.Publish(ctx, scratch, req.Hosts)
+	return fn(scratch)
 }
 
 // handleCache serves the binary cache read-only. Substitution needs exactly

@@ -169,6 +169,8 @@ func main() {
 	mux.HandleFunc("POST /validate", srv.handleValidate)
 	mux.HandleFunc("POST /build", srv.handleBuild)
 	mux.HandleFunc("POST /build/cancel", srv.handleBuildCancel)
+	mux.HandleFunc("POST /artifact", srv.handleArtifact)
+	mux.HandleFunc("GET /artifact/{rev}/{name}", srv.handleArtifactFile)
 	mux.HandleFunc("POST /parse", srv.handleParse)
 	mux.HandleFunc("POST /bump", srv.handleBump)
 	mux.HandleFunc("GET /cache/", srv.handleCache)
@@ -262,6 +264,11 @@ type server struct {
 	// without a git repo or a nix evaluation. Nil falls back to production.
 	gitRun    func(ctx context.Context, dir string, args ...string) error
 	publishFn func(ctx context.Context, repoDir string, hosts []string) error
+	// artifactFn builds one artifact into an out-link; nil runs nix build.
+	artifactFn func(ctx context.Context, repoDir, attr, link string) error
+
+	// artifacts holds the installer-image jobs (design 0016), under buildMu.
+	artifacts map[string]*artifactResponse
 }
 
 type validateRequest struct {
