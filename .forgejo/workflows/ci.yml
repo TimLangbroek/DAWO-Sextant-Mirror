@@ -18,6 +18,13 @@ on:
 jobs:
   test:
     runs-on: nixos
+    # A ceiling of our own, so a hang fails as itself. Without one the
+    # runner's three-hour limit ends the job as "cancelled", with the log
+    # stopping mid-build and no step to blame: run 382 went three hours and
+    # fifty-two minutes that way (#145). The thirteen green runs before
+    # 2026-11-10 took five to fourteen minutes; the ceiling leaves room for
+    # a cold cache, not for a hang.
+    timeout-minutes: 75
     steps:
       # What this run actually is, in one line, before anything can fail. Run
       # 103 (the first pull_request event this repository ever had) failed with
@@ -225,12 +232,15 @@ jobs:
             || { echo "no checks at all; refusing to report a pass on nothing" >&2; exit 1; }
           nix flake check --no-build
 
-      # And then run them, on main only. console-on-nixos boots a VM with a
-      # database and posts a settings change through the web form, which is the
-      # half a unit test cannot reach - and also the reason it is too slow for
-      # every push on a single runner that also images machines.
+      # And then run them, before the merge as well as after. The VM tests
+      # (console-on-nixos, setup-on-nixos and the module tests) are the half
+      # a unit test cannot reach. They used to run on main only, the one
+      # place they could only go red after the merge: a pull request skipped
+      # them, the first run failed (run 382, 28 Aug) and main stayed red for
+      # eleven days (#145). With the cache warm they take minutes, so a pull
+      # request runs them too, under a ceiling of their own.
       - name: Run the checks
-        if: github.ref_name == 'main'
+        timeout-minutes: 45
         run: cd "$GITHUB_WORKSPACE/src" && nix flake check
 
       # The Dockerfile is otherwise exercised only at release time, which is
