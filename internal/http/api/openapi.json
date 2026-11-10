@@ -473,6 +473,24 @@
           }
         }
       },
+      "IssuedCredential": {
+        "type": "object",
+        "description": "A device credential, shown this once.",
+        "required": [
+          "credential",
+          "notice"
+        ],
+        "properties": {
+          "credential": {
+            "type": "string",
+            "description": "The secret the device checks in with. The console keeps only its hash."
+          },
+          "notice": {
+            "type": "string",
+            "description": "A reminder that this is the only time it is shown."
+          }
+        }
+      },
       "Me": {
         "type": "object",
         "description": "Who the caller is and what they may do. The roles map is resolved per request, never stored.",
@@ -810,6 +828,42 @@
         "required": [
           "target"
         ]
+      },
+      "RolloutTick": {
+        "type": "object",
+        "description": "What one step of the rollout engine did.",
+        "required": [
+          "state"
+        ],
+        "properties": {
+          "state": {
+            "type": "object",
+            "nullable": true,
+            "description": "The run's state after the step, as GET /api/v1/rollout answers it; null when there has never been a run."
+          },
+          "action": {
+            "type": "object",
+            "description": "What the step decided; absent when no run is active.",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "promote",
+                  "wait",
+                  "advance",
+                  "widen-cohort",
+                  "halt",
+                  "await-approval"
+                ],
+                "description": "The decision."
+              },
+              "reason": {
+                "type": "string",
+                "description": "Why, in words."
+              }
+            }
+          }
+        }
       },
       "SecretRef": {
         "type": "object",
@@ -1838,8 +1892,8 @@
           }
         },
         "responses": {
-          "200": {
-            "description": "OK",
+          "201": {
+            "description": "Created.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2544,7 +2598,7 @@
           }
         },
         "responses": {
-          "200": {
+          "201": {
             "description": "The device was enrolled.",
             "content": {
               "application/json": {
@@ -2936,7 +2990,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Status"
+                  "$ref": "#/components/schemas/IssuedCredential"
                 }
               }
             }
@@ -3891,8 +3945,8 @@
           }
         },
         "responses": {
-          "200": {
-            "description": "OK",
+          "201": {
+            "description": "Created.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4322,7 +4376,14 @@
         "summary": "My preferences",
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Preferences"
+                }
+              }
+            }
           },
           "401": {
             "description": "No credential, or one that does not verify.",
@@ -4385,7 +4446,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Status"
+                  "$ref": "#/components/schemas/Preferences"
                 }
               }
             }
@@ -4843,8 +4904,8 @@
           }
         },
         "responses": {
-          "200": {
-            "description": "OK",
+          "201": {
+            "description": "Created.",
             "content": {
               "application/json": {
                 "schema": {
@@ -5053,7 +5114,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Status"
+                  "$ref": "#/components/schemas/RolloutTick"
                 }
               }
             }
@@ -5313,7 +5374,16 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Status"
+                  "type": "object",
+                  "required": [
+                    "name"
+                  ],
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "description": "The name that was removed."
+                    }
+                  }
                 }
               }
             }

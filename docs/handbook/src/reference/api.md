@@ -252,7 +252,7 @@ Request body: [NewChange](#newchange).
 
 | Answer | Body | Meaning |
 |---|---|---|
-| `200` | [Status](#status) | OK |
+| `201` | [Status](#status) | Created. |
 | `400` | [Error](#error) | The request could not be used: malformed body, unknown key, wrong-typed value, or a reference that resolves to nothing. |
 | `401` | [Error](#error) | No credential, or one that does not verify. |
 | `403` | [Error](#error) | Authenticated, but no role at the required scope - or the server is read-only (--write not set), or the X-CSRF-Token is missing on a session-authenticated mutation. |
@@ -401,7 +401,7 @@ Request body: [NewDevice](#newdevice).
 
 | Answer | Body | Meaning |
 |---|---|---|
-| `200` | object with `credentialError`, `credential`, `notice`, `status`, `tag` | The device was enrolled. |
+| `201` | object with `credentialError`, `credential`, `notice`, `status`, `tag` | The device was enrolled. |
 | `400` | [Error](#error) | The request could not be used: malformed body, unknown key, wrong-typed value, or a reference that resolves to nothing. |
 | `401` | [Error](#error) | No credential, or one that does not verify. |
 | `403` | [Error](#error) | Authenticated, but no role at the required scope - or the server is read-only (--write not set), or the X-CSRF-Token is missing on a session-authenticated mutation. |
@@ -483,7 +483,7 @@ Replaces the device credential (lost secret, re-image); the new secret is shown 
 
 | Answer | Body | Meaning |
 |---|---|---|
-| `200` | [Status](#status) | OK |
+| `200` | [IssuedCredential](#issuedcredential) | OK |
 | `400` | [Error](#error) | The request could not be used: malformed body, unknown key, wrong-typed value, or a reference that resolves to nothing. |
 | `401` | [Error](#error) | No credential, or one that does not verify. |
 | `403` | [Error](#error) | Authenticated, but no role at the required scope - or the server is read-only (--write not set), or the X-CSRF-Token is missing on a session-authenticated mutation. |
@@ -694,7 +694,7 @@ Request body: [NewGroup](#newgroup).
 
 | Answer | Body | Meaning |
 |---|---|---|
-| `200` | [Status](#status) | OK |
+| `201` | [Status](#status) | Created. |
 | `400` | [Error](#error) | The request could not be used: malformed body, unknown key, wrong-typed value, or a reference that resolves to nothing. |
 | `401` | [Error](#error) | No credential, or one that does not verify. |
 | `403` | [Error](#error) | Authenticated, but no role at the required scope - or the server is read-only (--write not set), or the X-CSRF-Token is missing on a session-authenticated mutation. |
@@ -786,7 +786,7 @@ Personal presentation settings (timezone, locale). Empty fields inherit the orga
 
 | Answer | Body | Meaning |
 |---|---|---|
-| `200` |  | OK |
+| `200` | [Preferences](#preferences) | OK |
 | `401` | [Error](#error) | No credential, or one that does not verify. |
 | `403` | [Error](#error) | Authenticated, but no role at the required scope - or the server is read-only (--write not set), or the X-CSRF-Token is missing on a session-authenticated mutation. |
 | `404` | [Error](#error) | No such endpoint, or the named resource does not exist. |
@@ -802,7 +802,7 @@ Request body: [Preferences](#preferences).
 
 | Answer | Body | Meaning |
 |---|---|---|
-| `200` | [Status](#status) | OK |
+| `200` | [Preferences](#preferences) | OK |
 | `400` | [Error](#error) | The request could not be used: malformed body, unknown key, wrong-typed value, or a reference that resolves to nothing. |
 | `401` | [Error](#error) | No credential, or one that does not verify. |
 | `403` | [Error](#error) | Authenticated, but no role at the required scope - or the server is read-only (--write not set), or the X-CSRF-Token is missing on a session-authenticated mutation. |
@@ -874,7 +874,7 @@ Request body: [RolloutStart](#rolloutstart).
 
 | Answer | Body | Meaning |
 |---|---|---|
-| `200` | [Status](#status) | OK |
+| `201` | [Status](#status) | Created. |
 | `400` | [Error](#error) | The request could not be used: malformed body, unknown key, wrong-typed value, or a reference that resolves to nothing. |
 | `401` | [Error](#error) | No credential, or one that does not verify. |
 | `403` | [Error](#error) | Authenticated, but no role at the required scope - or the server is read-only (--write not set), or the X-CSRF-Token is missing on a session-authenticated mutation. |
@@ -926,7 +926,7 @@ Advance the rollout engine one step.
 
 | Answer | Body | Meaning |
 |---|---|---|
-| `200` | [Status](#status) | OK |
+| `200` | [RolloutTick](#rollouttick) | OK |
 | `400` | [Error](#error) | The request could not be used: malformed body, unknown key, wrong-typed value, or a reference that resolves to nothing. |
 | `401` | [Error](#error) | No credential, or one that does not verify. |
 | `403` | [Error](#error) | Authenticated, but no role at the required scope - or the server is read-only (--write not set), or the X-CSRF-Token is missing on a session-authenticated mutation. |
@@ -976,7 +976,7 @@ Unregister a secret reference.
 
 | Answer | Body | Meaning |
 |---|---|---|
-| `200` | [Status](#status) | OK |
+| `200` | object with `name` | OK |
 | `400` | [Error](#error) | The request could not be used: malformed body, unknown key, wrong-typed value, or a reference that resolves to nothing. |
 | `401` | [Error](#error) | No credential, or one that does not verify. |
 | `403` | [Error](#error) | Authenticated, but no role at the required scope - or the server is read-only (--write not set), or the X-CSRF-Token is missing on a session-authenticated mutation. |
@@ -1288,6 +1288,15 @@ Asset-management details of a device.
 | `serial` | string |  | The serial number. |
 | `site` | string |  | Where it is. |
 
+### IssuedCredential
+
+A device credential, shown this once.
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `credential` | string | yes | The secret the device checks in with. The console keeps only its hash. |
+| `notice` | string | yes | A reminder that this is the only time it is shown. |
+
 ### Me
 
 Who the caller is and what they may do. The roles map is resolved per request, never stored.
@@ -1418,6 +1427,15 @@ The revision to roll out.
 | Field | Type | Required | Meaning |
 |---|---|---|---|
 | `target` | string | yes | A commit of the fleet repository. |
+
+### RolloutTick
+
+What one step of the rollout engine did.
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `action` | object with `kind`, `reason` |  | What the step decided; absent when no run is active. |
+| `state` | object | yes | The run's state after the step, as GET /api/v1/rollout answers it; null when there has never been a run. |
 
 ### SecretRef
 
