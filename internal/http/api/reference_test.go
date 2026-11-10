@@ -81,6 +81,8 @@ type refSchema struct {
 	Items       *refSchema           `json:"items"`
 	Required    []string             `json:"required"`
 	Properties  map[string]refSchema `json:"properties"`
+	// AdditionalProperties is a schema, or true; a map's values.
+	AdditionalProperties json.RawMessage `json:"additionalProperties"`
 }
 
 type refParam struct {
@@ -96,7 +98,12 @@ type refOp struct {
 	Description string     `json:"description"`
 	Deprecated  bool       `json:"deprecated"`
 	Parameters  []refParam `json:"parameters"`
-	Responses   map[string]struct {
+	RequestBody *struct {
+		Content map[string]struct {
+			Schema refSchema `json:"schema"`
+		} `json:"content"`
+	} `json:"requestBody"`
+	Responses map[string]struct {
 		Description string `json:"description"`
 		Content     map[string]struct {
 			Schema refSchema `json:"schema"`
@@ -175,6 +182,11 @@ func renderReference(raw []byte) (string, error) {
 				}
 				w("\n")
 			}
+			if op.RequestBody != nil {
+				if ct, ok := op.RequestBody.Content["application/json"]; ok {
+					w("Request body: %s.\n\n", typeOf(ct.Schema))
+				}
+			}
 			codes := make([]string, 0, len(op.Responses))
 			for c := range op.Responses {
 				codes = append(codes, c)
@@ -199,6 +211,8 @@ func renderReference(raw []byte) (string, error) {
 	}
 	sort.Strings(names)
 	w("## Schemas\n\n")
+	w("Required means two things. In an answer, the field is always there. In a request\n")
+	w("body, the server needs it. The server refuses a body with a field this page does not name.\n\n")
 	for _, n := range names {
 		s := spec.Components.Schemas[n]
 		w("### %s\n\n", n)
@@ -218,7 +232,7 @@ func renderReference(raw []byte) (string, error) {
 			fields = append(fields, f)
 		}
 		sort.Strings(fields)
-		w("| Field | Type | Always there | Meaning |\n|---|---|---|---|\n")
+		w("| Field | Type | Required | Meaning |\n|---|---|---|---|\n")
 		for _, f := range fields {
 			always := ""
 			if req[f] {
@@ -242,6 +256,12 @@ func typeOf(s refSchema) string {
 		return "array of " + typeOf(*s.Items)
 	case len(s.Enum) > 0:
 		return "one of `" + strings.Join(s.Enum, "`, `") + "`"
+	case s.Type == "object" && len(s.AdditionalProperties) > 0:
+		var values refSchema
+		if err := json.Unmarshal(s.AdditionalProperties, &values); err != nil {
+			return "object"
+		}
+		return "object of " + typeOf(values) + " values"
 	case s.Type == "object" && len(s.Properties) > 0:
 		fields := make([]string, 0, len(s.Properties))
 		for f := range s.Properties {

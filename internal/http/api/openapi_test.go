@@ -32,8 +32,9 @@ type tickClock struct{}
 
 func (tickClock) Now() time.Time { return time.Now() }
 
-// fullAPI wires every optional service so the route manifest is complete.
-func fullAPI(t *testing.T) *API {
+// fullAPI wires every optional service so the route manifest is complete,
+// and mounts the routes on mux.
+func fullAPI(t *testing.T, mux *http.ServeMux) *API {
 	t.Helper()
 	svc, dir := seededService(t, seed)
 	repo, err := git.Open(dir, "")
@@ -55,8 +56,8 @@ func fullAPI(t *testing.T) *API {
 	creds := app.NewDeviceCredentials(newAPIMemTokenStore(), tickClock{})
 
 	a := New(Services{Config: svc, Changes: changes, Rollouts: rollouts, Inventory: inv,
-		Tokens: toks, DevCreds: creds}, Authz{}, testToken, true, discardLog())
-	a.Routes(http.NewServeMux())
+		Tokens: toks, DevCreds: creds, Prefs: memPrefs{}}, Authz{}, testToken, true, discardLog())
+	a.Routes(mux)
 	return a
 }
 
@@ -64,7 +65,7 @@ func fullAPI(t *testing.T) *API {
 // drift: every implemented route is documented and every documented route
 // is implemented, in the shape a fully configured deployment serves.
 func TestOpenAPIContract(t *testing.T) {
-	a := fullAPI(t)
+	a := fullAPI(t, http.NewServeMux())
 
 	implemented := map[string]bool{}
 	for _, r := range a.routeManifest() {

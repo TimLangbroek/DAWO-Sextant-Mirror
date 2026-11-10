@@ -105,6 +105,8 @@ List role bindings.
 
 Grant a role binding.
 
+Request body: [AccessBinding](#accessbinding).
+
 | Answer | Body | Meaning |
 |---|---|---|
 | `200` | [Status](#status) | OK |
@@ -120,6 +122,8 @@ Grant a role binding.
 ### `DELETE /api/v1/access`
 
 Revoke a role binding.
+
+Request body: [AccessRevoke](#accessrevoke).
 
 | Answer | Body | Meaning |
 |---|---|---|
@@ -139,6 +143,8 @@ Replace an app list at a scope.
 
 Body: {scope, kind: packages|flatpaks|overlays, names}. Names pass the injection firewall; the gate validates the result. Editor at the scope.
 
+Request body: [AppList](#applist).
+
 | Answer | Body | Meaning |
 |---|---|---|
 | `200` | [Status](#status) | OK |
@@ -155,6 +161,8 @@ Body: {scope, kind: packages|flatpaks|overlays, names}. Names pass the injection
 
 Assign a policy to a scope.
 
+Request body: [Assignment](#assignment).
+
 | Answer | Body | Meaning |
 |---|---|---|
 | `200` | [Status](#status) | OK |
@@ -170,6 +178,8 @@ Assign a policy to a scope.
 ### `DELETE /api/v1/assignments`
 
 Unassign a policy.
+
+Request body: [AssignmentRemoval](#assignmentremoval).
 
 | Answer | Body | Meaning |
 |---|---|---|
@@ -188,6 +198,8 @@ Unassign a policy.
 Configure audit controls.
 
 Body: {requireFourEyes}. Org owner.
+
+Request body: [Assurance](#assurance).
 
 | Answer | Body | Meaning |
 |---|---|---|
@@ -236,6 +248,8 @@ List change requests.
 
 Open a change request.
 
+Request body: [NewChange](#newchange).
+
 | Answer | Body | Meaning |
 |---|---|---|
 | `200` | [Status](#status) | OK |
@@ -254,7 +268,7 @@ One change request.
 
 | Parameter | In | Type | Meaning |
 |---|---|---|---|
-| `id` | path | string | The change request's id, as POST /api/v1/changes returns it and GET /api/v1/changes lists it. |
+| `id` | path | string | The change request's id, given when it was opened with POST /api/v1/changes. A lowercase slug. |
 
 | Answer | Body | Meaning |
 |---|---|---|
@@ -270,7 +284,7 @@ Abandon a change.
 
 | Parameter | In | Type | Meaning |
 |---|---|---|---|
-| `id` | path | string | The change request's id, as POST /api/v1/changes returns it and GET /api/v1/changes lists it. |
+| `id` | path | string | The change request's id, given when it was opened with POST /api/v1/changes. A lowercase slug. |
 
 | Answer | Body | Meaning |
 |---|---|---|
@@ -290,7 +304,7 @@ Unified diff the change would apply.
 
 | Parameter | In | Type | Meaning |
 |---|---|---|---|
-| `id` | path | string | The change request's id, as POST /api/v1/changes returns it and GET /api/v1/changes lists it. |
+| `id` | path | string | The change request's id, given when it was opened with POST /api/v1/changes. A lowercase slug. |
 
 | Answer | Body | Meaning |
 |---|---|---|
@@ -306,7 +320,9 @@ Apply a gated edit on the change branch.
 
 | Parameter | In | Type | Meaning |
 |---|---|---|---|
-| `id` | path | string | The change request's id, as POST /api/v1/changes returns it and GET /api/v1/changes lists it. |
+| `id` | path | string | The change request's id, given when it was opened with POST /api/v1/changes. A lowercase slug. |
+
+Request body: [ChangeEdit](#changeedit).
 
 | Answer | Body | Meaning |
 |---|---|---|
@@ -326,7 +342,7 @@ Merge a ready change (owner).
 
 | Parameter | In | Type | Meaning |
 |---|---|---|---|
-| `id` | path | string | The change request's id, as POST /api/v1/changes returns it and GET /api/v1/changes lists it. |
+| `id` | path | string | The change request's id, given when it was opened with POST /api/v1/changes. A lowercase slug. |
 
 | Answer | Body | Meaning |
 |---|---|---|
@@ -346,7 +362,7 @@ Run the build gate.
 
 | Parameter | In | Type | Meaning |
 |---|---|---|---|
-| `id` | path | string | The change request's id, as POST /api/v1/changes returns it and GET /api/v1/changes lists it. |
+| `id` | path | string | The change request's id, given when it was opened with POST /api/v1/changes. A lowercase slug. |
 
 | Answer | Body | Meaning |
 |---|---|---|
@@ -380,6 +396,8 @@ List devices.
 ### `POST /api/v1/devices`
 
 Enroll a device.
+
+Request body: [NewDevice](#newdevice).
 
 | Answer | Body | Meaning |
 |---|---|---|
@@ -418,6 +436,8 @@ Patch hardware, class, assignedUser, groups, labels or itam. Editor at the devic
 | Parameter | In | Type | Meaning |
 |---|---|---|---|
 | `tag` | path | string | The device's tag: the name it has in the fleet, as GET /api/v1/devices lists it. A lowercase slug. |
+
+Request body: [DevicePatch](#devicepatch).
 
 | Answer | Body | Meaning |
 |---|---|---|
@@ -482,6 +502,8 @@ Body: {intent: lock|wipe, force?}. Wipe requires the device to be locked first u
 | Parameter | In | Type | Meaning |
 |---|---|---|---|
 | `tag` | path | string | The device's tag: the name it has in the fleet, as GET /api/v1/devices lists it. A lowercase slug. |
+
+Request body: [DeviceIntent](#deviceintent).
 
 | Answer | Body | Meaning |
 |---|---|---|
@@ -618,6 +640,8 @@ Create or replace a filter.
 |---|---|---|---|
 | `id` | path | string | The filter's id. A PUT with a new id creates the filter. A lowercase slug. |
 
+Request body: [Filter](#filter).
+
 | Answer | Body | Meaning |
 |---|---|---|
 | `200` | [Status](#status) | OK |
@@ -666,6 +690,8 @@ Full fleet document.
 
 Create a group.
 
+Request body: [NewGroup](#newgroup).
+
 | Answer | Body | Meaning |
 |---|---|---|
 | `200` | [Status](#status) | OK |
@@ -687,6 +713,8 @@ Re-parent the group (cycle-safe) and/or change its IdP mapping. Org owner.
 | Parameter | In | Type | Meaning |
 |---|---|---|---|
 | `name` | path | string | The group's name, as GET /api/v1/groups lists it. A lowercase slug. |
+
+Request body: [GroupPatch](#grouppatch).
 
 | Answer | Body | Meaning |
 |---|---|---|
@@ -770,6 +798,8 @@ Update my preferences.
 
 Body: {timezone?, locale?}. Timezone must be an IANA name; locale one of the shipped UI languages.
 
+Request body: [Preferences](#preferences).
+
 | Answer | Body | Meaning |
 |---|---|---|
 | `200` | [Status](#status) | OK |
@@ -789,6 +819,8 @@ Create or replace a policy.
 | Parameter | In | Type | Meaning |
 |---|---|---|---|
 | `id` | path | string | The policy's id. A PUT with a new id creates the policy. A lowercase slug. |
+
+Request body: [Policy](#policy).
 
 | Answer | Body | Meaning |
 |---|---|---|
@@ -838,6 +870,8 @@ Rollout state and ring convergence.
 
 Start a rollout (owner).
 
+Request body: [RolloutStart](#rolloutstart).
+
 | Answer | Body | Meaning |
 |---|---|---|
 | `200` | [Status](#status) | OK |
@@ -871,6 +905,8 @@ Cancel the active rollout.
 Replace the rollout ring plan.
 
 Body: {plan} with rings [{group, soakMinutes, minHealthyPercent}]; null plan clears it. Org owner.
+
+Request body: [RolloutPlanUpdate](#rolloutplanupdate).
 
 | Answer | Body | Meaning |
 |---|---|---|
@@ -916,6 +952,8 @@ List registered secret references.
 
 Register a secret reference (a name, never a value).
 
+Request body: [NewSecretRef](#newsecretref).
+
 | Answer | Body | Meaning |
 |---|---|---|
 | `201` |  | Created |
@@ -952,6 +990,8 @@ Unregister a secret reference.
 
 Set a setting at a scope.
 
+Request body: [SettingChange](#settingchange).
+
 | Answer | Body | Meaning |
 |---|---|---|
 | `200` | [Status](#status) | OK |
@@ -967,6 +1007,8 @@ Set a setting at a scope.
 ### `DELETE /api/v1/settings`
 
 Clear a setting at a scope.
+
+Request body: [SettingClear](#settingclear).
 
 | Answer | Body | Meaning |
 |---|---|---|
@@ -1024,6 +1066,8 @@ List your API tokens.
 
 Mint an API token (secret shown once).
 
+Request body: [NewToken](#newtoken).
+
 | Answer | Body | Meaning |
 |---|---|---|
 | `201` |  | Created |
@@ -1058,19 +1102,73 @@ Revoke an API token.
 
 ## Schemas
 
+Required means two things. In an answer, the field is always there. In a request
+body, the server needs it. The server refuses a body with a field this page does not name.
+
 ### AccessBinding
 
-| Field | Type | Always there | Meaning |
+| Field | Type | Required | Meaning |
 |---|---|---|---|
 | `group` | string | yes | The directory group the binding grants to. |
-| `role` | one of `viewer`, `editor`, `owner` | yes |  |
+| `role` | one of `viewer`, `editor`, `owner` | yes | The role the group gets at the scope. |
 | `scope` | string | yes | Where the role holds: "org", or a group's scope such as "group:pilot". |
+
+### AccessRevoke
+
+Which role binding to remove.
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `group` | string | yes | The identity provider group the binding is for. |
+| `scope` | string | yes | Where it applies: "org", "group:<name>" or "device:<tag>". |
+
+### AppList
+
+One app list at one scope, replaced as a whole.
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `kind` | one of `packages`, `flatpaks`, `overlays` | yes | Which list. |
+| `names` | array of string | yes | The complete list after this call; an empty list clears it. |
+| `scope` | string | yes | Where it applies: "org", "group:<name>" or "device:<tag>". |
+
+### Assignment
+
+A policy bound to a scope, optionally narrowed by a filter.
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `filter` | string |  | A filter's id; the policy then applies only to the devices it selects. Empty selects every device. |
+| `policy` | string | yes | The policy's id. |
+| `priority` | integer |  | Breaks a tie between assignments that set the same key at the same scope: higher wins. |
+| `target` | string | yes | Where it applies: "org", "group:<name>" or "device:<tag>". |
+
+### AssignmentRemoval
+
+Which assignment to remove.
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `filter` | string |  | The filter the assignment was narrowed by, if any. |
+| `policy` | string | yes | The policy's id. |
+| `target` | string | yes | Where it applies: "org", "group:<name>" or "device:<tag>". |
+
+### Assurance
+
+The audit controls, replaced as a whole. A field left out is off.
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `manualRolloutOnly` | boolean |  | Merging a change starts no rollout; somebody starts every run by hand. |
+| `requireChangeRequest` | boolean |  | Settings change only through a change request, never directly. |
+| `requireFourEyes` | boolean |  | A change cannot be merged by the person who made it. |
+| `requireTestWave` | boolean |  | A rollout needs a first wave that waits for approval; an org owner may skip it for one rollout. |
 
 ### AuditEntry
 
 One entry of the configuration audit trail. It is git history, so it is append-only and complete.
 
-| Field | Type | Always there | Meaning |
+| Field | Type | Required | Meaning |
 |---|---|---|---|
 | `author` | string |  |  |
 | `email` | string |  |  |
@@ -1078,11 +1176,34 @@ One entry of the configuration audit trail. It is git history, so it is append-o
 | `subject` | string |  | Commit subject: what changed, in the words the console wrote. |
 | `when` | string |  |  |
 
+### ChangeEdit
+
+One setting edit on a change request's branch.
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `clear` | boolean |  | Remove the key at this scope instead of setting it. |
+| `enforce` | boolean |  | Lock the value, so a narrower scope cannot weaken it. Left out, the lock stays as it is. |
+| `key` | string | yes | The setting's catalog key. |
+| `scope` | string | yes | Where it applies: "org", "group:<name>" or "device:<tag>". |
+| `value` | any |  | The value, typed as the catalog entry for the key says: a boolean, a number, a string or a list. Ignored with clear. |
+
+### Condition
+
+A requirement on what a device reports, not on its configuration: it is checked, never written.
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `detail` | string |  | What a failure means, in words for whoever reads the finding. |
+| `metric` | string | yes | What is measured, as the device reports it, for example disk.free_percent or memory.total_mb. |
+| `op` | one of `>=`, `<=`, `>`, `<`, `==` | yes | How the measurement compares to value. |
+| `value` | number | yes | The threshold. |
+
 ### Device
 
 A device as the fleet document holds it. This is the CONFIGURATION view; what a device reports about itself is /api/v1/status.
 
-| Field | Type | Always there | Meaning |
+| Field | Type | Required | Meaning |
 |---|---|---|---|
 | `assignedUser` | string |  | The person this device belongs to. Personal data - see docs/compliance/processing-register.md. |
 | `class` | string |  | One of laptop, desktop, server, station. May be absent on a device a station discovered but nobody has classified. |
@@ -1090,44 +1211,245 @@ A device as the fleet document holds it. This is the CONFIGURATION view; what a 
 | `hardware` | string |  | Hardware profile name from the overlay. |
 | `tag` | string | yes | Stable identifier. A lowercase slug; also the machine hostname. |
 
+### DeviceIntent
+
+An action for a device to carry out at its next check-in.
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `force` | boolean |  | Wipe a device that is not locked first. |
+| `intent` | one of `lock`, `reboot`, `wipe`, `diagnostics` | yes | The action. |
+
+### DevicePatch
+
+The device fields to change. A field left out stays as it is.
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `assignedUser` | string |  | Who uses the device. |
+| `class` | string |  | The device class, such as laptop. |
+| `groups` | array of string |  | The groups the device is in, as a complete list. |
+| `hardware` | string |  | The hardware profile the device's configuration is built for. |
+| `itam` | [ITAM](#itam) |  |  |
+| `labels` | object of string values |  | Free key-value labels, as a complete set. |
+
 ### Error
 
-| Field | Type | Always there | Meaning |
+| Field | Type | Required | Meaning |
 |---|---|---|---|
 | `error` | string | yes | Human-readable reason. Safe to show an operator: it never carries internals - a 500 is always the literal string "internal error", with the detail in the server log. |
 
+### Filter
+
+A test on device attributes that selects devices.
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `match` | one of `all`, `any` |  | Whether every rule must hold or one is enough. Left out, every rule. |
+| `name` | string |  | A label for people; the id in the path is what refers to it. |
+| `rules` | array of [FilterRule](#filterrule) | yes | The rules. |
+
+### FilterRule
+
+One test on one device attribute.
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `attr` | string | yes | The attribute: tag, class, hardware, assignedUser, group (membership, including parent groups) or "label:<key>". |
+| `op` | one of `eq`, `ne`, `prefix`, `in` | yes | How it is compared. |
+| `value` | string |  | The value to compare with; for every op but in. |
+| `values` | array of string |  | The values to compare with; for in. |
+
+### GroupPatch
+
+The group fields to change; at least one. A field left out stays as it is.
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `idpGroup` | string |  | The identity provider group whose members belong to it. |
+| `parent` | string |  | The new parent group; empty makes it a top-level group. |
+
 ### HostKey
 
-| Field | Type | Always there | Meaning |
+| Field | Type | Required | Meaning |
 |---|---|---|---|
 | `hostKey` | string | yes | The device's SSH host public key, as recorded at enrolment. |
 | `tag` | string | yes | The device's tag. |
+
+### ITAM
+
+Asset-management details of a device.
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `hostKeyId` | string |  | The id of the device's SSH host key. |
+| `model` | string |  | The model. |
+| `owner` | string |  | Who owns the asset. |
+| `serial` | string |  | The serial number. |
+| `site` | string |  | Where it is. |
 
 ### Me
 
 Who the caller is and what they may do. The roles map is resolved per request, never stored.
 
-| Field | Type | Always there | Meaning |
+| Field | Type | Required | Meaning |
 |---|---|---|---|
 | `ceiling` | string |  | Present only for a scoped token: the highest role it may reach regardless of the underlying grant. |
 | `email` | string |  |  |
 | `groups` | array of string |  | Directory groups. Always an array, never null. |
 | `name` | string |  |  |
-| `roles` | object |  | Resolved role per scope, e.g. {"org":"editor","group:pilot":"owner"}. Only scopes where the caller holds at least viewer appear. |
+| `roles` | object of string values |  | Resolved role per scope, e.g. {"org":"editor","group:pilot":"owner"}. Only scopes where the caller holds at least viewer appear. |
 | `service` | boolean |  | True for a service account rather than a person. |
 | `subject` | string |  | Identifier from the identity provider. |
 
+### NewChange
+
+A change request to open.
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `id` | string | yes | The id to give it. A lowercase slug. |
+| `title` | string | yes | What the change is for. |
+
+### NewDevice
+
+A device to enroll.
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `assignedUser` | string |  | Who uses it. |
+| `class` | string |  | The device class, such as laptop. |
+| `groups` | array of string |  | The groups it is in. |
+| `hardware` | string | yes | The hardware profile its configuration is built for. |
+| `labels` | object of string values |  | Free key-value labels. |
+| `tag` | string | yes | Its name in the fleet. A lowercase slug. |
+
+### NewGroup
+
+A group to create.
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `idpGroup` | string |  | The identity provider group whose members belong to it. |
+| `name` | string | yes | Its name. A lowercase slug. |
+| `parent` | string |  | The group it sits in; left out, it is a top-level group. |
+
+### NewSecretRef
+
+A secret reference to register: the name of a secret the devices get from elsewhere, never the secret.
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `description` | string |  | What the secret is for. |
+| `name` | string | yes | The name. A lowercase slug. |
+
+### NewToken
+
+An API token to make.
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `ceiling` | one of `viewer`, `editor`, `owner` |  | The highest role the token may use, whatever its holder has. |
+| `groups` | array of string |  | For a service account: the groups it is in. |
+| `id` | string | yes | Its id, by which it is listed and revoked. A service account becomes the principal svc:<id>. |
+| `kind` | one of `personal`, `service` |  | A personal token acts as you; a service account is a principal of its own, made by an org owner. Left out, personal. |
+| `name` | string | yes | A label for people. |
+| `ttlDays` | integer |  | How many days it is valid. Left out, the console's default. |
+
+### Policy
+
+A named set of settings and conditions, applied where it is assigned.
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `conditions` | array of [Condition](#condition) |  | Requirements on what a device reports. |
+| `controls` | array of string |  | The compliance controls it implements, such as "BIO 12.3.1". Free text. |
+| `description` | string |  | What the policy is for. |
+| `enforced` | array of string |  | The keys among settings that a narrower scope cannot weaken. |
+| `name` | string |  | A label for people; the id in the path is what refers to it. |
+| `profile` | string |  | The overlay profile the policy was made from, as name@hash. Empty for a policy made by hand. |
+| `settings` | object of any values | yes | Setting keys from the catalog, with their values. |
+
+### Preferences
+
+Your own preferences. Empty means the organisation's default.
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `locale` | one of `en`, `nl` |  | The console's language. |
+| `timezone` | string |  | An IANA time zone, such as "Europe/Amsterdam". |
+
+### RolloutPlan
+
+The waves a change rolls out in.
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `autoFlow` | boolean |  | Start a rollout by itself when a change reaches the fleet repository. Left out, on. |
+| `rings` | array of [RolloutRing](#rolloutring) |  | The waves, in order. |
+
+### RolloutPlanUpdate
+
+The rollout plan to keep.
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `plan` | [RolloutPlan](#rolloutplan) | yes |  |
+
+### RolloutRing
+
+One wave of a rollout.
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `group` | string |  | The device group the wave covers; set this or groups. |
+| `groups` | array of string |  | The device groups the wave covers, when it is more than one. |
+| `maxDevices` | integer |  | At most this many devices get the change at once. 0 is the whole group. |
+| `minDevices` | integer |  | How many devices must report before the percentage counts. 0 is half the wave. |
+| `minHealthyPercent` | integer |  | How many of its devices, in percent, must be healthy to go on. |
+| `name` | string |  | A label, such as Canary or Test. |
+| `requireApproval` | boolean |  | Wait for somebody to approve before the next wave. |
+| `soakMinutes` | integer |  | How long the wave runs before the next may start. |
+
+### RolloutStart
+
+The revision to roll out.
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `target` | string | yes | A commit of the fleet repository. |
+
 ### SecretRef
 
-| Field | Type | Always there | Meaning |
+| Field | Type | Required | Meaning |
 |---|---|---|---|
 | `description` | string |  |  |
 | `name` | string | yes | The reference a setting uses. Never a value. |
+
+### SettingChange
+
+One setting at one scope.
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `enforce` | boolean |  | Lock the value, so a narrower scope cannot weaken it. Left out, the lock stays as it is. |
+| `key` | string | yes | The setting's catalog key. |
+| `scope` | string | yes | Where it applies: "org", "group:<name>" or "device:<tag>". |
+| `value` | any | yes | The value, typed as the catalog entry for the key says: a boolean, a number, a string or a list. |
+
+### SettingClear
+
+Which setting to remove.
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `key` | string | yes | The setting's catalog key. |
+| `scope` | string | yes | Where it applies: "org", "group:<name>" or "device:<tag>". |
 
 ### Status
 
 The answer to a write that has nothing to return but its own success.
 
-| Field | Type | Always there | Meaning |
+| Field | Type | Required | Meaning |
 |---|---|---|---|
 | `status` | string | yes | What happened, e.g. "enrolled", "removed", "applied". |

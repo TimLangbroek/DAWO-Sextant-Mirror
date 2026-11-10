@@ -311,8 +311,16 @@ func emptyList(v any) any {
 	return v
 }
 
+// decodedInto, when a test sets it, is told what each request body is read
+// into, so the contract test can hold the spec's request bodies to the
+// structs the handlers really decode. Nil in a running console.
+var decodedInto func(r *http.Request, v any)
+
 // decode parses a bounded JSON body.
 func decode(r *http.Request, v any) error {
+	if decodedInto != nil {
+		decodedInto(r, v)
+	}
 	dec := json.NewDecoder(http.MaxBytesReader(nil, r.Body, 1<<20))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(v); err != nil {

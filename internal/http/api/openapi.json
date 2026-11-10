@@ -18,17 +18,238 @@
       }
     },
     "schemas": {
-      "Error": {
+      "AccessBinding": {
         "type": "object",
         "required": [
-          "error"
+          "group",
+          "role",
+          "scope"
         ],
         "properties": {
-          "error": {
+          "group": {
             "type": "string",
-            "description": "Human-readable reason. Safe to show an operator: it never carries internals - a 500 is always the literal string \"internal error\", with the detail in the server log."
+            "description": "The directory group the binding grants to."
+          },
+          "role": {
+            "type": "string",
+            "description": "The role the group gets at the scope.",
+            "enum": [
+              "viewer",
+              "editor",
+              "owner"
+            ]
+          },
+          "scope": {
+            "type": "string",
+            "description": "Where the role holds: \"org\", or a group's scope such as \"group:pilot\"."
           }
         }
+      },
+      "AccessRevoke": {
+        "type": "object",
+        "description": "Which role binding to remove.",
+        "properties": {
+          "group": {
+            "type": "string",
+            "description": "The identity provider group the binding is for."
+          },
+          "scope": {
+            "type": "string",
+            "description": "Where it applies: \"org\", \"group:<name>\" or \"device:<tag>\"."
+          }
+        },
+        "required": [
+          "group",
+          "scope"
+        ]
+      },
+      "AppList": {
+        "type": "object",
+        "description": "One app list at one scope, replaced as a whole.",
+        "properties": {
+          "scope": {
+            "type": "string",
+            "description": "Where it applies: \"org\", \"group:<name>\" or \"device:<tag>\"."
+          },
+          "kind": {
+            "type": "string",
+            "description": "Which list.",
+            "enum": [
+              "packages",
+              "flatpaks",
+              "overlays"
+            ]
+          },
+          "names": {
+            "type": "array",
+            "description": "The complete list after this call; an empty list clears it.",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "scope",
+          "kind",
+          "names"
+        ]
+      },
+      "Assignment": {
+        "type": "object",
+        "description": "A policy bound to a scope, optionally narrowed by a filter.",
+        "properties": {
+          "policy": {
+            "type": "string",
+            "description": "The policy's id."
+          },
+          "target": {
+            "type": "string",
+            "description": "Where it applies: \"org\", \"group:<name>\" or \"device:<tag>\"."
+          },
+          "filter": {
+            "type": "string",
+            "description": "A filter's id; the policy then applies only to the devices it selects. Empty selects every device."
+          },
+          "priority": {
+            "type": "integer",
+            "description": "Breaks a tie between assignments that set the same key at the same scope: higher wins."
+          }
+        },
+        "required": [
+          "policy",
+          "target"
+        ]
+      },
+      "AssignmentRemoval": {
+        "type": "object",
+        "description": "Which assignment to remove.",
+        "properties": {
+          "policy": {
+            "type": "string",
+            "description": "The policy's id."
+          },
+          "target": {
+            "type": "string",
+            "description": "Where it applies: \"org\", \"group:<name>\" or \"device:<tag>\"."
+          },
+          "filter": {
+            "type": "string",
+            "description": "The filter the assignment was narrowed by, if any."
+          }
+        },
+        "required": [
+          "policy",
+          "target"
+        ]
+      },
+      "Assurance": {
+        "type": "object",
+        "description": "The audit controls, replaced as a whole. A field left out is off.",
+        "properties": {
+          "requireFourEyes": {
+            "type": "boolean",
+            "description": "A change cannot be merged by the person who made it."
+          },
+          "requireChangeRequest": {
+            "type": "boolean",
+            "description": "Settings change only through a change request, never directly."
+          },
+          "requireTestWave": {
+            "type": "boolean",
+            "description": "A rollout needs a first wave that waits for approval; an org owner may skip it for one rollout."
+          },
+          "manualRolloutOnly": {
+            "type": "boolean",
+            "description": "Merging a change starts no rollout; somebody starts every run by hand."
+          }
+        }
+      },
+      "AuditEntry": {
+        "type": "object",
+        "description": "One entry of the configuration audit trail. It is git history, so it is append-only and complete.",
+        "properties": {
+          "hash": {
+            "type": "string",
+            "description": "Commit hash."
+          },
+          "subject": {
+            "type": "string",
+            "description": "Commit subject: what changed, in the words the console wrote."
+          },
+          "author": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "when": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ChangeEdit": {
+        "type": "object",
+        "description": "One setting edit on a change request's branch.",
+        "properties": {
+          "scope": {
+            "type": "string",
+            "description": "Where it applies: \"org\", \"group:<name>\" or \"device:<tag>\"."
+          },
+          "key": {
+            "type": "string",
+            "description": "The setting's catalog key."
+          },
+          "value": {
+            "description": "The value, typed as the catalog entry for the key says: a boolean, a number, a string or a list. Ignored with clear."
+          },
+          "enforce": {
+            "type": "boolean",
+            "description": "Lock the value, so a narrower scope cannot weaken it. Left out, the lock stays as it is."
+          },
+          "clear": {
+            "type": "boolean",
+            "description": "Remove the key at this scope instead of setting it."
+          }
+        },
+        "required": [
+          "scope",
+          "key"
+        ]
+      },
+      "Condition": {
+        "type": "object",
+        "description": "A requirement on what a device reports, not on its configuration: it is checked, never written.",
+        "properties": {
+          "metric": {
+            "type": "string",
+            "description": "What is measured, as the device reports it, for example disk.free_percent or memory.total_mb."
+          },
+          "op": {
+            "type": "string",
+            "description": "How the measurement compares to value.",
+            "enum": [
+              ">=",
+              "<=",
+              ">",
+              "<",
+              "=="
+            ]
+          },
+          "value": {
+            "type": "number",
+            "description": "The threshold."
+          },
+          "detail": {
+            "type": "string",
+            "description": "What a failure means, in words for whoever reads the finding."
+          }
+        },
+        "required": [
+          "metric",
+          "op",
+          "value"
+        ]
       },
       "Device": {
         "type": "object",
@@ -62,40 +283,193 @@
           }
         }
       },
-      "Status": {
+      "DeviceIntent": {
         "type": "object",
-        "description": "The answer to a write that has nothing to return but its own success.",
-        "required": [
-          "status"
-        ],
+        "description": "An action for a device to carry out at its next check-in.",
         "properties": {
-          "status": {
+          "intent": {
             "type": "string",
-            "description": "What happened, e.g. \"enrolled\", \"removed\", \"applied\"."
+            "description": "The action.",
+            "enum": [
+              "lock",
+              "reboot",
+              "wipe",
+              "diagnostics"
+            ]
+          },
+          "force": {
+            "type": "boolean",
+            "description": "Wipe a device that is not locked first."
+          }
+        },
+        "required": [
+          "intent"
+        ]
+      },
+      "DevicePatch": {
+        "type": "object",
+        "description": "The device fields to change. A field left out stays as it is.",
+        "properties": {
+          "hardware": {
+            "type": "string",
+            "description": "The hardware profile the device's configuration is built for."
+          },
+          "class": {
+            "type": "string",
+            "description": "The device class, such as laptop."
+          },
+          "assignedUser": {
+            "type": "string",
+            "description": "Who uses the device."
+          },
+          "groups": {
+            "type": "array",
+            "description": "The groups the device is in, as a complete list.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "labels": {
+            "type": "object",
+            "description": "Free key-value labels, as a complete set.",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "itam": {
+            "$ref": "#/components/schemas/ITAM"
           }
         }
       },
-      "AuditEntry": {
+      "Error": {
         "type": "object",
-        "description": "One entry of the configuration audit trail. It is git history, so it is append-only and complete.",
+        "required": [
+          "error"
+        ],
         "properties": {
-          "hash": {
+          "error": {
             "type": "string",
-            "description": "Commit hash."
-          },
-          "subject": {
+            "description": "Human-readable reason. Safe to show an operator: it never carries internals - a 500 is always the literal string \"internal error\", with the detail in the server log."
+          }
+        }
+      },
+      "Filter": {
+        "type": "object",
+        "description": "A test on device attributes that selects devices.",
+        "properties": {
+          "name": {
             "type": "string",
-            "description": "Commit subject: what changed, in the words the console wrote."
+            "description": "A label for people; the id in the path is what refers to it."
           },
-          "author": {
-            "type": "string"
-          },
-          "email": {
-            "type": "string"
-          },
-          "when": {
+          "match": {
             "type": "string",
-            "format": "date-time"
+            "description": "Whether every rule must hold or one is enough. Left out, every rule.",
+            "enum": [
+              "all",
+              "any"
+            ]
+          },
+          "rules": {
+            "type": "array",
+            "description": "The rules.",
+            "items": {
+              "$ref": "#/components/schemas/FilterRule"
+            }
+          }
+        },
+        "required": [
+          "rules"
+        ]
+      },
+      "FilterRule": {
+        "type": "object",
+        "description": "One test on one device attribute.",
+        "properties": {
+          "attr": {
+            "type": "string",
+            "description": "The attribute: tag, class, hardware, assignedUser, group (membership, including parent groups) or \"label:<key>\"."
+          },
+          "op": {
+            "type": "string",
+            "description": "How it is compared.",
+            "enum": [
+              "eq",
+              "ne",
+              "prefix",
+              "in"
+            ]
+          },
+          "value": {
+            "type": "string",
+            "description": "The value to compare with; for every op but in."
+          },
+          "values": {
+            "type": "array",
+            "description": "The values to compare with; for in.",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "attr",
+          "op"
+        ]
+      },
+      "GroupPatch": {
+        "type": "object",
+        "description": "The group fields to change; at least one. A field left out stays as it is.",
+        "properties": {
+          "parent": {
+            "type": "string",
+            "description": "The new parent group; empty makes it a top-level group."
+          },
+          "idpGroup": {
+            "type": "string",
+            "description": "The identity provider group whose members belong to it."
+          }
+        }
+      },
+      "HostKey": {
+        "type": "object",
+        "required": [
+          "tag",
+          "hostKey"
+        ],
+        "properties": {
+          "tag": {
+            "type": "string",
+            "description": "The device's tag."
+          },
+          "hostKey": {
+            "type": "string",
+            "description": "The device's SSH host public key, as recorded at enrolment."
+          }
+        }
+      },
+      "ITAM": {
+        "type": "object",
+        "description": "Asset-management details of a device.",
+        "properties": {
+          "serial": {
+            "type": "string",
+            "description": "The serial number."
+          },
+          "model": {
+            "type": "string",
+            "description": "The model."
+          },
+          "owner": {
+            "type": "string",
+            "description": "Who owns the asset."
+          },
+          "site": {
+            "type": "string",
+            "description": "Where it is."
+          },
+          "hostKeyId": {
+            "type": "string",
+            "description": "The id of the device's SSH host key."
           }
         }
       },
@@ -137,48 +511,305 @@
           }
         }
       },
-      "AccessBinding": {
+      "NewChange": {
         "type": "object",
-        "required": [
-          "group",
-          "role",
-          "scope"
-        ],
+        "description": "A change request to open.",
         "properties": {
-          "group": {
+          "id": {
             "type": "string",
-            "description": "The directory group the binding grants to."
+            "description": "The id to give it. A lowercase slug.",
+            "pattern": "^[a-z0-9][a-z0-9-]{0,62}$"
           },
-          "role": {
+          "title": {
             "type": "string",
+            "description": "What the change is for."
+          }
+        },
+        "required": [
+          "id",
+          "title"
+        ]
+      },
+      "NewDevice": {
+        "type": "object",
+        "description": "A device to enroll.",
+        "properties": {
+          "tag": {
+            "type": "string",
+            "description": "Its name in the fleet. A lowercase slug.",
+            "pattern": "^[a-z0-9][a-z0-9-]{0,62}$"
+          },
+          "hardware": {
+            "type": "string",
+            "description": "The hardware profile its configuration is built for."
+          },
+          "class": {
+            "type": "string",
+            "description": "The device class, such as laptop."
+          },
+          "groups": {
+            "type": "array",
+            "description": "The groups it is in.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "assignedUser": {
+            "type": "string",
+            "description": "Who uses it."
+          },
+          "labels": {
+            "type": "object",
+            "description": "Free key-value labels.",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "tag",
+          "hardware"
+        ]
+      },
+      "NewGroup": {
+        "type": "object",
+        "description": "A group to create.",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Its name. A lowercase slug.",
+            "pattern": "^[a-z0-9][a-z0-9-]{0,62}$"
+          },
+          "parent": {
+            "type": "string",
+            "description": "The group it sits in; left out, it is a top-level group."
+          },
+          "idpGroup": {
+            "type": "string",
+            "description": "The identity provider group whose members belong to it."
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "NewSecretRef": {
+        "type": "object",
+        "description": "A secret reference to register: the name of a secret the devices get from elsewhere, never the secret.",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "The name. A lowercase slug.",
+            "pattern": "^[a-z0-9][a-z0-9-]{0,62}$"
+          },
+          "description": {
+            "type": "string",
+            "description": "What the secret is for."
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "NewToken": {
+        "type": "object",
+        "description": "An API token to make.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Its id, by which it is listed and revoked. A service account becomes the principal svc:<id>."
+          },
+          "name": {
+            "type": "string",
+            "description": "A label for people."
+          },
+          "kind": {
+            "type": "string",
+            "description": "A personal token acts as you; a service account is a principal of its own, made by an org owner. Left out, personal.",
+            "enum": [
+              "personal",
+              "service"
+            ]
+          },
+          "ceiling": {
+            "type": "string",
+            "description": "The highest role the token may use, whatever its holder has.",
             "enum": [
               "viewer",
               "editor",
               "owner"
             ]
           },
-          "scope": {
+          "groups": {
+            "type": "array",
+            "description": "For a service account: the groups it is in.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "ttlDays": {
+            "type": "integer",
+            "description": "How many days it is valid. Left out, the console's default.",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
+      },
+      "Policy": {
+        "type": "object",
+        "description": "A named set of settings and conditions, applied where it is assigned.",
+        "properties": {
+          "name": {
             "type": "string",
-            "description": "Where the role holds: \"org\", or a group's scope such as \"group:pilot\"."
+            "description": "A label for people; the id in the path is what refers to it."
+          },
+          "description": {
+            "type": "string",
+            "description": "What the policy is for."
+          },
+          "settings": {
+            "type": "object",
+            "description": "Setting keys from the catalog, with their values.",
+            "additionalProperties": {}
+          },
+          "enforced": {
+            "type": "array",
+            "description": "The keys among settings that a narrower scope cannot weaken.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "profile": {
+            "type": "string",
+            "description": "The overlay profile the policy was made from, as name@hash. Empty for a policy made by hand."
+          },
+          "controls": {
+            "type": "array",
+            "description": "The compliance controls it implements, such as \"BIO 12.3.1\". Free text.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "conditions": {
+            "type": "array",
+            "description": "Requirements on what a device reports.",
+            "items": {
+              "$ref": "#/components/schemas/Condition"
+            }
+          }
+        },
+        "required": [
+          "settings"
+        ]
+      },
+      "Preferences": {
+        "type": "object",
+        "description": "Your own preferences. Empty means the organisation's default.",
+        "properties": {
+          "timezone": {
+            "type": "string",
+            "description": "An IANA time zone, such as \"Europe/Amsterdam\"."
+          },
+          "locale": {
+            "type": "string",
+            "description": "The console's language.",
+            "enum": [
+              "en",
+              "nl"
+            ]
           }
         }
       },
-      "HostKey": {
+      "RolloutPlan": {
         "type": "object",
-        "required": [
-          "tag",
-          "hostKey"
-        ],
+        "description": "The waves a change rolls out in.",
         "properties": {
-          "tag": {
-            "type": "string",
-            "description": "The device's tag."
+          "rings": {
+            "type": "array",
+            "description": "The waves, in order.",
+            "items": {
+              "$ref": "#/components/schemas/RolloutRing"
+            }
           },
-          "hostKey": {
-            "type": "string",
-            "description": "The device's SSH host public key, as recorded at enrolment."
+          "autoFlow": {
+            "type": "boolean",
+            "description": "Start a rollout by itself when a change reaches the fleet repository. Left out, on."
           }
         }
+      },
+      "RolloutPlanUpdate": {
+        "type": "object",
+        "description": "The rollout plan to keep.",
+        "properties": {
+          "plan": {
+            "$ref": "#/components/schemas/RolloutPlan"
+          }
+        },
+        "required": [
+          "plan"
+        ]
+      },
+      "RolloutRing": {
+        "type": "object",
+        "description": "One wave of a rollout.",
+        "properties": {
+          "group": {
+            "type": "string",
+            "description": "The device group the wave covers; set this or groups."
+          },
+          "groups": {
+            "type": "array",
+            "description": "The device groups the wave covers, when it is more than one.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "name": {
+            "type": "string",
+            "description": "A label, such as Canary or Test."
+          },
+          "soakMinutes": {
+            "type": "integer",
+            "description": "How long the wave runs before the next may start.",
+            "minimum": 0
+          },
+          "minHealthyPercent": {
+            "type": "integer",
+            "description": "How many of its devices, in percent, must be healthy to go on.",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "requireApproval": {
+            "type": "boolean",
+            "description": "Wait for somebody to approve before the next wave."
+          },
+          "minDevices": {
+            "type": "integer",
+            "description": "How many devices must report before the percentage counts. 0 is half the wave.",
+            "minimum": 0
+          },
+          "maxDevices": {
+            "type": "integer",
+            "description": "At most this many devices get the change at once. 0 is the whole group.",
+            "minimum": 0
+          }
+        }
+      },
+      "RolloutStart": {
+        "type": "object",
+        "description": "The revision to roll out.",
+        "properties": {
+          "target": {
+            "type": "string",
+            "description": "A commit of the fleet repository."
+          }
+        },
+        "required": [
+          "target"
+        ]
       },
       "SecretRef": {
         "type": "object",
@@ -194,6 +825,63 @@
             "type": "string"
           }
         }
+      },
+      "SettingChange": {
+        "type": "object",
+        "description": "One setting at one scope.",
+        "properties": {
+          "scope": {
+            "type": "string",
+            "description": "Where it applies: \"org\", \"group:<name>\" or \"device:<tag>\"."
+          },
+          "key": {
+            "type": "string",
+            "description": "The setting's catalog key."
+          },
+          "value": {
+            "description": "The value, typed as the catalog entry for the key says: a boolean, a number, a string or a list."
+          },
+          "enforce": {
+            "type": "boolean",
+            "description": "Lock the value, so a narrower scope cannot weaken it. Left out, the lock stays as it is."
+          }
+        },
+        "required": [
+          "scope",
+          "key",
+          "value"
+        ]
+      },
+      "SettingClear": {
+        "type": "object",
+        "description": "Which setting to remove.",
+        "properties": {
+          "scope": {
+            "type": "string",
+            "description": "Where it applies: \"org\", \"group:<name>\" or \"device:<tag>\"."
+          },
+          "key": {
+            "type": "string",
+            "description": "The setting's catalog key."
+          }
+        },
+        "required": [
+          "scope",
+          "key"
+        ]
+      },
+      "Status": {
+        "type": "object",
+        "description": "The answer to a write that has nothing to return but its own success.",
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "What happened, e.g. \"enrolled\", \"removed\", \"applied\"."
+          }
+        }
       }
     },
     "parameters": {
@@ -201,9 +889,10 @@
         "name": "id",
         "in": "path",
         "required": true,
-        "description": "The change request's id, as POST /api/v1/changes returns it and GET /api/v1/changes lists it.",
+        "description": "The change request's id, given when it was opened with POST /api/v1/changes. A lowercase slug.",
         "schema": {
-          "type": "string"
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{0,62}$"
         }
       },
       "DeviceTag": {
@@ -305,6 +994,16 @@
     "/api/v1/access": {
       "delete": {
         "summary": "Revoke a role binding",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccessRevoke"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "OK",
@@ -400,6 +1099,14 @@
       },
       "get": {
         "summary": "List role bindings",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Role bindings the caller may see. Always an array.",
@@ -459,18 +1166,20 @@
               }
             }
           }
-        },
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/Limit"
-          },
-          {
-            "$ref": "#/components/parameters/Offset"
-          }
-        ]
+        }
       },
       "post": {
         "summary": "Grant a role binding",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccessBinding"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "OK",
@@ -568,6 +1277,16 @@
     "/api/v1/apps": {
       "put": {
         "summary": "Replace an app list at a scope",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppList"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "OK",
@@ -666,6 +1385,16 @@
     "/api/v1/assignments": {
       "delete": {
         "summary": "Unassign a policy",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssignmentRemoval"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "OK",
@@ -761,6 +1490,16 @@
       },
       "post": {
         "summary": "Assign a policy to a scope",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Assignment"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "OK",
@@ -858,6 +1597,16 @@
     "/api/v1/assurance": {
       "put": {
         "summary": "Configure audit controls",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Assurance"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "OK",
@@ -956,6 +1705,14 @@
     "/api/v1/audit": {
       "get": {
         "summary": "Configuration audit trail",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Configuration audit trail, newest first. Bound with ?limit.",
@@ -1016,15 +1773,7 @@
             }
           }
         },
-        "description": "Newest commits on the config repo (?limit=, default 100). Org-wide viewer: commits span every scope.",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/Limit"
-          },
-          {
-            "$ref": "#/components/parameters/Offset"
-          }
-        ]
+        "description": "Newest commits on the config repo (?limit=, default 100). Org-wide viewer: commits span every scope."
       }
     },
     "/api/v1/changes": {
@@ -1078,6 +1827,16 @@
       },
       "post": {
         "summary": "Open a change request",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewChange"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "OK",
@@ -1175,6 +1934,11 @@
     "/api/v1/changes/{id}": {
       "get": {
         "summary": "One change request",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ChangeID"
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK"
@@ -1219,17 +1983,17 @@
               }
             }
           }
-        },
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/ChangeID"
-          }
-        ]
+        }
       }
     },
     "/api/v1/changes/{id}/abandon": {
       "post": {
         "summary": "Abandon a change",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ChangeID"
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK",
@@ -1321,17 +2085,17 @@
               }
             }
           }
-        },
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/ChangeID"
-          }
-        ]
+        }
       }
     },
     "/api/v1/changes/{id}/diff": {
       "get": {
         "summary": "Unified diff the change would apply",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ChangeID"
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK"
@@ -1376,17 +2140,27 @@
               }
             }
           }
-        },
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/ChangeID"
-          }
-        ]
+        }
       }
     },
     "/api/v1/changes/{id}/edits": {
       "post": {
         "summary": "Apply a gated edit on the change branch",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ChangeID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeEdit"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "OK",
@@ -1478,17 +2252,17 @@
               }
             }
           }
-        },
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/ChangeID"
-          }
-        ]
+        }
       }
     },
     "/api/v1/changes/{id}/merge": {
       "post": {
         "summary": "Merge a ready change (owner)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ChangeID"
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK",
@@ -1580,17 +2354,17 @@
               }
             }
           }
-        },
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/ChangeID"
-          }
-        ]
+        }
       }
     },
     "/api/v1/changes/{id}/submit": {
       "post": {
         "summary": "Run the build gate",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ChangeID"
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK",
@@ -1682,17 +2456,20 @@
               }
             }
           }
-        },
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/ChangeID"
-          }
-        ]
+        }
       }
     },
     "/api/v1/devices": {
       "get": {
         "summary": "List devices",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Every device the caller may see. Always an array.",
@@ -1752,18 +2529,20 @@
               }
             }
           }
-        },
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/Limit"
-          },
-          {
-            "$ref": "#/components/parameters/Offset"
-          }
-        ]
+        }
       },
       "post": {
         "summary": "Enroll a device",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewDevice"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "The device was enrolled.",
@@ -1880,6 +2659,11 @@
     "/api/v1/devices/{tag}": {
       "delete": {
         "summary": "Remove a device",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DeviceTag"
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK",
@@ -1971,15 +2755,15 @@
               }
             }
           }
-        },
+        }
+      },
+      "get": {
+        "summary": "Device with resolved configuration",
         "parameters": [
           {
             "$ref": "#/components/parameters/DeviceTag"
           }
-        ]
-      },
-      "get": {
-        "summary": "Device with resolved configuration",
+        ],
         "responses": {
           "200": {
             "description": "OK"
@@ -2024,15 +2808,25 @@
               }
             }
           }
-        },
+        }
+      },
+      "patch": {
+        "summary": "Update device fields",
         "parameters": [
           {
             "$ref": "#/components/parameters/DeviceTag"
           }
-        ]
-      },
-      "patch": {
-        "summary": "Update device fields",
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DevicePatch"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "OK",
@@ -2125,17 +2919,17 @@
             }
           }
         },
-        "description": "Patch hardware, class, assignedUser, groups, labels or itam. Editor at the device scope; new group memberships also need editor there.",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/DeviceTag"
-          }
-        ]
+        "description": "Patch hardware, class, assignedUser, groups, labels or itam. Editor at the device scope; new group memberships also need editor there."
       }
     },
     "/api/v1/devices/{tag}/credential": {
       "post": {
         "summary": "Re-issue a device credential",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DeviceTag"
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK",
@@ -2228,18 +3022,28 @@
             }
           }
         },
-        "description": "Replaces the device credential (lost secret, re-image); the new secret is shown once. Editor at the device scope; refused for retired devices.",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/DeviceTag"
-          }
-        ]
+        "description": "Replaces the device credential (lost secret, re-image); the new secret is shown once. Editor at the device scope; refused for retired devices."
       }
     },
     "/api/v1/devices/{tag}/intent": {
       "post": {
         "summary": "Arm a remote action",
         "description": "Body: {intent: lock|wipe, force?}. Wipe requires the device to be locked first unless force. Org owner; the intent is an audited commit the device pulls on check-in.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DeviceTag"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceIntent"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "OK",
@@ -2331,16 +3135,16 @@
               }
             }
           }
-        },
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/DeviceTag"
-          }
-        ]
+        }
       },
       "delete": {
         "summary": "Clear a remote action",
         "description": "Cancel a pending intent (a found laptop). Org owner.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DeviceTag"
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK",
@@ -2432,17 +3236,17 @@
               }
             }
           }
-        },
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/DeviceTag"
-          }
-        ]
+        }
       }
     },
     "/api/v1/devices/{tag}/reactivate": {
       "post": {
         "summary": "Reactivate a retired device",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DeviceTag"
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK",
@@ -2535,17 +3339,17 @@
             }
           }
         },
-        "description": "Returns the device to service and issues a fresh credential (shown once). Editor at the device scope.",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/DeviceTag"
-          }
-        ]
+        "description": "Returns the device to service and issues a fresh credential (shown once). Editor at the device scope."
       }
     },
     "/api/v1/devices/{tag}/retire": {
       "post": {
         "summary": "Retire a device",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DeviceTag"
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK",
@@ -2638,18 +3442,21 @@
             }
           }
         },
-        "description": "Parks the device: the audit record stays, image builds, check-ins and rollout counting stop, and its credential is revoked. Editor at the device scope.",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/DeviceTag"
-          }
-        ]
+        "description": "Parks the device: the audit record stays, image builds, check-ins and rollout counting stop, and its credential is revoked. Editor at the device scope."
       }
     },
     "/api/v1/directory/groups": {
       "get": {
         "summary": "Browse IdP directory groups",
         "description": "Groups matching ?q= (substring) from the configured LDAP directory, for access-binding pickers. Requires owner at some scope; read-only.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK",
@@ -2699,15 +3506,7 @@
               }
             }
           }
-        },
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/Limit"
-          },
-          {
-            "$ref": "#/components/parameters/Offset"
-          }
-        ]
+        }
       }
     },
     "/api/v1/evidence": {
@@ -2764,6 +3563,11 @@
     "/api/v1/facts/{tag}": {
       "get": {
         "summary": "Hardware facts of one device",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DeviceTag"
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK"
@@ -2808,17 +3612,17 @@
               }
             }
           }
-        },
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/DeviceTag"
-          }
-        ]
+        }
       }
     },
     "/api/v1/filters/{id}": {
       "delete": {
         "summary": "Delete a filter",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/FilterID"
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK",
@@ -2910,15 +3714,25 @@
               }
             }
           }
-        },
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/FilterID"
-          }
-        ]
+        }
       },
       "put": {
         "summary": "Create or replace a filter",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/FilterID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Filter"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "OK",
@@ -3010,12 +3824,7 @@
               }
             }
           }
-        },
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/FilterID"
-          }
-        ]
+        }
       }
     },
     "/api/v1/fleet": {
@@ -3071,6 +3880,16 @@
     "/api/v1/groups": {
       "post": {
         "summary": "Create a group",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewGroup"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "OK",
@@ -3168,6 +3987,21 @@
     "/api/v1/groups/{name}": {
       "patch": {
         "summary": "Update a group",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/GroupName"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GroupPatch"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "OK",
@@ -3260,15 +4094,15 @@
             }
           }
         },
-        "description": "Re-parent the group (cycle-safe) and/or change its IdP mapping. Org owner.",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/GroupName"
-          }
-        ]
+        "description": "Re-parent the group (cycle-safe) and/or change its IdP mapping. Org owner."
       },
       "delete": {
         "summary": "Remove a group",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/GroupName"
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK",
@@ -3361,12 +4195,7 @@
             }
           }
         },
-        "description": "Only an empty leaf group with no references (devices, subgroups, assignments, bindings, rings) can be removed. Org owner.",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/GroupName"
-          }
-        ]
+        "description": "Only an empty leaf group with no references (devices, subgroups, assignments, bindings, rings) can be removed. Org owner."
       }
     },
     "/api/v1/hostkeys": {
@@ -3540,6 +4369,16 @@
       },
       "put": {
         "summary": "Update my preferences",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Preferences"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "OK",
@@ -3638,6 +4477,11 @@
     "/api/v1/policies/{id}": {
       "delete": {
         "summary": "Delete a policy",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PolicyID"
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK",
@@ -3729,15 +4573,25 @@
               }
             }
           }
-        },
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/PolicyID"
-          }
-        ]
+        }
       },
       "put": {
         "summary": "Create or replace a policy",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PolicyID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Policy"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "OK",
@@ -3829,12 +4683,7 @@
               }
             }
           }
-        },
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/PolicyID"
-          }
-        ]
+        }
       }
     },
     "/api/v1/rollout": {
@@ -3983,6 +4832,16 @@
       },
       "post": {
         "summary": "Start a rollout (owner)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RolloutStart"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "OK",
@@ -4080,6 +4939,16 @@
     "/api/v1/rollout/plan": {
       "put": {
         "summary": "Replace the rollout ring plan",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RolloutPlanUpdate"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "OK",
@@ -4333,6 +5202,16 @@
       },
       "post": {
         "summary": "Register a secret reference (a name, never a value)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewSecretRef"
+              }
+            }
+          }
+        },
         "responses": {
           "201": {
             "description": "Created"
@@ -4423,6 +5302,11 @@
     "/api/v1/secret-refs/{name}": {
       "delete": {
         "summary": "Unregister a secret reference",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SecretRefName"
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK",
@@ -4514,17 +5398,22 @@
               }
             }
           }
-        },
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/SecretRefName"
-          }
-        ]
+        }
       }
     },
     "/api/v1/settings": {
       "delete": {
         "summary": "Clear a setting at a scope",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettingClear"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "OK",
@@ -4620,6 +5509,16 @@
       },
       "post": {
         "summary": "Set a setting at a scope",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettingChange"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "OK",
@@ -4767,6 +5666,11 @@
     "/api/v1/status/{tag}": {
       "get": {
         "summary": "Observed status of one device",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DeviceTag"
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK"
@@ -4811,12 +5715,7 @@
               }
             }
           }
-        },
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/DeviceTag"
-          }
-        ]
+        }
       }
     },
     "/api/v1/tokens": {
@@ -4870,6 +5769,16 @@
       },
       "post": {
         "summary": "Mint an API token (secret shown once)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewToken"
+              }
+            }
+          }
+        },
         "responses": {
           "201": {
             "description": "Created"
@@ -4960,6 +5869,11 @@
     "/api/v1/tokens/{id}": {
       "delete": {
         "summary": "Revoke an API token",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TokenID"
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK",
@@ -5051,12 +5965,7 @@
               }
             }
           }
-        },
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/TokenID"
-          }
-        ]
+        }
       }
     }
   }
