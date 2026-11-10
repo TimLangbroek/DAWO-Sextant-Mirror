@@ -98,7 +98,7 @@ func TestTheReportAlwaysNamesWhatSurvives(t *testing.T) {
 		t.Fatal("the report claims nothing remains; the git history always does")
 	}
 	joined := strings.ToLower(strings.Join(rep.Remaining, " "))
-	for _, want := range []string{"git history", "diagnostics"} {
+	for _, want := range []string{"git history", "diagnostics", "device-secret reveals"} {
 		if !strings.Contains(joined, want) {
 			t.Errorf("the report does not mention %q:\n%s", want, joined)
 		}

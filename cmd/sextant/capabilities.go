@@ -455,7 +455,7 @@ func (d *deps) buildConfigPlane() error {
 	if d.notify != nil {
 		d.rollouts.WithNotifier(d.notify, cfg.OwnerGroups)
 	}
-	d.evidence = app.NewEvidenceService(svc, d.changes, clock)
+	d.evidence = app.NewEvidenceService(svc, d.changes, clock).WithReveals(d.deviceSecrets)
 	// Saving IS rolling out (Intune model, waves underneath): a merged change
 	// starts its own scoped delivery unless the org opted for manual runs.
 	app.WireAutoRollout(d.changes, d.rollouts, svc, d.notify, cfg.OwnerGroups, log)

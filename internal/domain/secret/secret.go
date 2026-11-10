@@ -7,7 +7,10 @@
 // RBAC-gated reveal live in the adapter and application layers.
 package secret
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 
 // Kind names what a stored secret is. The set is closed: an unknown kind is
 // rejected before anything is sealed, so a typo cannot create an unmanaged
@@ -53,6 +56,15 @@ type Meta struct {
 	Created    string `json:"created"`
 	RevealedBy string `json:"revealedBy,omitempty"`
 	Revealed   string `json:"revealed,omitempty"`
+}
+
+// Reveal is one reading of a device secret: who, which secret, when. The
+// store keeps every one; Meta only carries the last.
+type Reveal struct {
+	Tag  string    `json:"tag"`
+	Kind Kind      `json:"kind"`
+	By   string    `json:"by"`
+	At   time.Time `json:"at"`
 }
 
 // EverRevealed reports whether the secret has been read at least once - the

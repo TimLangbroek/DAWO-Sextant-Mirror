@@ -14,8 +14,11 @@ import (
 
 // memSecretStore is an in-memory ports.DeviceSecretStore for service tests.
 type memSecretStore struct {
-	ciph map[string][]byte
-	meta map[string]secret.Meta
+	ciph    map[string][]byte
+	meta    map[string]secret.Meta
+	reveals []secret.Reveal
+	// revealsErr makes Reveals fail, as an unreachable database does.
+	revealsErr error
 }
 
 func newMemSecretStore() *memSecretStore {
@@ -49,7 +52,20 @@ func (s *memSecretStore) MarkRevealed(_ context.Context, _, tag string, kind sec
 	m := s.meta[skey(tag, kind)]
 	m.RevealedBy, m.Revealed = revealedBy, now.UTC().Format(time.RFC3339)
 	s.meta[skey(tag, kind)] = m
+	s.reveals = append(s.reveals, secret.Reveal{Tag: tag, Kind: kind, By: revealedBy, At: now.UTC()})
 	return nil
+}
+func (s *memSecretStore) Reveals(_ context.Context, _ string, from, to time.Time) ([]secret.Reveal, error) {
+	if s.revealsErr != nil {
+		return nil, s.revealsErr
+	}
+	var out []secret.Reveal
+	for _, r := range s.reveals {
+		if !r.At.Before(from) && r.At.Before(to) {
+			out = append(out, r)
+		}
+	}
+	return out, nil
 }
 
 func TestDeviceSecretsStoreAndReveal(t *testing.T) {

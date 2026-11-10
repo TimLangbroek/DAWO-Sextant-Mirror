@@ -74,6 +74,20 @@ keeps its `id` from one report to the next, so two reports compare item by
 item. A retired device, or one not installed yet, has `baseline: not-judged`
 and no items.
 
+## Evidence for a period
+
+**Audit -> Evidence export** downloads one JSON document for a period, and
+`GET /api/v1/evidence` answers the same: the approval controls in force, every
+commit to the fleet repository (who changed what), every change request
+touched, every rollout wave promoted, and every reveal of a device secret.
+
+Reveals are listed separately because reading a LUKS recovery key or an
+administrator password changes nothing in the repository, so no commit shows
+it. Each one is kept with who read which secret of which device, and when; a
+later reveal or a new secret does not replace it. A database from before this
+record carries over the last reveal of each secret it still held, and no
+earlier ones, because those were never kept.
+
 ## Troubleshooting
 
 **A device shows as behind right after a rollout started.**

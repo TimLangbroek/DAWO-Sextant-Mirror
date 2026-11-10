@@ -25,8 +25,9 @@ import (
 
 // memDevSecrets is an in-memory ports.DeviceSecretStore for handler tests.
 type memDevSecrets struct {
-	ciph map[string][]byte
-	meta map[string]secret.Meta
+	ciph    map[string][]byte
+	meta    map[string]secret.Meta
+	reveals []secret.Reveal
 }
 
 func newMemDevSecrets() *memDevSecrets {
@@ -60,7 +61,17 @@ func (s *memDevSecrets) MarkRevealed(_ context.Context, _, tag string, kind secr
 	m := s.meta[dk(tag, kind)]
 	m.RevealedBy, m.Revealed = by, now.UTC().Format(time.RFC3339)
 	s.meta[dk(tag, kind)] = m
+	s.reveals = append(s.reveals, secret.Reveal{Tag: tag, Kind: kind, By: by, At: now.UTC()})
 	return nil
+}
+func (s *memDevSecrets) Reveals(_ context.Context, _ string, from, to time.Time) ([]secret.Reveal, error) {
+	var out []secret.Reveal
+	for _, r := range s.reveals {
+		if !r.At.Before(from) && r.At.Before(to) {
+			out = append(out, r)
+		}
+	}
+	return out, nil
 }
 
 func webSealer(t *testing.T) ports.Sealer {

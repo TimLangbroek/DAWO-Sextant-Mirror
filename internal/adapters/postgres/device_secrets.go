@@ -86,13 +86,50 @@ func (d *DeviceSecretStore) List(ctx context.Context, tenant, tag string) ([]sec
 	return out, rows.Err()
 }
 
-// MarkRevealed records who read a secret and when.
+// MarkRevealed records who read a secret and when: as the secret's last
+// reveal, and as a row in the reveal log, in one transaction so neither can
+// exist without the other. A secret that does not exist logs nothing.
 func (d *DeviceSecretStore) MarkRevealed(ctx context.Context, tenant, tag string, kind secret.Kind, revealedBy string, now time.Time) error {
-	_, err := d.s.pool.Exec(ctx, `
-		UPDATE device_secrets SET revealed=$4, revealed_by=$5
-		WHERE tenant=$1 AND tag=$2 AND kind=$3`,
-		tenant, tag, string(kind), now, revealedBy)
-	return err
+	return pgx.BeginFunc(ctx, d.s.pool, func(tx pgx.Tx) error {
+		res, err := tx.Exec(ctx, `
+			UPDATE device_secrets SET revealed=$4, revealed_by=$5
+			WHERE tenant=$1 AND tag=$2 AND kind=$3`,
+			tenant, tag, string(kind), now, revealedBy)
+		if err != nil || res.RowsAffected() == 0 {
+			return err
+		}
+		_, err = tx.Exec(ctx, `
+			INSERT INTO device_secret_reveals (tenant, tag, kind, revealed_by, revealed)
+			VALUES ($1,$2,$3,$4,$5)`,
+			tenant, tag, string(kind), revealedBy, now)
+		return err
+	})
+}
+
+// Reveals returns every reveal in [from, to), oldest first.
+func (d *DeviceSecretStore) Reveals(ctx context.Context, tenant string, from, to time.Time) ([]secret.Reveal, error) {
+	rows, err := d.s.pool.Query(ctx, `
+		SELECT tag, kind, revealed_by, revealed FROM device_secret_reveals
+		WHERE tenant=$1 AND revealed >= $2 AND revealed < $3
+		ORDER BY revealed, tag, kind`, tenant, from, to)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []secret.Reveal
+	for rows.Next() {
+		var (
+			r    secret.Reveal
+			kind string
+		)
+		if err := rows.Scan(&r.Tag, &kind, &r.By, &r.At); err != nil {
+			return nil, err
+		}
+		r.Kind = secret.Kind(kind)
+		r.At = r.At.UTC()
+		out = append(out, r)
+	}
+	return out, rows.Err()
 }
 
 // Sealed returns every stored secret's ciphertext for one tenant.

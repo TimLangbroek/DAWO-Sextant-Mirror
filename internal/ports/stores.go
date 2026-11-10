@@ -189,8 +189,12 @@ type DeviceSecretStore interface {
 	Get(ctx context.Context, tenant, tag string, kind secret.Kind) (ciphertext []byte, meta secret.Meta, ok bool, err error)
 	// List returns the metadata (never the ciphertext) of a device's secrets.
 	List(ctx context.Context, tenant, tag string) ([]secret.Meta, error)
-	// MarkRevealed stamps who read a secret and when, for the audit trail.
+	// MarkRevealed stamps who read a secret and when as its last reveal, and
+	// appends the reveal to a log that keeps every one: the stamp alone was
+	// overwritten by the next reveal and cleared by the next Put.
 	MarkRevealed(ctx context.Context, tenant, tag string, kind secret.Kind, revealedBy string, now time.Time) error
+	// Reveals returns every reveal in [from, to), oldest first.
+	Reveals(ctx context.Context, tenant string, from, to time.Time) ([]secret.Reveal, error)
 	// Sealed returns every stored secret's ciphertext, so the console can
 	// prove at start that its key still opens them. Nothing is revealed and
 	// nothing is stamped.

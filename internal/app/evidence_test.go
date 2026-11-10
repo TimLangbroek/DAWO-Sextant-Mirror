@@ -3,11 +3,13 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 	"time"
 
 	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/domain/fleet"
+	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/domain/secret"
 )
 
 func TestEvidenceExport(t *testing.T) {
@@ -24,7 +26,7 @@ func TestEvidenceExport(t *testing.T) {
 	if len(ev.Commits) != 1 || ev.Commits[0].Subject != "seed" {
 		t.Fatalf("commits = %+v", ev.Commits)
 	}
-	if ev.Changes == nil || ev.Rollouts == nil {
+	if ev.Changes == nil || ev.Rollouts == nil || ev.Reveals == nil {
 		t.Fatal("empty sections must be arrays, not null (JSON contract)")
 	}
 
@@ -93,5 +95,45 @@ func TestEvidenceCarriesEveryAssuranceControl(t *testing.T) {
 		if !strings.Contains(string(raw), k) {
 			t.Errorf("%s is omitted when false; an auditor cannot tell absent from off", k)
 		}
+	}
+}
+
+// Reading a device secret is not a commit, so the git history never showed
+// it, and the store's last-reader stamp lost every reveal but the latest. The
+// bundle carries the reveal log for the period, and a log it cannot read
+// fails the export rather than reading as "nobody revealed anything".
+func TestEvidenceCarriesEverySecretReveal(t *testing.T) {
+	svc, _ := newService(t, nil)
+	store := newMemSecretStore()
+	clock := newFakeClock(testT0)
+	secrets := NewDeviceSecretsService(store, testSealer(t), clock, "")
+	es := NewEvidenceService(svc, nil, SystemClock{}).WithReveals(secrets)
+	ctx := context.Background()
+
+	if err := secrets.Store(ctx, "lt-1", secret.Admin, "ABCDE-FGHJK-LMNPQ-RSTUV", "agent"); err != nil {
+		t.Fatal(err)
+	}
+	for _, by := range []string{"alice@example.com", "bob@example.com"} {
+		if _, _, err := secrets.Reveal(ctx, "lt-1", secret.Admin, by); err != nil {
+			t.Fatal(err)
+		}
+		clock.Advance(time.Hour)
+	}
+
+	ev, err := es.Export(ctx, testT0, testT0.Add(90*time.Minute))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(ev.Reveals) != 2 || ev.Reveals[0].By != "alice@example.com" || ev.Reveals[1].By != "bob@example.com" {
+		t.Fatalf("reveals = %+v, want alice's and bob's", ev.Reveals)
+	}
+	ev, err = es.Export(ctx, testT0.Add(30*time.Minute), testT0.Add(90*time.Minute))
+	if err != nil || len(ev.Reveals) != 1 || ev.Reveals[0].By != "bob@example.com" {
+		t.Fatalf("a narrower period = %+v, %v", ev.Reveals, err)
+	}
+
+	store.revealsErr = errors.New("database unreachable")
+	if _, err := es.Export(ctx, testT0, testT0.Add(90*time.Minute)); err == nil {
+		t.Fatal("an unreadable reveal log produced a bundle")
 	}
 }

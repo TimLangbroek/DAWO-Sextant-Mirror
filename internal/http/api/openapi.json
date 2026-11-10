@@ -840,7 +840,7 @@
       },
       "Evidence": {
         "type": "object",
-        "description": "What an auditor asks for over a period: the controls in force, and every commit, change request and rollout in it.",
+        "description": "What an auditor asks for over a period: the controls in force, and every commit, change request, rollout and device-secret reveal in it.",
         "properties": {
           "from": {
             "type": "string",
@@ -880,6 +880,13 @@
             "items": {
               "$ref": "#/components/schemas/EvidenceRollout"
             }
+          },
+          "reveals": {
+            "type": "array",
+            "description": "Every reading of a device secret in the period, oldest first. A reveal is not a commit, so the commits never show it.",
+            "items": {
+              "$ref": "#/components/schemas/SecretReveal"
+            }
           }
         },
         "required": [
@@ -889,7 +896,41 @@
           "controls",
           "commits",
           "changes",
-          "rollouts"
+          "rollouts",
+          "reveals"
+        ]
+      },
+      "SecretReveal": {
+        "type": "object",
+        "description": "One reading of a device secret: who read which secret of which device, and when.",
+        "properties": {
+          "tag": {
+            "type": "string",
+            "description": "The device."
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "luks",
+              "admin"
+            ],
+            "description": "Which secret: the LUKS recovery key or the local administrator password."
+          },
+          "by": {
+            "type": "string",
+            "description": "Who read it: the owner's e-mail address, or their subject when the identity provider gave none."
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When."
+          }
+        },
+        "required": [
+          "tag",
+          "kind",
+          "by",
+          "at"
         ]
       },
       "EvidenceControls": {

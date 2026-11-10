@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"sync/atomic"
+	"time"
 
 	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/domain/secret"
 	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/ports"
@@ -81,6 +82,13 @@ func (s *DeviceSecretsService) Reveal(ctx context.Context, tag string, kind secr
 		return "", true, fmt.Errorf("record reveal of %s secret for %s: %w", kind, tag, err)
 	}
 	return string(plaintext), true, nil
+}
+
+// Reveals returns every reveal of a device secret in [from, to), oldest
+// first: the audit record, which keeps the reveals Meta's last-reader stamp
+// overwrote.
+func (s *DeviceSecretsService) Reveals(ctx context.Context, from, to time.Time) ([]secret.Reveal, error) {
+	return s.store.Reveals(ctx, s.tenant, from, to)
 }
 
 // List returns the metadata of a device's secrets (which kinds exist, who

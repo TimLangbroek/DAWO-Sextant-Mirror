@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/domain/change"
+	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/domain/secret"
 	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/ports"
 )
 
@@ -33,6 +34,10 @@ type Evidence struct {
 	// Rollouts is every staged-rollout promotion in the period, derived
 	// from the engine's pin commits (rollout: pin ring ...).
 	Rollouts []EvidenceRollout `json:"rollouts"`
+	// Reveals is every reading of a device secret (a LUKS recovery key, an
+	// administrator password) in the period, oldest first. Reading one is
+	// not a commit, so the git history above never shows it.
+	Reveals []secret.Reveal `json:"reveals"`
 }
 
 // EvidenceControls snapshots the assurance controls in force at export time.
@@ -69,12 +74,20 @@ type EvidenceRollout struct {
 type EvidenceService struct {
 	cfg     *ConfigService
 	changes *ChangeService
+	secrets *DeviceSecretsService
 	clock   ports.Clock
 }
 
 // NewEvidenceService wires the exporter. changes may be nil (no CR store).
 func NewEvidenceService(cfg *ConfigService, changes *ChangeService, clock ports.Clock) *EvidenceService {
 	return &EvidenceService{cfg: cfg, changes: changes, clock: clock}
+}
+
+// WithReveals adds the device-secret reveal log to every bundle. secrets may
+// be nil (no database), and then there are no secrets to have revealed.
+func (s *EvidenceService) WithReveals(secrets *DeviceSecretsService) *EvidenceService {
+	s.secrets = secrets
+	return s
 }
 
 // evidenceLogDepth bounds how far back the export reads git history.
@@ -90,6 +103,7 @@ func (s *EvidenceService) Export(ctx context.Context, from, to time.Time) (*Evid
 		Commits:  []ports.AuditEntry{},
 		Changes:  []change.CR{},
 		Rollouts: []EvidenceRollout{},
+		Reveals:  []secret.Reveal{},
 	}
 	if asr := s.cfg.Fleet().Assurance; asr != nil {
 		ev.Controls = EvidenceControls{
@@ -133,6 +147,13 @@ func (s *EvidenceService) Export(ctx context.Context, from, to time.Time) (*Evid
 			}
 			ev.Changes = append(ev.Changes, cr)
 		}
+	}
+	if s.secrets != nil && s.secrets.store != nil {
+		reveals, err := s.secrets.Reveals(ctx, from, to)
+		if err != nil {
+			return nil, fmt.Errorf("evidence: secret reveals: %w", err)
+		}
+		ev.Reveals = append(ev.Reveals, reveals...)
 	}
 	return ev, nil
 }

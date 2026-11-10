@@ -90,7 +90,9 @@ With `localAdmin.managed` on, there is no password to keep anywhere else. Each
 device draws its own (twenty characters in groups of five, about 100 bits) at
 first boot and hands it to the console on its next check-in, the way it hands
 over its LUKS recovery key. The device page then shows it to an owner, once
-per reveal, and records who revealed it. `passwordSecret` is ignored.
+per reveal, and every reveal is in the
+[evidence export](./compliance.md#evidence-for-a-period). `passwordSecret` is
+ignored.
 
 **Rotate** next to the password asks the device for a new one. The old one
 stops working the moment the device sets the new one, and the console has the

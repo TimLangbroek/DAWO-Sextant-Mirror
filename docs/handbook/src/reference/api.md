@@ -1392,7 +1392,7 @@ A group in the identity provider's directory.
 
 ### Evidence
 
-What an auditor asks for over a period: the controls in force, and every commit, change request and rollout in it.
+What an auditor asks for over a period: the controls in force, and every commit, change request, rollout and device-secret reveal in it.
 
 | Field | Type | Required | Meaning |
 |---|---|---|---|
@@ -1401,6 +1401,7 @@ What an auditor asks for over a period: the controls in force, and every commit,
 | `controls` | [EvidenceControls](#evidencecontrols) | yes |  |
 | `from` | string | yes | The start of the period, included. |
 | `generatedAt` | string | yes | When this was made. |
+| `reveals` | array of [SecretReveal](#secretreveal) | yes | Every reading of a device secret in the period, oldest first. A reveal is not a commit, so the commits never show it. |
 | `rollouts` | array of [EvidenceRollout](#evidencerollout) | yes | Every promotion of a rollout wave in the period. |
 | `to` | string | yes | Its end, not included. |
 
@@ -1744,6 +1745,17 @@ The rollout as it stands.
 |---|---|---|---|
 | `description` | string |  | What the secret is for. |
 | `name` | string | yes | The reference a setting uses. Never a value. |
+
+### SecretReveal
+
+One reading of a device secret: who read which secret of which device, and when.
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `at` | string | yes | When. |
+| `by` | string | yes | Who read it: the owner's e-mail address, or their subject when the identity provider gave none. |
+| `kind` | one of `luks`, `admin` | yes | Which secret: the LUKS recovery key or the local administrator password. |
+| `tag` | string | yes | The device. |
 
 ### SettingChange
 

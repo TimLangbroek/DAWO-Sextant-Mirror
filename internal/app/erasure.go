@@ -161,6 +161,14 @@ func (s *ErasureService) remaining(subject, username string, rep ErasureReport) 
 		out = append(out, "The fleet document was not searched (no config plane wired), "+
 			"so an assigned-user field may still name this person.")
 	}
+	// The reveal log names whoever read a device's recovery key or
+	// administrator password. That is a record about the device and its
+	// owner's access, kept for the same reason as the git history.
+	out = append(out, "The record of device-secret reveals still names this person "+
+		"for every LUKS recovery key or administrator password they revealed. It is "+
+		"part of the audit trail, kept for the same reason as the git history, and "+
+		"this console does not edit it.")
+
 	// Diagnostics bundles are not addressed by name, so they cannot be found
 	// by identifier - but they can contain the person's data, and the reader
 	// has to know that.

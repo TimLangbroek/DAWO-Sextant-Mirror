@@ -68,6 +68,10 @@ func (s *escrowStore) MarkRevealed(_ context.Context, _, tag string, kind secret
 	return nil
 }
 
+func (s *escrowStore) Reveals(context.Context, string, time.Time, time.Time) ([]secret.Reveal, error) {
+	return nil, nil
+}
+
 func escrowSealer(t *testing.T) secretbox.Sealer {
 	t.Helper()
 	raw := make([]byte, 32)
