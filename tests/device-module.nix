@@ -66,6 +66,21 @@ let
     sextant.console.overlayRepoUrl = "https://forge.example.org/acme/fleet.git";
     sextant.releaseCache.url = "https://cache.example.org/cache";
   };
+  # A second copy of the fleet repository (#16): comin polls it after the
+  # first, each with its own credential, so losing one forge does not stop
+  # the fleet from changing. Without a mirror a public repository is left
+  # to the core's own remote.
+  mirrored = host {
+    sextant.console.url = "https://console.example.org";
+    sextant.console.overlayRepoUrl = "https://forge.example.org/acme/fleet.git";
+    sextant.console.overlayMirrors = [
+      { url = "https://mirror.example.net/acme/fleet.git"; }
+      { url = "https://other.example.net/acme/fleet.git"; tokenSecret = "fleet-mirror"; tokenUser = "acme"; }
+    ];
+  };
+  mirroredViaConsole = hostFleet
+    (baseFleet // { console = { url = "https://console.example.org/"; }; })
+    { sextant.console.overlayMirrors = [ { url = "https://forge.example.org/acme/fleet.git"; tokenSecret = "fleet-pull"; } ]; };
   # Store cleanup against the boot-health rollback (#11): a window leaves
   # the previous generation, deleting every older one does not, and only
   # the second is worth a warning. Off is the overlay's choice, not one.
@@ -111,6 +126,10 @@ pkgs.runCommand "sextant-device-module-check"
   # Both presentation rules, on the bundle's own option tree. A throw fails
   # the evaluation of this derivation, which is the failure we want.
   catalogSize = toString (builtins.length (self.lib.exportCatalogFromOptions wired.options));
+  mirrorRemotes = builtins.toJSON (map (r: { inherit (r) name url; auth = r.auth or null; branch = r.branches.main.name; })
+    mirrored.config.services.comin.remotes);
+  mirrorViaConsoleRemotes = builtins.toJSON (map (r: { inherit (r) url; auth = r.auth or null; })
+    mirroredViaConsole.config.services.comin.remotes);
   gcCore = gcWarning { automatic = true; options = "--delete-older-than 7d"; };
   gcAll = gcWarning { automatic = true; options = "-d"; };
   gcAllLong = gcWarning { automatic = true; options = "--max-freed 1G --delete-old"; };
@@ -158,6 +177,11 @@ pkgs.runCommand "sextant-device-module-check"
   [ -z "$privateRestart" ] || fail "an agenix token got the device-credential watch"
 
   [ "$catalogSize" -gt 0 ] || fail "the bundle exports no settings"
+
+  [ "$mirrorRemotes" = '[{"auth":null,"branch":"main","name":"dawo-image","url":"https://forge.example.org/acme/fleet.git"},{"auth":null,"branch":"main","name":"mirror-1","url":"https://mirror.example.net/acme/fleet.git"},{"auth":{"access_token_path":"/run/agenix/fleet-mirror","username":"acme"},"branch":"main","name":"mirror-2","url":"https://other.example.net/acme/fleet.git"}]' ] \
+    || fail "the mirrors are not comin remotes after the first, each with its own credential: $mirrorRemotes"
+  [ "$mirrorViaConsoleRemotes" = '[{"auth":{"access_token_path":"/var/lib/sextant-agent/credential","username":"lt-1"},"url":"https://console.example.org/fleet.git"},{"auth":{"access_token_path":"/run/agenix/fleet-pull","username":"comin"},"url":"https://forge.example.org/acme/fleet.git"}]' ] \
+    || fail "a mirror of a console-served repository does not get its own credential: $mirrorViaConsoleRemotes"
 
   [ -z "$gcCore" ] || fail "DAWO-Core's 7-day window was warned about: $gcCore"
   for w in "$gcAll" "$gcAllLong" "$gcZero"; do

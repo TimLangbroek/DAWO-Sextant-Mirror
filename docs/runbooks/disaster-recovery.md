@@ -57,9 +57,9 @@ can repair the control plane, not the other way round.
 This is the bad one, and the shape of it is not what the other runbook implies.
 
 **Measured: a device polls exactly one remote.**
-`services.comin.remotes` is set with `mkForce` to a single entry -
-`https://forgejo.bb-open.com/bb-open/sextant-overlay-bbopen.git`, branch
-`rings/<group>`, every 300 seconds. There is no second remote and no failover.
+`services.comin.remotes` is set with `mkForce` to a single entry - the fleet
+repository, branch `rings/<group>`, every 300 seconds. There is no second
+remote and no failover unless the overlay names one (below).
 
 **Measured: the overlay repository has one remote and no mirror.** The Sextant
 source lives on three forges; the repository the fleet actually follows lives
@@ -82,12 +82,16 @@ the host - a new URL means editing `dawo.autoUpdate.options.repoUrl`, which
 lives in the repository the devices can no longer reach. Plan to keep the
 name.
 
-**The fix, and it is small:** `services.comin.remotes` is a list, so a second
-remote pointing at a mirror of the overlay is a configuration change rather
-than a feature. It needs the mirror to exist first, which it does not. Until
-then this is a single point of failure for the entire fleet's ability to
-change, and it should be recorded as an accepted risk rather than discovered
-during one.
+**The fix is a second remote.** List copies of the fleet repository in
+`sextant.console.overlayMirrors`, each with its own read-only token if it is
+private, and comin polls them after the first, in order. While the first forge
+is down the next one delivers. A copy that lags behind is ignored, and one
+whose branch was rewritten is refused, so a mirror cannot roll a device back.
+
+Keep the copy in step with the forge's own push mirror, or by pushing to both.
+A device learns of a mirror from a generation it can still fetch, so add it
+while the first forge is up. A fleet without one is frozen by the loss of its
+forge, and that is an accepted risk to record rather than to discover.
 
 ## The binary cache is gone
 

@@ -27,6 +27,23 @@ let
       username = cfg.deviceTag;
     }
     else null;
+
+  # The first remote, then each mirror in order. comin deploys only a commit
+  # on top of what the device already runs, and refuses one that rewrote the
+  # branch, so a mirror that lags is ignored and one that was tampered with
+  # is refused; while the first forge is down, the next one still delivers.
+  remote = name: url: auth': {
+    inherit name url;
+    branches.main.name = config.dawo.autoUpdate.options.branch;
+    poller.period = config.dawo.autoUpdate.options.pollSeconds;
+  } // lib.optionalAttrs (auth' != null) { auth = auth'; };
+  mirrorRemotes = lib.imap1
+    (i: m: remote "mirror-${toString i}" m.url
+      (if m.tokenSecret == "" then null else {
+        access_token_path = "/run/agenix/${m.tokenSecret}";
+        username = m.tokenUser;
+      }))
+    cfg.console.overlayMirrors;
 in
 {
   options.sextant = {
@@ -55,6 +72,32 @@ in
         type = lib.types.str;
         default = "comin";
         description = "Username sent with the token. Forgejo wants the account name; GitHub and GitLab accept anything non-empty.";
+      };
+      # Further copies of the fleet repository (#16). A device follows one
+      # remote until one of these is named; losing that forge then left every
+      # device unable to change until a forge existed again at the same URL.
+      overlayMirrors = lib.mkOption {
+        type = lib.types.listOf (lib.types.submodule {
+          options = {
+            url = lib.mkOption {
+              type = lib.types.str;
+              example = "https://git.example.net/acme/fleet.git";
+              description = "A copy of the fleet repository, kept in step by the forge (a push mirror) or by whoever pushes.";
+            };
+            tokenSecret = lib.mkOption {
+              type = lib.types.str;
+              default = "";
+              description = "Secret-ref name (agenix) of a read-only token for this copy; empty for a public one.";
+            };
+            tokenUser = lib.mkOption {
+              type = lib.types.str;
+              default = "comin";
+              description = "Username sent with the token.";
+            };
+          };
+        });
+        default = [ ];
+        description = "Copies of the fleet repository comin polls after the first, in order, so a device keeps updating while one forge is down. A copy that lags is ignored; one whose branch was rewritten is refused.";
       };
     };
 
@@ -115,15 +158,10 @@ in
     # An authenticated pull: comin's own remotes[].auth. The core's module
     # has no auth option, so the remote is declared here in full; the fields
     # mirror DAWO-Core's modules/services/auto-update.nix.
-    services.comin.remotes = lib.mkIf (auth != null) (lib.mkForce [
-      {
-        name = "dawo-image";
-        url = repoUrl;
-        branches.main.name = config.dawo.autoUpdate.options.branch;
-        poller.period = config.dawo.autoUpdate.options.pollSeconds;
-        inherit auth;
-      }
-    ]);
+    # Mirrors make the list longer than the core's one entry, so they too
+    # need it declared here.
+    services.comin.remotes = lib.mkIf (auth != null || mirrorRemotes != [ ]) (lib.mkForce
+      ([ (remote "dawo-image" repoUrl auth) ] ++ mirrorRemotes));
 
     # comin reads its token once, when it starts. A credential the console
     # re-issues, or one written after comin started (a device that is still
