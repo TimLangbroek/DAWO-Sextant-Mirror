@@ -1,6 +1,7 @@
 # fleet.nix - what makes a DAWO-Core machine a device of a Sextant fleet:
 # comin follows the fleet repository on the branch the generator chose, and
-# the agent reports to the console as the device's tag.
+# the agent reports to the console as the device's tag. When the repository
+# is the one the console serves, comin pulls it with the agent's credential.
 #
 # The generator sets sextant.deviceTag and sextant.cominBranch per device
 # (nix/generator.nix); this module turns them into the core's own knobs.
@@ -8,6 +9,24 @@
 { config, lib, ... }:
 let
   cfg = config.sextant;
+  repoUrl = config.dawo.autoUpdate.options.repoUrl;
+  credentialFile = config.services.sextant-agent.credentialFile;
+
+  # How comin authenticates its poll. A token from agenix when the overlay
+  # names one; the device's own tag and credential when the repository is
+  # the console's (design 0014: the console serves it, behind the credential
+  # the agent already holds); nothing for a public repository elsewhere.
+  fromConsole = cfg.console.url != "" && lib.hasPrefix "${cfg.console.url}/" repoUrl;
+  auth =
+    if cfg.console.overlayTokenSecret != "" then {
+      access_token_path = "/run/agenix/${cfg.console.overlayTokenSecret}";
+      username = cfg.console.overlayTokenUser;
+    }
+    else if fromConsole then {
+      access_token_path = credentialFile;
+      username = cfg.deviceTag;
+    }
+    else null;
 in
 {
   options.sextant = {
@@ -93,20 +112,35 @@ in
       tag = lib.mkDefault cfg.deviceTag;
     };
 
-    # A private repository: comin's own remotes[].auth. The core's module has
-    # no auth option, so the remote is declared here in full; the fields
+    # An authenticated pull: comin's own remotes[].auth. The core's module
+    # has no auth option, so the remote is declared here in full; the fields
     # mirror DAWO-Core's modules/services/auto-update.nix.
-    services.comin.remotes = lib.mkIf (cfg.console.overlayTokenSecret != "") (lib.mkForce [
+    services.comin.remotes = lib.mkIf (auth != null) (lib.mkForce [
       {
         name = "dawo-image";
-        url = config.dawo.autoUpdate.options.repoUrl;
+        url = repoUrl;
         branches.main.name = config.dawo.autoUpdate.options.branch;
         poller.period = config.dawo.autoUpdate.options.pollSeconds;
-        auth = {
-          access_token_path = "/run/agenix/${cfg.console.overlayTokenSecret}";
-          username = cfg.console.overlayTokenUser;
-        };
+        inherit auth;
       }
     ]);
+
+    # comin reads its token once, when it starts. A credential the console
+    # re-issues, or one written after comin started (a device that is still
+    # being provisioned), only counts after a restart; without one comin
+    # keeps offering the old credential and the device quietly stops
+    # updating. PathChanged alone, as in cache-auth.nix: with PathExists the
+    # unit would fire for as long as the file exists.
+    systemd.paths.sextant-comin-credential = lib.mkIf fromConsole {
+      wantedBy = [ "multi-user.target" ];
+      pathConfig.PathChanged = credentialFile;
+    };
+    systemd.services.sextant-comin-credential = lib.mkIf fromConsole {
+      description = "Restart comin so it pulls with the current device credential";
+      serviceConfig = {
+        Type = "oneshot";
+        ExecStart = "${config.systemd.package}/bin/systemctl try-restart comin.service";
+      };
+    };
   };
 }

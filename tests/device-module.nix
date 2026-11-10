@@ -31,7 +31,9 @@ let
     };
   };
 
-  host = extra: (lib.nixosSystem {
+  baseFleet = { version = 3; groups.pilot = { }; devices.lt-1 = { groups = [ "pilot" ]; hardware = "x"; }; };
+  host = hostFleet baseFleet;
+  hostFleet = fleet: extra: (lib.nixosSystem {
     system = pkgs.stdenv.hostPlatform.system;
     modules = [
       coreStub
@@ -44,10 +46,7 @@ let
         fileSystems."/" = { device = "/dev/null"; fsType = "ext4"; };
         system.stateVersion = "24.05";
       })
-    ] ++ (self.lib.generator.mkModules {
-      fleet = { version = 3; groups.pilot = { }; devices.lt-1 = { groups = [ "pilot" ]; hardware = "x"; }; };
-      tag = "lt-1";
-    }) ++ [ extra ];
+    ] ++ (self.lib.generator.mkModules { inherit fleet; tag = "lt-1"; }) ++ [ extra ];
   });
 
   failed = cfg: map (a: a.message) (lib.filter (a: !a.assertion) cfg.config.assertions);
@@ -67,6 +66,14 @@ let
     sextant.console.overlayRepoUrl = "https://forge.example.org/acme/fleet.git";
     sextant.releaseCache.url = "https://cache.example.org/cache";
   };
+  # Design 0014 end to end: only a console block in fleet.json, and the
+  # device reports to the console, pulls the fleet repository from it with
+  # its own credential, and follows the block's branch.
+  viaConsole = hostFleet
+    (baseFleet // { console = { url = "https://console.example.org/"; branch = "stable"; }; })
+    { };
+  vc = viaConsole.config;
+  credPath = name: h: h.config.systemd.paths.${name}.pathConfig.PathChanged or "";
   c = wired.config;
 in
 pkgs.runCommand "sextant-device-module-check"
@@ -83,6 +90,15 @@ pkgs.runCommand "sextant-device-module-check"
   publicRemotes = builtins.toJSON c.services.comin.remotes;
   privateAuth = builtins.toJSON (map (r: r.auth or null) privateRepo.config.services.comin.remotes);
   substituters = builtins.toJSON (c.nix.settings.extra-substituters or [ ]);
+  vcFailed = builtins.concatStringsSep "|" (failed viaConsole);
+  vcRepo = vc.dawo.autoUpdate.options.repoUrl;
+  vcBranch = vc.dawo.autoUpdate.options.branch;
+  vcAgentUrl = vc.services.sextant-agent.url;
+  vcAuth = builtins.toJSON (map (r: r.auth or null) vc.services.comin.remotes);
+  vcRestart = credPath "sextant-comin-credential" viaConsole;
+  vcRestartCmd = vc.systemd.services.sextant-comin-credential.serviceConfig.ExecStart;
+  wiredRestart = credPath "sextant-comin-credential" wired;
+  privateRestart = credPath "sextant-comin-credential" privateRepo;
   # Both presentation rules, on the bundle's own option tree. A throw fails
   # the evaluation of this derivation, which is the failure we want.
   catalogSize = toString (builtins.length (self.lib.exportCatalogFromOptions wired.options));
@@ -112,6 +128,20 @@ pkgs.runCommand "sextant-device-module-check"
     *) fail "a private repository's token is not wired: $privateAuth" ;;
   esac
   [ "$substituters" = "[]" ] || fail "a release cache appeared without being set: $substituters"
+
+  [ -z "$vcFailed" ] || fail "a device with only a console block was refused: $vcFailed"
+  [ "$vcRepo" = "https://console.example.org/fleet.git" ] || fail "comin pulls '$vcRepo', not the console"
+  [ "$vcBranch" = stable ] || fail "comin follows '$vcBranch', the console block said stable"
+  [ "$vcAgentUrl" = "https://console.example.org" ] || fail "agent reports to '$vcAgentUrl'"
+  [ "$vcAuth" = '[{"access_token_path":"/var/lib/sextant-agent/credential","username":"lt-1"}]' ] \
+    || fail "the console pull is not authenticated with the device's own credential: $vcAuth"
+  [ "$vcRestart" = /var/lib/sextant-agent/credential ] || fail "a new credential does not restart comin: '$vcRestart'"
+  case "$vcRestartCmd" in
+    *"systemctl try-restart comin.service") ;;
+    *) fail "the credential watch does not restart comin: $vcRestartCmd" ;;
+  esac
+  [ -z "$wiredRestart" ] || fail "a public repository got a credential watch"
+  [ -z "$privateRestart" ] || fail "an agenix token got the device-credential watch"
 
   [ "$catalogSize" -gt 0 ] || fail "the bundle exports no settings"
 
