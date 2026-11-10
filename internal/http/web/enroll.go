@@ -211,7 +211,10 @@ func (s *Server) postEnrollBatch(w http.ResponseWriter, r *http.Request, v view)
 	items := make([]pending, 0, len(macs))
 	tags := make([]string, 0, len(macs))
 	for _, mac := range macs {
-		dev, facter := s.discoveredDevice(r.Context(), station, mac, hardware, class, groups)
+		dev, facter, waiting := s.discoveredDevice(r.Context(), station, mac, hardware, class, groups)
+		if !waiting {
+			return fmt.Errorf("%s is no longer waiting at station %s: it was enrolled already, or it left. Reload the page to see what is waiting now", mac, station)
+		}
 		items = append(items, pending{mac: mac, tag: names[mac], dev: dev, facter: facter})
 		tags = append(tags, names[mac])
 	}

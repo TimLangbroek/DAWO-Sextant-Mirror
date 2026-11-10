@@ -178,3 +178,33 @@ func TestStationEnrollCapturesSpecsAndValidatesProfile(t *testing.T) {
 		t.Fatalf("MAC not removed from station set after enroll: %v", got)
 	}
 }
+
+// #79: the same machine enrolled twice - a stale page, the back button, a
+// double submit - became two devices, the second without a serial that
+// could ever tie it to the first. Once the station no longer lists the MAC,
+// a second enrolment is refused in words and the fleet keeps one device.
+func TestAMachineIsNotEnrolledTwiceFromAStalePage(t *testing.T) {
+	ts, cfg, _ := newStationConsole(t)
+	enrol := func(name string) (int, string) {
+		form := url.Values{"csrf": {"dev-csrf"}, "mac": {"aa:bb:cc:dd:ee:01"},
+			"name-aabbccddee01": {name}, "hardware": {"lenovo-t495s"}, "class": {"laptop"}, "group": {"pilot"}}
+		resp, err := client().PostForm(ts.URL+"/enroll/nuc-1/batch", form)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+		body, _ := io.ReadAll(resp.Body)
+		return resp.StatusCode, string(body)
+	}
+	if status, _ := enrol("lt-first"); status != http.StatusSeeOther {
+		t.Fatalf("first enrolment = %d", status)
+	}
+	status, page := enrol("lt-again")
+	if status == http.StatusSeeOther || !strings.Contains(page, "no longer waiting at station nuc-1") {
+		t.Fatalf("the second enrolment of the same machine = %d:\n%.300s", status, page)
+	}
+	devs := cfg.Fleet().Devices
+	if _, dup := devs["lt-again"]; dup || len(devs) != 1 {
+		t.Fatalf("one machine, %d devices: %v", len(devs), devs)
+	}
+}
