@@ -1,12 +1,59 @@
-# Sextant task runner. `just ci` is the same gate CI runs.
+# Sextant task runner. Together, `just ci` and `just ci-full` run every check
+# the runner runs (.forgejo/workflows/ci.yml), and scripts/check-ci-parity.sh
+# fails when the two drift: a step there without a recipe here, or a recipe
+# here that no step runs.
 
 default: ci
 
-# Full quality gate: format check, vet, lint, race tests with coverage, build.
-# ci mirrors .forgejo/workflows/ci.yml - the REAL merge bar. If a step is
-# added there, add it here (and vice versa); a narrower local bar teaches
-# people the wrong definition of green.
-ci: fmt-check vet lint test coverage-floor build nix-build catalog-check css-check chart-check agent-ci
+# The quick part, offline, which the pre-push hook runs: the commit rules,
+# format, vet, lint, race tests with the coverage floor, the builds, the
+# flake checks evaluated, the drift guards, the chart and the agent.
+ci: ci-parity commit-check fmt-check vet lint test coverage-floor build nix-build flake-eval catalog-check css-check chart-check agent-ci agent-build
+
+# The rest of what the runner runs: the NixOS VM tests (minutes, and KVM
+# makes them bearable), the container image (podman), and the two
+# vulnerability scans (network). Run it before anything you would not want
+# to see go red after the push.
+ci-full: ci flake-check image-check vulncheck cargo-audit
+
+ci-parity:
+    scripts/check-ci-parity.sh
+
+# The commits this push would carry, as CI checks them: each message, and
+# house style on what they add. Without an upstream there is no range, and it
+# says so instead of passing quietly.
+commit-check:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    base=$(git rev-parse -q --verify '@{upstream}' 2>/dev/null || true)
+    if [ -z "$base" ]; then
+        echo "commit-check: this branch has no upstream, so there is no range to check" >&2
+        exit 0
+    fi
+    rc=0
+    for rev in $(git rev-list "$base..HEAD"); do
+        git --no-pager log -1 --format=%B "$rev" | scripts/check-commit-message.sh - || rc=1
+    done
+    scripts/check-house-style.sh "$base" || rc=1
+    exit $rc
+
+flake-eval:
+    scripts/check-flake-eval.sh
+
+flake-check:
+    nix flake check
+
+image-check:
+    scripts/check-image.sh
+
+agent-build:
+    nix build .#sextant-agent --no-link
+
+vulncheck:
+    scripts/vulncheck.sh
+
+cargo-audit:
+    cd agent && nix shell nixpkgs#cargo nixpkgs#cargo-audit --command cargo audit
 
 # The logic layer must stay above the floor enforced below. Transport, ports,
 # logging and the capability wiring are excluded: they are glue, and counting

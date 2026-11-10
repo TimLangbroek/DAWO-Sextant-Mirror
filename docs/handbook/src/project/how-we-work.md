@@ -57,9 +57,12 @@ trip over are:
   you push. The subject is the smaller half; the body should say *why*.
 - **Stage the files the commit is about, by name.** Not `git add -A`. A message
   can pass every check and still describe the wrong contents.
-- **`just ci` green before a merge.** It mirrors the CI workflow exactly:
-  formatting, vet, lint, race tests, the coverage floor, the Nix build, the
-  catalog drift guard and the agent checks.
+- **`just ci-full` green before a merge.** It is the CI workflow step for
+  step: the commit rules, formatting, vet, lint, race tests, the coverage
+  floor, the builds, the flake checks, the drift guards, the chart, the
+  container image, the agent and the vulnerability scans. `just ci` is the
+  quick, offline part of it, which the pre-push hook runs.
+  `scripts/check-ci-parity.sh` fails when the two lists drift.
 
 Pull requests on Codeberg are welcome and are not turned away for being in the
 wrong place; a maintainer applies them to canonical with your authorship

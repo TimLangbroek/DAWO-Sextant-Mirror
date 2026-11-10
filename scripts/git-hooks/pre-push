@@ -8,8 +8,11 @@
 # already public, somebody else may have pulled it, and the fix arrives as a
 # second commit that says "fix CI".
 #
-# `just ci` is the same set the runner runs. Running it here costs a few minutes
-# of local time and saves a red build plus a follow-up commit.
+# `just ci` is the runner's quick, offline checks; `just ci-full` adds the VM
+# tests, the image and the vulnerability scans, and between them they are every
+# step the runner has (scripts/check-ci-parity.sh). Running the quick part here
+# costs a few minutes of local time and saves a red build plus a follow-up
+# commit.
 #
 # INSTALL: git config core.hooksPath scripts/git-hooks
 #

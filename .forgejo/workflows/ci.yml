@@ -122,6 +122,12 @@ jobs:
           fi
           exit $rc
 
+      # The laptop and the runner check the same things: every step here has
+      # a recipe that `just ci` or `just ci-full` runs, and the other way
+      # round (#134). Cheap, so it runs before anything expensive.
+      - name: CI parity
+        run: cd "$GITHUB_WORKSPACE/src" && scripts/check-ci-parity.sh
+
       - name: Format check
         run: |
           cd "$GITHUB_WORKSPACE/src"
@@ -211,26 +217,10 @@ jobs:
       - name: Nix package
         run: cd "$GITHUB_WORKSPACE/src" && nix build .#sextant
 
-      # Every check must at least EVALUATE. The two NixOS tests landed with the
-      # console module and nothing has looked at them since: a host build does
-      # not import the checks, so CI stayed green while they could have stopped
-      # working weeks ago. The overlay had exactly this gap and its acceptance
-      # test had been unevaluable since a commit that changed three option
-      # interfaces at once.
-      #
-      # Evaluation is where interface drift shows and it is cheap, so it runs on
-      # every push. The attribute list is asserted non-empty first: a flake that
-      # exposes no checks must fail loudly rather than report a pass on nothing.
+      # Every check must at least evaluate; the reasons are in the script,
+      # which `just flake-eval` runs too.
       - name: Every check evaluates
-        run: |
-          cd "$GITHUB_WORKSPACE/src"
-          names=$(nix eval --json '.#checks.x86_64-linux' --apply builtins.attrNames)
-          echo "checks: $names"
-          # The dev shell carries no python; jq is in it and does the same
-          # test. Measured 2026-11-04: "exec: python3: niet gevonden".
-          test "$(nix develop --command jq 'length' <<<"$names")" -gt 0 \
-            || { echo "no checks at all; refusing to report a pass on nothing" >&2; exit 1; }
-          nix flake check --no-build
+        run: cd "$GITHUB_WORKSPACE/src" && scripts/check-flake-eval.sh
 
       # And then run them, before the merge as well as after. The VM tests
       # (console-on-nixos, setup-on-nixos and the module tests) are the half
@@ -243,36 +233,11 @@ jobs:
         timeout-minutes: 45
         run: cd "$GITHUB_WORKSPACE/src" && nix flake check
 
-      # The Dockerfile is otherwise exercised only at release time, which is
-      # the worst moment to discover it. `go build` above already covers the
-      # compile stage, so what this adds is the RUNTIME stage: that the COPY
-      # paths resolve, the pinned base digest still exists, and the entrypoint
-      # is there.
-      #
-      # The assertion is the point, more than the build. The Dockerfile has
-      # several targets and the release builds WITHOUT --target, so it relies
-      # on the server stage being last - a property nobody sees when reading a
-      # diff and one that silently inverts the day somebody appends a stage.
-      # If that happened, a release would push the tools image, with a fleet
-      # simulator inside the control plane, as production. So: build the
-      # default target and prove it contains the server and nothing else.
-      #
-      # Built, never pushed. Publishing is the release workflow's job.
+      # The image's runtime stage, and the assertion that the default target
+      # is the server alone; the reasons are in the script, which
+      # `just image-check` runs too. Built, never pushed.
       - name: Container image (default target must be the server alone)
-        run: |
-          cd "$GITHUB_WORKSPACE/src"
-          export PATH="/run/wrappers/bin:$PATH"
-          nix shell nixpkgs#podman --command bash -c '
-            set -euo pipefail
-            podman build -q -t sextant-ci-check . >/dev/null
-            got="$(podman run --rm --entrypoint sh sextant-ci-check -c "ls /usr/local/bin | sort | tr \"\\n\" \" \"")"
-            echo "image carries: $got"
-            [ "$got" = "sextant " ] || {
-              echo "the default build target is not the server alone - a release would publish this as production" >&2
-              exit 1
-            }
-            podman rmi -f sextant-ci-check >/dev/null 2>&1 || true
-          '
+        run: cd "$GITHUB_WORKSPACE/src" && scripts/check-image.sh
 
       # Drift guard (ADR 0005): catalog.json is derived output of the example
       # overlay's flake; a hand-edited or stale copy ships a wrong settings

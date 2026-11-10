@@ -47,8 +47,11 @@ git config core.hooksPath scripts/git-hooks
 ```
 
 That installs two hooks: `commit-msg`, which checks the message against the
-commit standards below, and `pre-push`, which runs `just ci` - the same set
-the runner runs.
+commit standards below, and `pre-push`, which runs `just ci`: the part of the
+runner's checks that is quick and needs no network. `just ci-full` adds the
+rest - the NixOS VM tests, the container image and the two vulnerability
+scans - and between them they are every step the runner has;
+`scripts/check-ci-parity.sh` fails when that stops being true.
 It costs a few minutes locally and saves a red build plus the follow-up commit
 that says "fix CI", which is the expensive way to learn the same thing.
 
@@ -139,10 +142,12 @@ the wrong contents; the only check is naming the files. `git add -p` or
 ## Engineering bar
 - Spec/ADR before a capability; pure domain with tests; effects behind
   ports; UI is a client of /api/v1 (see docs/capabilities.md).
-- `just ci` green before any merge. It mirrors the Forgejo workflow exactly:
-  fmt, vet, lint, race tests, the 80% logic-layer coverage floor, build,
-  `nix build .#sextant`, the catalog drift guard and the Rust agent checks
-  (fmt/clippy/test). A narrower local bar is not the bar.
+- `just ci-full` green before any merge, `just ci` before any push. Together
+  they are the Forgejo workflow, step for step: the commit rules, fmt, vet,
+  lint, race tests, the 80% logic-layer coverage floor, the builds, the flake
+  checks (evaluated, and run), the drift guards, the chart, the container
+  image, the Rust agent and the vulnerability scans. A narrower local bar is
+  not the bar, and the parity check keeps it from becoming one.
 - Files stay small and single-purpose; edge cases and error paths are
   handled and tested, not assumed.
 
