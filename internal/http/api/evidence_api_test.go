@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"log/slog"
 	"net/http"
@@ -148,5 +149,43 @@ func TestEvidenceWithoutTheServiceSaysSo(t *testing.T) {
 	}
 	if code == http.StatusInternalServerError {
 		t.Error("a missing service produced a 500 instead of an explanation")
+	}
+}
+
+// The OCSF export is one event per line for a SIEM, named for its window,
+// and refuses a malformed window and a missing token like the bundle does.
+func TestEvidenceOCSFIsOneEventPerLine(t *testing.T) {
+	srv := newEvidenceAPI(t)
+	req, _ := http.NewRequest("GET", srv.URL+"/api/v1/evidence/ocsf", nil)
+	req.Header.Set("Authorization", "Bearer "+testToken)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if resp.StatusCode != 200 || resp.Header.Get("Content-Type") != "application/x-ndjson" {
+		t.Fatalf("ocsf = %d %q: %s", resp.StatusCode, resp.Header.Get("Content-Type"), body)
+	}
+	if cd := resp.Header.Get("Content-Disposition"); !strings.Contains(cd, ".ndjson") {
+		t.Errorf("Content-Disposition %q", cd)
+	}
+	lines := strings.Split(strings.TrimSuffix(string(body), "\n"), "\n")
+	if len(lines) != 1 {
+		t.Fatalf("%d lines, want the seed commit: %s", len(lines), body)
+	}
+	var e struct {
+		ClassUID int    `json:"class_uid"`
+		Message  string `json:"message"`
+	}
+	if err := json.Unmarshal([]byte(lines[0]), &e); err != nil || e.ClassUID != 6003 || e.Message != "seed" {
+		t.Errorf("line %q: %+v %v", lines[0], e, err)
+	}
+
+	if code, _ := call(t, srv, "GET", "/api/v1/evidence/ocsf?from=yesterday", nil, testToken); code == 200 || code == 500 {
+		t.Errorf("a malformed window = %d", code)
+	}
+	if code, _ := call(t, srv, "GET", "/api/v1/evidence/ocsf", nil, ""); code != http.StatusUnauthorized {
+		t.Errorf("unauthenticated = %d, want 401", code)
 	}
 }

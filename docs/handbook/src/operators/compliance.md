@@ -88,6 +88,15 @@ later reveal or a new secret does not replace it. A database from before this
 record carries over the last reveal of each secret it still held, and no
 earlier ones, because those were never kept.
 
+### Into a SIEM
+
+`GET /api/v1/evidence/ocsf` answers the same period's commits and reveals as
+[OCSF](https://schema.ocsf.io) 1.9.0 events, one JSON object per line, oldest
+first, with the same `from` and `to`. Both are API Activity (class 6003): a
+commit is an Update by its author, a reveal is a Read of medium severity by
+whoever revealed. A SIEM collects them by calling the endpoint on a schedule
+with a token that has the viewer role, for the period since its last call.
+
 ## Troubleshooting
 
 **A device shows as behind right after a rollout started.**

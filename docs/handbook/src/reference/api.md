@@ -56,6 +56,7 @@ This spec is verified against the running server: CI fails if a route exists wit
 | `POST /api/v1/devices/{tag}/retire` | Retire a device |
 | `GET /api/v1/directory/groups` | Browse IdP directory groups |
 | `GET /api/v1/evidence` | Audit evidence export |
+| `GET /api/v1/evidence/ocsf` | Audit trail as OCSF events |
 | `GET /api/v1/facts/{tag}` | Hardware facts of one device |
 | `PUT /api/v1/filters/{id}` | Create or replace a filter |
 | `DELETE /api/v1/filters/{id}` | Delete a filter |
@@ -630,6 +631,20 @@ Self-contained JSON bundle for a period (?from=&amp;to=, RFC 3339; default last 
 | Answer | Body | Meaning |
 |---|---|---|
 | `200` | [Evidence](#evidence) | OK |
+| `401` | [Error](#error) | No credential, or one that does not verify. |
+| `403` | [Error](#error) | Authenticated, but no role at the required scope - or the server is read-only (--write not set), or the X-CSRF-Token is missing on a session-authenticated mutation. |
+| `404` | [Error](#error) | No such endpoint, or the named resource does not exist. |
+| `500` | [Error](#error) | Unexpected server error. The body is always {"error":"internal error"}; the detail is in the server log, deliberately. |
+
+### `GET /api/v1/evidence/ocsf`
+
+Audit trail as OCSF events.
+
+The period's audit trail for a SIEM (?from=&amp;to=, RFC 3339; default last 30 days) as OCSF 1.9.0 API Activity events (class 6003), one JSON object per line, oldest first: every configuration commit (activity Update) and every reveal of a device secret (activity Read, severity Medium). Org-wide viewer.
+
+| Answer | Body | Meaning |
+|---|---|---|
+| `200` |  | OK |
 | `401` | [Error](#error) | No credential, or one that does not verify. |
 | `403` | [Error](#error) | Authenticated, but no role at the required scope - or the server is read-only (--write not set), or the X-CSRF-Token is missing on a session-authenticated mutation. |
 | `404` | [Error](#error) | No such endpoint, or the named resource does not exist. |

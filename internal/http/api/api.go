@@ -98,6 +98,7 @@ func (a *API) Routes(mux *http.ServeMux) {
 	rw("PUT", "/api/v1/me/preferences", a.putMyPrefs)
 	get("/api/v1/audit", a.getAudit)
 	get("/api/v1/evidence", a.getEvidence)
+	get("/api/v1/evidence/ocsf", a.getEvidenceOCSF)
 	get("/api/v1/directory/groups", a.getDirectoryGroups)
 
 	get("/api/v1/fleet", a.getFleet)

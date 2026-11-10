@@ -4690,6 +4690,65 @@
         }
       }
     },
+    "/api/v1/evidence/ocsf": {
+      "get": {
+        "summary": "Audit trail as OCSF events",
+        "description": "The period's audit trail for a SIEM (?from=&to=, RFC 3339; default last 30 days) as OCSF 1.9.0 API Activity events (class 6003), one JSON object per line, oldest first: every configuration commit (activity Update) and every reveal of a device secret (activity Read, severity Medium). Org-wide viewer.",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/x-ndjson": {
+                "schema": {
+                  "type": "string",
+                  "description": "One OCSF API Activity event per line."
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No credential, or one that does not verify.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated, but no role at the required scope - or the server is read-only (--write not set), or the X-CSRF-Token is missing on a session-authenticated mutation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such endpoint, or the named resource does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error. The body is always {\"error\":\"internal error\"}; the detail is in the server log, deliberately.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/facts/{tag}": {
       "get": {
         "summary": "Hardware facts of one device",

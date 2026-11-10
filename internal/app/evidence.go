@@ -75,12 +75,21 @@ type EvidenceService struct {
 	cfg     *ConfigService
 	changes *ChangeService
 	secrets *DeviceSecretsService
+	// version is the console's release, named as the product version in an
+	// OCSF event; empty leaves it out.
+	version string
 	clock   ports.Clock
 }
 
 // NewEvidenceService wires the exporter. changes may be nil (no CR store).
 func NewEvidenceService(cfg *ConfigService, changes *ChangeService, clock ports.Clock) *EvidenceService {
 	return &EvidenceService{cfg: cfg, changes: changes, clock: clock}
+}
+
+// WithVersion names the console's release in the OCSF events.
+func (s *EvidenceService) WithVersion(version string) *EvidenceService {
+	s.version = version
+	return s
 }
 
 // WithReveals adds the device-secret reveal log to every bundle. secrets may
