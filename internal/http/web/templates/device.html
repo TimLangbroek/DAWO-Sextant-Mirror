@@ -353,6 +353,14 @@
     </section>
     {{end}}
 
+    {{if not .Device.ITAM.Serial}}
+    {{/* #79: a record without a serial is legal (specs are enrichment), but
+         nothing can tie it to a machine afterwards. Said, not stored quietly. */}}
+    <section class="rounded-lg border border-status-warn/40 bg-status-warn/5 p-4 text-body-sm text-ink" data-no-serial>
+      <p class="mb-0 flex items-start gap-2"><span class="material-symbols-outlined msz-18 text-status-warn">help</span>{{.L.T "device.no_serial"}}</p>
+    </section>
+    {{end}}
+
     {{with .Device.Spec}}
     <!-- Hardware specification captured at imaging (inspoelstraat) -->
     <section class="rounded-lg border border-border-hairline bg-canvas p-4 shadow-sm">

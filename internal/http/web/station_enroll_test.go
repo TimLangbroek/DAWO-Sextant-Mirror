@@ -208,3 +208,30 @@ func TestAMachineIsNotEnrolledTwiceFromAStalePage(t *testing.T) {
 		t.Fatalf("one machine, %d devices: %v", len(devs), devs)
 	}
 }
+
+// #79's other half: a device without a serial is legal, and the device page
+// says what that costs instead of storing it quietly.
+func TestADeviceWithoutASerialSaysSo(t *testing.T) {
+	seed := `{"version": 3, "groups": {"pilot": {}}, "devices": {
+	  "lt-bare": {"groups": ["pilot"], "hardware": "hw"},
+	  "lt-known": {"groups": ["pilot"], "hardware": "hw", "itam": {"serial": "PF-1"}}}}`
+	ts, _, _, _ := joinConsoleAs(t, true, seed, web.DevSessions{})
+	page := func(tag string) string {
+		resp, err := client().Get(ts.URL + "/devices/" + tag)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("/devices/%s = %d", tag, resp.StatusCode)
+		}
+		b, _ := io.ReadAll(resp.Body)
+		return string(b)
+	}
+	if !strings.Contains(page("lt-bare"), "data-no-serial") {
+		t.Error("a device without a serial does not say so")
+	}
+	if strings.Contains(page("lt-known"), "data-no-serial") {
+		t.Error("a device with a serial is said to have none")
+	}
+}
