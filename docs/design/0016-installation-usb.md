@@ -58,6 +58,30 @@ On tty1, without a login, one program in plain words:
 From the first boot the agent checks in with the credential the installer
 copied, and the laptop is active in the console.
 
+### Disk layout (Bram, 2026-11-10)
+
+Nothing in a fleet said how to lay out a disk: there is no `disko.devices`
+in the starter fleet or in a generated device configuration, so "the
+device's disko layout" this note relied on did not exist. Decided: easy by
+default, and room for whoever wants more.
+
+- **Default from Sextant.** The device module brings one layout through
+  disko: GPT, a 1 GB EFI system partition, and the rest one LUKS2 volume
+  holding the root file system. A fleet that says nothing gets it, and the
+  person at the laptop is never asked.
+- **The fleet's own layout wins.** A fleet that declares `disko.devices`
+  for a device, a group or the whole organisation replaces the default
+  (`lib.mkDefault` on Sextant's side). Swap, btrfs subvolumes, a second disk:
+  the power user writes disko and the installer runs it unchanged.
+- **Encryption is not optional.** The gate refuses a layout without a LUKS
+  volume on the root, because escrow (design 0009) and **Secure this
+  laptop** both assume one.
+- The installer evaluates the device's configuration and runs whatever
+  `disko.devices` comes out, default or not. Step 3's refusal ("this fleet
+  does not say how to lay out a disk") becomes unreachable and goes.
+
+This adds disko as an input of the Sextant flake, pinned like nixpkgs.
+
 ### Disk and encryption
 
 The disk is encrypted from the first boot, and the first boot asks
@@ -124,9 +148,9 @@ stick is only needed for new hardware support in the live system.
 - `sextant.lib.mkInstaller` in the Sextant flake, and the `installer`
   output in the starter fleet.
 - `POST /artifact` on the gate-runner, and a download route on the console.
-- The device configuration's disko layout becomes a requirement: a fleet
-  whose configuration has no `disko.devices` gets a refusal at step 3
-  ("this fleet does not say how to lay out a disk"), not an empty disk.
+- A default disko layout in the device module, which a fleet's own
+  `disko.devices` replaces, and a gate check that the root is on LUKS
+  (above, "Disk layout").
 - sextant-actd removes the unbound TPM2 keyslot when it seals to PCR 7.
 - The add-laptop page gets its USB line back (removed in aed02d5 until
   there is a stick).
