@@ -35,6 +35,52 @@ services.sextant = {
 };
 ```
 
+## First start: the setup page
+
+A console that starts with no way to sign in - no identity provider and no
+`--dev-auth` - opens its setup page instead of a login nobody can pass
+(design 0013). It writes one line to its log, with a link that works once:
+
+```
+level=WARN msg="setup: open http://127.0.0.1:8080/setup?token=..."
+```
+
+The address is the console's public URL when one is set, otherwise the
+address it listens on (`localhost` when that is all interfaces).
+
+Whoever can read the log can set the console up; everybody else is told to
+wait. On NixOS, `services.sextant.enable = true;` with nothing else is
+enough to get there, and `journalctl -u sextant | grep setup:` shows the
+link. In a container, give it a volume at `/data`, where setup writes its
+answers.
+
+The page asks, in this order:
+
+1. **Keys.** Made for you. The secret key comes as a file to keep somewhere
+   the server's own failure cannot reach: the database holds the disk
+   recovery keys sealed with it, and a restored database cannot be read
+   without it. Setup goes on once you say you stored it.
+2. **Fleet repository.** "Create one for me" starts it in the data
+   directory, or give the address and a token of one you have, with a Test
+   button that checks the console can reach it with that token.
+3. **Sign-in.** The issuer, the client id and the client secret of your
+   identity provider. The page shows the redirect address to register
+   there. **Test sign-in** runs a real login and shows what came back,
+   including the groups it found.
+4. **Done.** The console checks that it will start with these answers,
+   restarts itself, and the person who did the test sign-in is the owner.
+   No group has to be mapped first.
+
+What a deployment sets itself - a NixOS option, a Helm value, an environment
+variable - is not asked again, and the page says it was set by the
+deployment.
+
+The NixOS module starts the console read-only (`write = false`), and every
+page says so. A change goes through a validation gate that builds the
+configuration of the devices it touches from the fleet repository, so set
+`services.sextant.write = true;` once that repository has a flake that
+builds them. The repository setup creates holds only `fleet.json` so far.
+
 ## 1. `deploy/compose`
 
 ```sh
