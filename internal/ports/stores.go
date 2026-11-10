@@ -9,6 +9,7 @@ import (
 	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/domain/elevation"
 	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/domain/identity"
 	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/domain/imaging"
+	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/domain/joincode"
 	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/domain/observed"
 	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/domain/rollout"
 	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/domain/secret"
@@ -40,6 +41,24 @@ type ElevationStore interface {
 	Put(ctx context.Context, tenant string, r elevation.Request) error
 	Get(ctx context.Context, tenant, id string) (elevation.Request, bool, error)
 	Pending(ctx context.Context, tenant string) ([]elevation.Request, error)
+}
+
+// JoinCodeStore holds the codes a laptop joins with (design 0015). It keeps
+// facts - uses left, an expiry - and never a state: whether a code is open is
+// the clock's to say, so nothing has to run to close one.
+//
+// Spend is the one operation that must be atomic. Two laptops presenting the
+// last use of a code at the same moment must not both join, so taking a use
+// and checking that one was left are a single statement. Refund gives a use
+// back when the join failed after it was spent (a gate refusal, a credential
+// that could not be issued), so a code is not lost to an error the laptop
+// did not make.
+type JoinCodeStore interface {
+	Create(ctx context.Context, tenant string, c joincode.Code) error
+	Spend(ctx context.Context, tenant string, hash []byte, now time.Time) (joincode.Code, bool, error)
+	Refund(ctx context.Context, tenant, id string) error
+	Open(ctx context.Context, tenant string, now time.Time) ([]joincode.Code, error)
+	Withdraw(ctx context.Context, tenant, id string) error
 }
 
 // UpstreamStore remembers the last core-repo revision the upstream watcher
