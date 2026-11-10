@@ -292,6 +292,122 @@
           "updated"
         ]
       },
+      "ComplianceItem": {
+        "type": "object",
+        "description": "One judged requirement.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The same for the same requirement from one report to the next, such as baseline:recency, condition:disk:disk.free_gb>=20 or settings:disk."
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "baseline",
+              "condition",
+              "settings"
+            ],
+            "description": "baseline: a criterion of the verdict. condition: a policy's requirement on observed state. settings: a policy's settings as configured for this device."
+          },
+          "policy": {
+            "type": "string",
+            "description": "The policy id, for condition and settings items."
+          },
+          "name": {
+            "type": "string",
+            "description": "What is judged, for a person."
+          },
+          "controls": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The policy's framework references, such as BIO 12.3.1."
+          },
+          "result": {
+            "type": "string",
+            "enum": [
+              "pass",
+              "fail",
+              "unknown"
+            ],
+            "description": "unknown: no measurement decides it. Never the same as a pass."
+          },
+          "required": {
+            "type": "string",
+            "description": "What the requirement asks."
+          },
+          "measured": {
+            "type": "string",
+            "description": "What was found."
+          },
+          "detail": {
+            "type": "string",
+            "description": "The policy author's explanation, or why the result is unknown."
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "name",
+          "result",
+          "required"
+        ]
+      },
+      "ComplianceReport": {
+        "type": "object",
+        "description": "One device's compliance, item by item.",
+        "properties": {
+          "schema": {
+            "type": "string",
+            "enum": [
+              "sextant.compliance-report/1"
+            ],
+            "description": "The report's shape. Removing or renaming a field, or changing what a value means, takes a new number; adding a field does not."
+          },
+          "device": {
+            "type": "string",
+            "description": "The device tag."
+          },
+          "generatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the report was made."
+          },
+          "measuredAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "The device's last check-in: every observed value in the items is from then. Absent when it never reported."
+          },
+          "revision": {
+            "type": "string",
+            "description": "The fleet repository commit the device last said it runs."
+          },
+          "baseline": {
+            "type": "string",
+            "enum": [
+              "compliant",
+              "attention",
+              "not-judged"
+            ],
+            "description": "The verdict the device list shows, made up of the baseline items only. not-judged is a retired device or one not yet installed."
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ComplianceItem"
+            },
+            "description": "Every requirement judged: baseline items first, then conditions, then settings. Empty for a device that is not judged."
+          }
+        },
+        "required": [
+          "schema",
+          "device",
+          "generatedAt",
+          "baseline",
+          "items"
+        ]
+      },
       "Condition": {
         "type": "object",
         "description": "A requirement on what a device reports, not on its configuration: it is checked, never written.",
@@ -4593,6 +4709,69 @@
             }
           }
         }
+      }
+    },
+    "/api/v1/compliance/{tag}": {
+      "get": {
+        "summary": "Compliance report of one device",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DeviceTag"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComplianceReport"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No credential, or one that does not verify.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated, but no role at the required scope - or the server is read-only (--write not set), or the X-CSRF-Token is missing on a session-authenticated mutation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such endpoint, or the named resource does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error. The body is always {\"error\":\"internal error\"}; the detail is in the server log, deliberately.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Every requirement the device is judged on, with its result and the value it was judged on: the baseline criteria the device list's verdict is made of, the conditions of the policies that reach it, and per policy whether its settings hold on the device. Computed when asked; the schema field names the shape."
       }
     },
     "/api/v1/filters/{id}": {

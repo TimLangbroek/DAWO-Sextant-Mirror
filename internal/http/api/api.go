@@ -161,6 +161,7 @@ func (a *API) Routes(mux *http.ServeMux) {
 		get("/api/v1/status", a.getStatusAll)
 		get("/api/v1/status/{tag}", a.getStatus)
 		get("/api/v1/facts/{tag}", a.getFacts)
+		get("/api/v1/compliance/{tag}", a.getCompliance)
 	}
 }
 

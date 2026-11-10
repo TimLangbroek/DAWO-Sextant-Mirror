@@ -1,6 +1,7 @@
 package app
 
 import (
+	"slices"
 	"strings"
 	"time"
 
@@ -39,8 +40,9 @@ type Baseline struct {
 // snapshot. Build it once per render: the drifted-device set is derived
 // from policies x assignments up front, not rediscovered per row.
 type BaselineJudge struct {
-	f       *fleet.Fleet
-	drifted map[string]bool
+	f *fleet.Fleet
+	// drifted maps a device to the stale policies that reach it.
+	drifted map[string][]string
 	now     time.Time
 }
 
@@ -49,7 +51,7 @@ type BaselineJudge struct {
 // "reapply" state (profileState). Hand-edited and conflicting policies are
 // deliberate operator choices, not drift, and do not count.
 func NewBaselineJudge(f *fleet.Fleet, profiles *fleet.Profiles, now time.Time) *BaselineJudge {
-	j := &BaselineJudge{f: f, drifted: map[string]bool{}, now: now}
+	j := &BaselineJudge{f: f, drifted: map[string][]string{}, now: now}
 	stale := map[string]bool{}
 	for id, pol := range f.Policies {
 		name, _, ok := strings.Cut(pol.Profile, "@")
@@ -65,10 +67,21 @@ func NewBaselineJudge(f *fleet.Fleet, profiles *fleet.Profiles, now time.Time) *
 			continue
 		}
 		for _, tag := range j.f.AssignmentDevices(a) {
-			j.drifted[tag] = true
+			if !slices.Contains(j.drifted[tag], a.Policy) {
+				j.drifted[tag] = append(j.drifted[tag], a.Policy)
+			}
 		}
 	}
+	for _, ids := range j.drifted {
+		slices.Sort(ids)
+	}
 	return j
+}
+
+// DriftedPolicies names the policies behind their profile that reach tag,
+// sorted; empty when the device has no drift.
+func (j *BaselineJudge) DriftedPolicies(tag string) []string {
+	return j.drifted[tag]
 }
 
 // Verdict judges one device. hasStatus mirrors the inventory lookup: a
@@ -94,7 +107,7 @@ func (j *BaselineJudge) Verdict(tag string, st StatusView, hasStatus bool) Basel
 	if !hasStatus || j.now.Sub(st.LastSeen) > observed.InactiveWindow {
 		fails = append(fails, BaselineRecency)
 	}
-	if j.drifted[tag] {
+	if len(j.drifted[tag]) > 0 {
 		fails = append(fails, BaselineDrift)
 	}
 	resolved := j.f.ResolveValues(tag)

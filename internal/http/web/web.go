@@ -248,6 +248,7 @@ func (s *Server) Routes(mux *http.ServeMux) {
 	post("/devices/{tag}/intent", s.postDeviceIntent)
 	post("/devices/{tag}/intent/clear", s.postDeviceIntentClear)
 	get("/devices/{tag}/diagnostics", s.deviceDiagnostics)
+	get("/devices/{tag}/compliance.json", s.deviceCompliance)
 	post("/devices/{tag}/secret/{kind}/reveal", s.postSecretReveal)
 	post("/devices/{tag}/retire", s.postDeviceRetire)
 	post("/devices/{tag}/reactivate", s.postDeviceReactivate)

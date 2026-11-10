@@ -43,6 +43,7 @@ This spec is verified against the running server: CI fails if a route exists wit
 | `POST /api/v1/changes/{id}/edits` | Apply a gated edit on the change branch |
 | `POST /api/v1/changes/{id}/merge` | Merge a ready change (owner) |
 | `POST /api/v1/changes/{id}/submit` | Run the build gate |
+| `GET /api/v1/compliance/{tag}` | Compliance report of one device |
 | `GET /api/v1/devices` | List devices |
 | `POST /api/v1/devices` | Enroll a device |
 | `GET /api/v1/devices/{tag}` | Device with resolved configuration |
@@ -375,6 +376,24 @@ Run the build gate.
 | `422` | [Error](#error) | The resulting configuration was refused by the nix evaluation gate. The message carries the evaluator's reason. |
 | `500` | [Error](#error) | Unexpected server error. The body is always {"error":"internal error"}; the detail is in the server log, deliberately. |
 | `503` | [Error](#error) | A dependency the endpoint needs is not available (database, gate-runner, directory). Retry. |
+
+### `GET /api/v1/compliance/{tag}`
+
+Compliance report of one device.
+
+Every requirement the device is judged on, with its result and the value it was judged on: the baseline criteria the device list's verdict is made of, the conditions of the policies that reach it, and per policy whether its settings hold on the device. Computed when asked; the schema field names the shape.
+
+| Parameter | In | Type | Meaning |
+|---|---|---|---|
+| `tag` | path | string | The device's tag: the name it has in the fleet, as GET /api/v1/devices lists it. A lowercase slug. |
+
+| Answer | Body | Meaning |
+|---|---|---|
+| `200` | [ComplianceReport](#compliancereport) | OK |
+| `401` | [Error](#error) | No credential, or one that does not verify. |
+| `403` | [Error](#error) | Authenticated, but no role at the required scope - or the server is read-only (--write not set), or the X-CSRF-Token is missing on a session-authenticated mutation. |
+| `404` | [Error](#error) | No such endpoint, or the named resource does not exist. |
+| `500` | [Error](#error) | Unexpected server error. The body is always {"error":"internal error"}; the detail is in the server log, deliberately. |
 
 ### `GET /api/v1/devices`
 
@@ -1205,6 +1224,36 @@ A change request: settings edited on a branch of their own, merged into the flee
 | `title` | string | yes | What it is for. |
 | `updated` | string | yes | When it last changed. |
 | `wholeFleet` | boolean |  | An edit reached the whole fleet, so the gate builds every device. |
+
+### ComplianceItem
+
+One judged requirement.
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `controls` | array of string |  | The policy's framework references, such as BIO 12.3.1. |
+| `detail` | string |  | The policy author's explanation, or why the result is unknown. |
+| `id` | string | yes | The same for the same requirement from one report to the next, such as baseline:recency, condition:disk:disk.free_gb&gt;=20 or settings:disk. |
+| `kind` | one of `baseline`, `condition`, `settings` | yes | baseline: a criterion of the verdict. condition: a policy's requirement on observed state. settings: a policy's settings as configured for this device. |
+| `measured` | string |  | What was found. |
+| `name` | string | yes | What is judged, for a person. |
+| `policy` | string |  | The policy id, for condition and settings items. |
+| `required` | string | yes | What the requirement asks. |
+| `result` | one of `pass`, `fail`, `unknown` | yes | unknown: no measurement decides it. Never the same as a pass. |
+
+### ComplianceReport
+
+One device's compliance, item by item.
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `baseline` | one of `compliant`, `attention`, `not-judged` | yes | The verdict the device list shows, made up of the baseline items only. not-judged is a retired device or one not yet installed. |
+| `device` | string | yes | The device tag. |
+| `generatedAt` | string | yes | When the report was made. |
+| `items` | array of [ComplianceItem](#complianceitem) | yes | Every requirement judged: baseline items first, then conditions, then settings. Empty for a device that is not judged. |
+| `measuredAt` | string |  | The device's last check-in: every observed value in the items is from then. Absent when it never reported. |
+| `revision` | string |  | The fleet repository commit the device last said it runs. |
+| `schema` | one of `sextant.compliance-report/1` | yes | The report's shape. Removing or renaming a field, or changing what a value means, takes a new number; adding a field does not. |
 
 ### Condition
 

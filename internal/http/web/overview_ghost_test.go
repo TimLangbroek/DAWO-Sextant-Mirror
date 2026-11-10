@@ -44,6 +44,21 @@ func (m *manyStatus) Ping(context.Context) error { return nil }
 
 func consoleWithGhostCheckIns(t *testing.T) *httptest.Server {
 	t.Helper()
+	now := time.Now()
+	// lt-1 is in the seed fleet. test9 and test10 are not: they were enrolled
+	// once, checked in, and were removed from fleet.json afterwards. Their
+	// check-in history stays - it is audit material - and that is exactly the
+	// state that put deleted machines back on the dashboard.
+	return consoleWithStatus(t, &manyStatus{sts: []observed.DeviceStatus{
+		{Tag: "lt-1", Revision: "abc123", Phase: observed.Running, LastSeen: now},
+		{Tag: "test9", Revision: "old999", Phase: observed.Running, LastSeen: now.Add(-72 * time.Hour)},
+		{Tag: "test10", Revision: "old111", Phase: observed.Running, LastSeen: now},
+	}})
+}
+
+// consoleWithStatus is the seeded console over the given observed store.
+func consoleWithStatus(t *testing.T, store ports.StatusStore) *httptest.Server {
+	t.Helper()
 	dir := t.TempDir()
 	run := func(args ...string) {
 		out, err := exec.Command("git", append([]string{"-C", dir}, args...)...).CombinedOutput()
@@ -70,17 +85,7 @@ func consoleWithGhostCheckIns(t *testing.T) *httptest.Server {
 	if err != nil {
 		t.Fatal(err)
 	}
-	now := time.Now()
-	// lt-1 is in the seed fleet. test9 and test10 are not: they were enrolled
-	// once, checked in, and were removed from fleet.json afterwards. Their
-	// check-in history stays - it is audit material - and that is exactly the
-	// state that put deleted machines back on the dashboard.
-	store := &manyStatus{sts: []observed.DeviceStatus{
-		{Tag: "lt-1", Revision: "abc123", Phase: observed.Running, LastSeen: now},
-		{Tag: "test9", Revision: "old999", Phase: observed.Running, LastSeen: now.Add(-72 * time.Hour)},
-		{Tag: "test10", Revision: "old111", Phase: observed.Running, LastSeen: now},
-	}}
-	inv := app.NewInventoryService(store, noFacts{}, fixedClock{now}, app.DefaultTenant)
+	inv := app.NewInventoryService(store, noFacts{}, fixedClock{time.Now()}, app.DefaultTenant)
 	srv, err := web.New(web.Services{Config: cfg, Inventory: inv}, web.DevSessions{}, true,
 		nil, nil, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	if err != nil {

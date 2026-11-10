@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"time"
 
 	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/app"
 )
@@ -52,5 +53,25 @@ func (a *API) getFacts(w http.ResponseWriter, r *http.Request) error {
 		return nil
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"updatedAt": at, "facts": facts})
+	return nil
+}
+
+// getCompliance answers one device's compliance report (#13): every
+// requirement judged, with its result and the value it was judged on, under
+// a versioned schema id. It is computed when asked, from the same state the
+// console shows, so there is no stored copy to drift from it.
+func (a *API) getCompliance(w http.ResponseWriter, r *http.Request) error {
+	tag := r.PathValue("tag")
+	st, has, err := a.inv.Status(r.Context(), tag)
+	if err != nil {
+		return err
+	}
+	rep, ok := app.NewComplianceReport(a.cfg.Fleet(), a.cfg.Profiles(), tag, st, has,
+		a.cfg.Head(r.Context()), time.Now())
+	if !ok || !a.canView(r)("device:"+tag) {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "no such device"})
+		return nil
+	}
+	writeJSON(w, http.StatusOK, rep)
 	return nil
 }
