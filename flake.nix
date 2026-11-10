@@ -154,6 +154,9 @@
         # Deep: boots a machine and uses the console. Needs KVM, and a warm
         # cache - from cold it builds a whole NixOS closure.
         console-on-nixos = import ./tests/console-on-nixos.nix { inherit self pkgs; };
+        # Deep: first start with nothing configured, through the setup
+        # pages to a signed-in owner (design 0013).
+        setup-on-nixos = import ./tests/setup-on-nixos.nix { inherit self pkgs; };
       });
 
       devShells = forAll (pkgs: {
