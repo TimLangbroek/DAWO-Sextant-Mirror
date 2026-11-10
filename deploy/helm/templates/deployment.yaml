@@ -71,6 +71,9 @@ spec:
               exec sextant prepare-repo --repo /data/overlay \
                 --url {{ .Values.gitRemote.url | quote }} \
                 --branch {{ .Values.gitRemote.branch | default "main" | quote }}
+              {{- with include "sextant.publicUrl" . }} \
+                --public-url {{ . | quote }}
+              {{- end }}
           env:
             # git reads /data/.netrc for the remote's credential.
             - { name: HOME, value: /data }

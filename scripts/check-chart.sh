@@ -161,6 +161,8 @@ echo "$pub" | grep -qx -- " *- --public-url=https://sx.example.test" || { echo "
 echo "$pub" | grep -q -- "--oidc-redirect-url" && { echo "the chart still passes the redirect URL itself"; exit 1; }
 pub=$(helm template sx deploy/helm $R --set ingress.host=sx.example.test --set publicUrl=https://console.example.test/)
 echo "$pub" | grep -qx -- " *- --public-url=https://console.example.test" || { echo "publicUrl did not win over ingress.host, or kept its slash"; exit 1; }
+# The same address goes into a starter fleet, so its devices find the console.
+echo "$pub" | grep -qx -- ' *--public-url "https://console.example.test"' || { echo "prepare-repo does not get the public address"; exit 1; }
 pub=$(helm template sx deploy/helm $R --set ingress.enabled=false --set ingress.host=)
 echo "$pub" | grep -q -- "--public-url" && { echo "a public url rendered without any address"; exit 1; }
 

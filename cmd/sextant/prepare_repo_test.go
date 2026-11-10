@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/domain/fleet"
 )
 
 func TestPrepareRepo(t *testing.T) {
@@ -20,15 +22,27 @@ func TestPrepareRepo(t *testing.T) {
 	}
 	dir := filepath.Join(t.TempDir(), "overlay")
 	var out, errOut strings.Builder
-	if code := prepareRepo(ctx, []string{"--repo", dir, "--url", "file://" + remote}, &out, &errOut); code != 0 {
+	if code := prepareRepo(ctx, []string{"--repo", dir, "--url", "file://" + remote, "--public-url", "https://console.example.org/"}, &out, &errOut); code != 0 {
 		t.Fatalf("exit %d: %s", code, errOut.String())
 	}
 	if !strings.Contains(out.String(), "starter fleet") {
 		t.Fatalf("stdout %q", out.String())
 	}
-	// What was pushed is the starter every other path seeds.
+	// What was pushed is the starter every other path seeds, with this
+	// console in its console block: that is how devices find it.
 	if _, err := os.Stat(filepath.Join(dir, "fleet.json")); err != nil {
 		t.Fatal(err)
+	}
+	pushed, err := exec.Command("git", "--git-dir", remote, "show", "main:fleet.json").Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	f, err := fleet.Decode(pushed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.Console == nil || f.Console.URL != "https://console.example.org" || f.Console.Branch != "main" {
+		t.Fatalf("pushed console block %+v", f.Console)
 	}
 
 	for _, args := range [][]string{{"--repo", dir}, {"--url", "file://" + remote}, {"--nonsense"}} {

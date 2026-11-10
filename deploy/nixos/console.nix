@@ -174,7 +174,7 @@ in
         The address people reach the console on, through your TLS proxy.
         Sign-in's redirect URL (<publicUrl>/callback, to register at the
         identity provider) and the links in notification mail follow from
-        it.
+        it, and a starter fleet records it as where its devices report.
       '';
     };
 
@@ -363,13 +363,15 @@ in
           lib.optional (cfg.gitRemote.netrcFile != null)
             "${pkgs.coreutils}/bin/ln -sfn %d/netrc ${runDir}/.netrc"
           ++ [
-            (lib.escapeShellArgs [
+            (lib.escapeShellArgs ([
               (lib.getExe cfg.package)
               "prepare-repo"
               "--repo" (toString cfg.repo)
               "--url" cfg.gitRemote.url
               "--branch" cfg.gitRemote.branch
-            ])
+            ]
+            # Written into a starter fleet: where its devices find this console.
+            ++ lib.optionals (cfg.publicUrl != null) [ "--public-url" cfg.publicUrl ]))
           ]);
         LoadCredential = lib.optional (remote && cfg.gitRemote.netrcFile != null)
           "netrc:${cfg.gitRemote.netrcFile}";

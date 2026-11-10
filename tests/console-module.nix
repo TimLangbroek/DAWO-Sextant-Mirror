@@ -64,8 +64,15 @@ let
     gitRemote.url = "https://forge.example.org/acme/fleet.git";
     gitRemote.netrcFile = "/run/secrets/sextant-netrc";
     gate = "eval";
+    publicUrl = "https://console.example.org";
   }).systemd.services.sextant;
   remote = remoteSvc.serviceConfig;
+  # Without a public address there is nothing to write into a starter.
+  remoteNoUrl = (eval {
+    enable = true;
+    gitRemote.url = "https://forge.example.org/acme/fleet.git";
+    gate = "eval";
+  }).systemd.services.sextant.serviceConfig;
   # The database: local by default, over the socket, as the unit's user.
   dbDefault = eval { enable = true; user = "fleet"; };
   dbOff = (eval { enable = true; database.createLocally = false; }).systemd.services.sextant;
@@ -80,6 +87,7 @@ pkgs.runCommand "sextant-console-module-check"
   dbOffDsn = dbOff.environment.SEXTANT_PG_DSN or "";
   dbOffAfter = builtins.concatStringsSep "," dbOff.after;
   remotePre = builtins.concatStringsSep "|" remote.ExecStartPre;
+  remoteNoUrlPre = builtins.concatStringsSep "|" remoteNoUrl.ExecStartPre;
   remoteExec = remote.ExecStart;
   remoteCred = builtins.concatStringsSep "," remote.LoadCredential;
   remoteHome = remoteSvc.environment.HOME;
@@ -149,6 +157,17 @@ pkgs.runCommand "sextant-console-module-check"
   case "$remotePre" in
     *"ln -sfn %d/netrc /run/sextant/.netrc|"*) ;;
     *) fail "the netrc is not linked before prepare-repo: $remotePre" ;;
+  esac
+  # The public address goes into a starter fleet: how its devices find
+  # this console (design 0014).
+  case "$remotePre" in
+    *"--branch main --public-url https://console.example.org"*) ;;
+    *) fail "prepare-repo does not get the public address: $remotePre" ;;
+  esac
+  case "$remoteNoUrlPre" in
+    *--public-url*) fail "prepare-repo got a public address nobody set: $remoteNoUrlPre" ;;
+    *prepare-repo*) ;;
+    *) fail "prepare-repo did not run for a remote without a public address: $remoteNoUrlPre" ;;
   esac
   [ "$remoteCred" = "netrc:/run/secrets/sextant-netrc" ] || fail "LoadCredential = '$remoteCred'"
   [ "$remoteHome" = "/run/sextant" ] || fail "HOME = '$remoteHome'"

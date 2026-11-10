@@ -316,7 +316,8 @@ persistence:
 
 # The address people reach the console on, e.g. https://console.example.org.
 # Sign-in's redirect URL (<publicUrl>/callback, to paste into the identity
-# provider) and the links in notification mail follow from it. Empty means
+# provider) and the links in notification mail follow from it, and a starter
+# fleet records it as where its devices report. Empty means
 # https://<ingress.host>, which is right whenever the chart publishes the
 # console itself; set it when something in front of the chart does.
 publicUrl: ""
