@@ -197,6 +197,45 @@
       }
     },
     "parameters": {
+      "ChangeID": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "The change request's id, as POST /api/v1/changes returns it and GET /api/v1/changes lists it.",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "DeviceTag": {
+        "name": "tag",
+        "in": "path",
+        "required": true,
+        "description": "The device's tag: the name it has in the fleet, as GET /api/v1/devices lists it. A lowercase slug.",
+        "schema": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{0,62}$"
+        }
+      },
+      "FilterID": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "The filter's id. A PUT with a new id creates the filter. A lowercase slug.",
+        "schema": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{0,62}$"
+        }
+      },
+      "GroupName": {
+        "name": "name",
+        "in": "path",
+        "required": true,
+        "description": "The group's name, as GET /api/v1/groups lists it. A lowercase slug.",
+        "schema": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{0,62}$"
+        }
+      },
       "Limit": {
         "name": "limit",
         "in": "query",
@@ -216,6 +255,35 @@
         "schema": {
           "type": "integer",
           "minimum": 0
+        }
+      },
+      "PolicyID": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "The policy's id. A PUT with a new id creates the policy. A lowercase slug.",
+        "schema": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{0,62}$"
+        }
+      },
+      "SecretRefName": {
+        "name": "name",
+        "in": "path",
+        "required": true,
+        "description": "The secret reference's name, as GET /api/v1/secret-refs lists it. A lowercase slug.",
+        "schema": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{0,62}$"
+        }
+      },
+      "TokenID": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "The token's id, as POST /api/v1/tokens returns it and GET /api/v1/tokens lists it. Not the secret.",
+        "schema": {
+          "type": "string"
         }
       }
     },
@@ -1151,7 +1219,12 @@
               }
             }
           }
-        }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ChangeID"
+          }
+        ]
       }
     },
     "/api/v1/changes/{id}/abandon": {
@@ -1248,7 +1321,12 @@
               }
             }
           }
-        }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ChangeID"
+          }
+        ]
       }
     },
     "/api/v1/changes/{id}/diff": {
@@ -1298,7 +1376,12 @@
               }
             }
           }
-        }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ChangeID"
+          }
+        ]
       }
     },
     "/api/v1/changes/{id}/edits": {
@@ -1395,7 +1478,12 @@
               }
             }
           }
-        }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ChangeID"
+          }
+        ]
       }
     },
     "/api/v1/changes/{id}/merge": {
@@ -1492,7 +1580,12 @@
               }
             }
           }
-        }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ChangeID"
+          }
+        ]
       }
     },
     "/api/v1/changes/{id}/submit": {
@@ -1589,7 +1682,12 @@
               }
             }
           }
-        }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ChangeID"
+          }
+        ]
       }
     },
     "/api/v1/devices": {
@@ -1873,7 +1971,12 @@
               }
             }
           }
-        }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DeviceTag"
+          }
+        ]
       },
       "get": {
         "summary": "Device with resolved configuration",
@@ -1921,7 +2024,12 @@
               }
             }
           }
-        }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DeviceTag"
+          }
+        ]
       },
       "patch": {
         "summary": "Update device fields",
@@ -2017,7 +2125,12 @@
             }
           }
         },
-        "description": "Patch hardware, class, assignedUser, groups, labels or itam. Editor at the device scope; new group memberships also need editor there."
+        "description": "Patch hardware, class, assignedUser, groups, labels or itam. Editor at the device scope; new group memberships also need editor there.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DeviceTag"
+          }
+        ]
       }
     },
     "/api/v1/devices/{tag}/credential": {
@@ -2115,7 +2228,12 @@
             }
           }
         },
-        "description": "Replaces the device credential (lost secret, re-image); the new secret is shown once. Editor at the device scope; refused for retired devices."
+        "description": "Replaces the device credential (lost secret, re-image); the new secret is shown once. Editor at the device scope; refused for retired devices.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DeviceTag"
+          }
+        ]
       }
     },
     "/api/v1/devices/{tag}/intent": {
@@ -2213,7 +2331,12 @@
               }
             }
           }
-        }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DeviceTag"
+          }
+        ]
       },
       "delete": {
         "summary": "Clear a remote action",
@@ -2309,7 +2432,12 @@
               }
             }
           }
-        }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DeviceTag"
+          }
+        ]
       }
     },
     "/api/v1/devices/{tag}/reactivate": {
@@ -2407,7 +2535,12 @@
             }
           }
         },
-        "description": "Returns the device to service and issues a fresh credential (shown once). Editor at the device scope."
+        "description": "Returns the device to service and issues a fresh credential (shown once). Editor at the device scope.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DeviceTag"
+          }
+        ]
       }
     },
     "/api/v1/devices/{tag}/retire": {
@@ -2505,7 +2638,12 @@
             }
           }
         },
-        "description": "Parks the device: the audit record stays, image builds, check-ins and rollout counting stop, and its credential is revoked. Editor at the device scope."
+        "description": "Parks the device: the audit record stays, image builds, check-ins and rollout counting stop, and its credential is revoked. Editor at the device scope.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DeviceTag"
+          }
+        ]
       }
     },
     "/api/v1/directory/groups": {
@@ -2670,7 +2808,12 @@
               }
             }
           }
-        }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DeviceTag"
+          }
+        ]
       }
     },
     "/api/v1/filters/{id}": {
@@ -2767,7 +2910,12 @@
               }
             }
           }
-        }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/FilterID"
+          }
+        ]
       },
       "put": {
         "summary": "Create or replace a filter",
@@ -2862,7 +3010,12 @@
               }
             }
           }
-        }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/FilterID"
+          }
+        ]
       }
     },
     "/api/v1/fleet": {
@@ -3107,7 +3260,12 @@
             }
           }
         },
-        "description": "Re-parent the group (cycle-safe) and/or change its IdP mapping. Org owner."
+        "description": "Re-parent the group (cycle-safe) and/or change its IdP mapping. Org owner.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/GroupName"
+          }
+        ]
       },
       "delete": {
         "summary": "Remove a group",
@@ -3203,7 +3361,12 @@
             }
           }
         },
-        "description": "Only an empty leaf group with no references (devices, subgroups, assignments, bindings, rings) can be removed. Org owner."
+        "description": "Only an empty leaf group with no references (devices, subgroups, assignments, bindings, rings) can be removed. Org owner.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/GroupName"
+          }
+        ]
       }
     },
     "/api/v1/hostkeys": {
@@ -3566,7 +3729,12 @@
               }
             }
           }
-        }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PolicyID"
+          }
+        ]
       },
       "put": {
         "summary": "Create or replace a policy",
@@ -3661,7 +3829,12 @@
               }
             }
           }
-        }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PolicyID"
+          }
+        ]
       }
     },
     "/api/v1/rollout": {
@@ -4341,7 +4514,12 @@
               }
             }
           }
-        }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SecretRefName"
+          }
+        ]
       }
     },
     "/api/v1/settings": {
@@ -4633,7 +4811,12 @@
               }
             }
           }
-        }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DeviceTag"
+          }
+        ]
       }
     },
     "/api/v1/tokens": {
@@ -4868,7 +5051,12 @@
               }
             }
           }
-        }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TokenID"
+          }
+        ]
       }
     }
   }

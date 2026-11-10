@@ -252,6 +252,10 @@ Open a change request.
 
 One change request.
 
+| Parameter | In | Type | Meaning |
+|---|---|---|---|
+| `id` | path | string | The change request's id, as POST /api/v1/changes returns it and GET /api/v1/changes lists it. |
+
 | Answer | Body | Meaning |
 |---|---|---|
 | `200` |  | OK |
@@ -263,6 +267,10 @@ One change request.
 ### `POST /api/v1/changes/{id}/abandon`
 
 Abandon a change.
+
+| Parameter | In | Type | Meaning |
+|---|---|---|---|
+| `id` | path | string | The change request's id, as POST /api/v1/changes returns it and GET /api/v1/changes lists it. |
 
 | Answer | Body | Meaning |
 |---|---|---|
@@ -280,6 +288,10 @@ Abandon a change.
 
 Unified diff the change would apply.
 
+| Parameter | In | Type | Meaning |
+|---|---|---|---|
+| `id` | path | string | The change request's id, as POST /api/v1/changes returns it and GET /api/v1/changes lists it. |
+
 | Answer | Body | Meaning |
 |---|---|---|
 | `200` |  | OK |
@@ -291,6 +303,10 @@ Unified diff the change would apply.
 ### `POST /api/v1/changes/{id}/edits`
 
 Apply a gated edit on the change branch.
+
+| Parameter | In | Type | Meaning |
+|---|---|---|---|
+| `id` | path | string | The change request's id, as POST /api/v1/changes returns it and GET /api/v1/changes lists it. |
 
 | Answer | Body | Meaning |
 |---|---|---|
@@ -308,6 +324,10 @@ Apply a gated edit on the change branch.
 
 Merge a ready change (owner).
 
+| Parameter | In | Type | Meaning |
+|---|---|---|---|
+| `id` | path | string | The change request's id, as POST /api/v1/changes returns it and GET /api/v1/changes lists it. |
+
 | Answer | Body | Meaning |
 |---|---|---|
 | `200` | [Status](#status) | OK |
@@ -323,6 +343,10 @@ Merge a ready change (owner).
 ### `POST /api/v1/changes/{id}/submit`
 
 Run the build gate.
+
+| Parameter | In | Type | Meaning |
+|---|---|---|---|
+| `id` | path | string | The change request's id, as POST /api/v1/changes returns it and GET /api/v1/changes lists it. |
 
 | Answer | Body | Meaning |
 |---|---|---|
@@ -373,6 +397,10 @@ Enroll a device.
 
 Device with resolved configuration.
 
+| Parameter | In | Type | Meaning |
+|---|---|---|---|
+| `tag` | path | string | The device's tag: the name it has in the fleet, as GET /api/v1/devices lists it. A lowercase slug. |
+
 | Answer | Body | Meaning |
 |---|---|---|
 | `200` |  | OK |
@@ -386,6 +414,10 @@ Device with resolved configuration.
 Update device fields.
 
 Patch hardware, class, assignedUser, groups, labels or itam. Editor at the device scope; new group memberships also need editor there.
+
+| Parameter | In | Type | Meaning |
+|---|---|---|---|
+| `tag` | path | string | The device's tag: the name it has in the fleet, as GET /api/v1/devices lists it. A lowercase slug. |
 
 | Answer | Body | Meaning |
 |---|---|---|
@@ -402,6 +434,10 @@ Patch hardware, class, assignedUser, groups, labels or itam. Editor at the devic
 ### `DELETE /api/v1/devices/{tag}`
 
 Remove a device.
+
+| Parameter | In | Type | Meaning |
+|---|---|---|---|
+| `tag` | path | string | The device's tag: the name it has in the fleet, as GET /api/v1/devices lists it. A lowercase slug. |
 
 | Answer | Body | Meaning |
 |---|---|---|
@@ -421,6 +457,10 @@ Re-issue a device credential.
 
 Replaces the device credential (lost secret, re-image); the new secret is shown once. Editor at the device scope; refused for retired devices.
 
+| Parameter | In | Type | Meaning |
+|---|---|---|---|
+| `tag` | path | string | The device's tag: the name it has in the fleet, as GET /api/v1/devices lists it. A lowercase slug. |
+
 | Answer | Body | Meaning |
 |---|---|---|
 | `200` | [Status](#status) | OK |
@@ -438,6 +478,10 @@ Replaces the device credential (lost secret, re-image); the new secret is shown 
 Arm a remote action.
 
 Body: {intent: lock|wipe, force?}. Wipe requires the device to be locked first unless force. Org owner; the intent is an audited commit the device pulls on check-in.
+
+| Parameter | In | Type | Meaning |
+|---|---|---|---|
+| `tag` | path | string | The device's tag: the name it has in the fleet, as GET /api/v1/devices lists it. A lowercase slug. |
 
 | Answer | Body | Meaning |
 |---|---|---|
@@ -457,6 +501,10 @@ Clear a remote action.
 
 Cancel a pending intent (a found laptop). Org owner.
 
+| Parameter | In | Type | Meaning |
+|---|---|---|---|
+| `tag` | path | string | The device's tag: the name it has in the fleet, as GET /api/v1/devices lists it. A lowercase slug. |
+
 | Answer | Body | Meaning |
 |---|---|---|
 | `200` | [Status](#status) | OK |
@@ -475,6 +523,10 @@ Reactivate a retired device.
 
 Returns the device to service and issues a fresh credential (shown once). Editor at the device scope.
 
+| Parameter | In | Type | Meaning |
+|---|---|---|---|
+| `tag` | path | string | The device's tag: the name it has in the fleet, as GET /api/v1/devices lists it. A lowercase slug. |
+
 | Answer | Body | Meaning |
 |---|---|---|
 | `200` | [Status](#status) | OK |
@@ -492,6 +544,10 @@ Returns the device to service and issues a fresh credential (shown once). Editor
 Retire a device.
 
 Parks the device: the audit record stays, image builds, check-ins and rollout counting stop, and its credential is revoked. Editor at the device scope.
+
+| Parameter | In | Type | Meaning |
+|---|---|---|---|
+| `tag` | path | string | The device's tag: the name it has in the fleet, as GET /api/v1/devices lists it. A lowercase slug. |
 
 | Answer | Body | Meaning |
 |---|---|---|
@@ -542,6 +598,10 @@ Self-contained JSON bundle for a period (?from=&to=, RFC 3339; default last 30 d
 
 Hardware facts of one device.
 
+| Parameter | In | Type | Meaning |
+|---|---|---|---|
+| `tag` | path | string | The device's tag: the name it has in the fleet, as GET /api/v1/devices lists it. A lowercase slug. |
+
 | Answer | Body | Meaning |
 |---|---|---|
 | `200` |  | OK |
@@ -553,6 +613,10 @@ Hardware facts of one device.
 ### `PUT /api/v1/filters/{id}`
 
 Create or replace a filter.
+
+| Parameter | In | Type | Meaning |
+|---|---|---|---|
+| `id` | path | string | The filter's id. A PUT with a new id creates the filter. A lowercase slug. |
 
 | Answer | Body | Meaning |
 |---|---|---|
@@ -569,6 +633,10 @@ Create or replace a filter.
 ### `DELETE /api/v1/filters/{id}`
 
 Delete a filter.
+
+| Parameter | In | Type | Meaning |
+|---|---|---|---|
+| `id` | path | string | The filter's id. A PUT with a new id creates the filter. A lowercase slug. |
 
 | Answer | Body | Meaning |
 |---|---|---|
@@ -616,6 +684,10 @@ Update a group.
 
 Re-parent the group (cycle-safe) and/or change its IdP mapping. Org owner.
 
+| Parameter | In | Type | Meaning |
+|---|---|---|---|
+| `name` | path | string | The group's name, as GET /api/v1/groups lists it. A lowercase slug. |
+
 | Answer | Body | Meaning |
 |---|---|---|
 | `200` | [Status](#status) | OK |
@@ -633,6 +705,10 @@ Re-parent the group (cycle-safe) and/or change its IdP mapping. Org owner.
 Remove a group.
 
 Only an empty leaf group with no references (devices, subgroups, assignments, bindings, rings) can be removed. Org owner.
+
+| Parameter | In | Type | Meaning |
+|---|---|---|---|
+| `name` | path | string | The group's name, as GET /api/v1/groups lists it. A lowercase slug. |
 
 | Answer | Body | Meaning |
 |---|---|---|
@@ -710,6 +786,10 @@ Body: {timezone?, locale?}. Timezone must be an IANA name; locale one of the shi
 
 Create or replace a policy.
 
+| Parameter | In | Type | Meaning |
+|---|---|---|---|
+| `id` | path | string | The policy's id. A PUT with a new id creates the policy. A lowercase slug. |
+
 | Answer | Body | Meaning |
 |---|---|---|
 | `200` | [Status](#status) | OK |
@@ -725,6 +805,10 @@ Create or replace a policy.
 ### `DELETE /api/v1/policies/{id}`
 
 Delete a policy.
+
+| Parameter | In | Type | Meaning |
+|---|---|---|---|
+| `id` | path | string | The policy's id. A PUT with a new id creates the policy. A lowercase slug. |
 
 | Answer | Body | Meaning |
 |---|---|---|
@@ -848,6 +932,10 @@ Register a secret reference (a name, never a value).
 
 Unregister a secret reference.
 
+| Parameter | In | Type | Meaning |
+|---|---|---|---|
+| `name` | path | string | The secret reference's name, as GET /api/v1/secret-refs lists it. A lowercase slug. |
+
 | Answer | Body | Meaning |
 |---|---|---|
 | `200` | [Status](#status) | OK |
@@ -908,6 +996,10 @@ Observed status of every device.
 
 Observed status of one device.
 
+| Parameter | In | Type | Meaning |
+|---|---|---|---|
+| `tag` | path | string | The device's tag: the name it has in the fleet, as GET /api/v1/devices lists it. A lowercase slug. |
+
 | Answer | Body | Meaning |
 |---|---|---|
 | `200` |  | OK |
@@ -947,6 +1039,10 @@ Mint an API token (secret shown once).
 ### `DELETE /api/v1/tokens/{id}`
 
 Revoke an API token.
+
+| Parameter | In | Type | Meaning |
+|---|---|---|---|
+| `id` | path | string | The token's id, as POST /api/v1/tokens returns it and GET /api/v1/tokens lists it. Not the secret. |
 
 | Answer | Body | Meaning |
 |---|---|---|
