@@ -110,6 +110,14 @@ equals the claimed tag (`device_cred.go:49-52`,
 subject `device:A`; reporting as B fails the equality. Re-imaging
 re-issues, rotating the credential.
 
+The same credential, with the tag as user name, is what lets a device pull
+the fleet repository from the console (`GET /fleet.git/info/refs`,
+`POST /fleet.git/git-upload-pack`, `internal/http/api/fleetrepo.go`,
+design 0014). The bridge token is not accepted there, retired tags are
+refused, and only the two requests of a fetch are routed: there is no push.
+What a device gets is a copy made from what the remote has accepted, so a
+commit the console has not pushed yet never reaches one.
+
 **R2 - CLOSED 2026-08-07, and it was worse than this said.** The shared
 bridge token was accepted for *any* tag, including tags that already held a
 per-device credential (`checkin.go:324-333`, and the same shape on the

@@ -85,7 +85,10 @@ type deps struct {
 	retention      *app.RetentionSweeper
 	erasure        *app.ErasureService
 	authz          api.Authz
-	cleanup        []func()
+	// served refreshes and returns the copy of the fleet repository devices
+	// pull (design 0014).
+	served  func(ctx context.Context) (string, error)
+	cleanup []func()
 	// wg tracks the background workers (sync loop, rollout ticker) so shutdown
 	// can wait for them to observe cancellation - they end in git commits, and
 	// cutting one mid-write is never acceptable.
@@ -116,6 +119,7 @@ func buildCapabilities(ctx context.Context, cfg *config.Config, log *slog.Logger
 	}
 	caps := []capability.Capability{
 		d.observedCapability(),
+		d.fleetRepoCapability(),
 		d.stationCapability(),
 		d.authCapability(), // mounts sessions; console reads them at mount time
 		d.consoleCapability(),
@@ -132,6 +136,7 @@ func (d *deps) buildConfigPlane() error {
 	if err != nil {
 		return err
 	}
+	d.served = repo.Served
 	var gate ports.Gate = nix.NewEvalGate()
 	var builder ports.Builder = nix.NewBuilder()
 	switch cfg.GateMode {
@@ -615,6 +620,30 @@ func (d *deps) observedCapability() capability.Capability {
 			limited := mw.RateLimit(rate.Limit(20), 40, d.cfg.TrustProxy)(inner)
 			mux.Handle("POST /api/checkin", limited)
 			mux.Handle("POST /api/device/{tag}/diagnostics", limited)
+		},
+	}
+}
+
+// fleetRepoCapability serves the fleet repository to enrolled devices, read
+// only, behind their own credential (design 0014): comin pulls it from here,
+// so a private repository needs no token on a device. Needs the device
+// credentials, so a console without a database does not serve it.
+func (d *deps) fleetRepoCapability() capability.Capability {
+	return capability.Func{
+		CapName:   "fleet-repo",
+		EnabledFn: func() bool { return d.devCreds != nil && d.served != nil },
+		RoutesFn: func(mux *http.ServeMux) {
+			inner := http.NewServeMux()
+			api.NewFleetRepo(d.devCreds, d.served).
+				WithLifecycle(func(tag string) bool {
+					dev, ok := d.svc.Fleet().Devices[tag]
+					return ok && dev.Retired()
+				}).
+				WithLog(d.log).Routes(inner)
+			// The same budget as check-in: one fetch per poll per device.
+			limited := mw.RateLimit(rate.Limit(20), 40, d.cfg.TrustProxy)(inner)
+			mux.Handle("GET /fleet.git/info/refs", limited)
+			mux.Handle("POST /fleet.git/git-upload-pack", limited)
 		},
 	}
 }

@@ -15,6 +15,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/ports"
@@ -32,6 +33,9 @@ type Repo struct {
 	// remote is the push remote name (e.g. "origin"); empty disables the
 	// HA sync/push path (Tier 0: local commits only).
 	remote string
+	// serveMu keeps two refreshes of the served copy from racing for its
+	// ref locks (served.go).
+	serveMu sync.Mutex
 }
 
 // Open returns a Repo for an existing working tree. The directory must
