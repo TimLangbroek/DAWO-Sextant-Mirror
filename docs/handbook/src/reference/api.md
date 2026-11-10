@@ -606,7 +606,7 @@ Groups matching ?q= (substring) from the configured LDAP directory, for access-b
 
 Audit evidence export.
 
-Self-contained JSON bundle for a period (?from=&to=, RFC 3339; default last 30 days): configuration commits, change requests with authorship, rollout promotions, and the controls in force. Org-wide viewer.
+Self-contained JSON bundle for a period (?from=&amp;to=, RFC 3339; default last 30 days): configuration commits, change requests with authorship, rollout promotions, and the controls in force. Org-wide viewer.
 
 | Answer | Body | Meaning |
 |---|---|---|
@@ -1120,7 +1120,7 @@ Which role binding to remove.
 | Field | Type | Required | Meaning |
 |---|---|---|---|
 | `group` | string | yes | The identity provider group the binding is for. |
-| `scope` | string | yes | Where it applies: "org", "group:<name>" or "device:<tag>". |
+| `scope` | string | yes | Where it applies: "org", "group:&lt;name&gt;" or "device:&lt;tag&gt;". |
 
 ### AppList
 
@@ -1130,7 +1130,7 @@ One app list at one scope, replaced as a whole.
 |---|---|---|---|
 | `kind` | one of `packages`, `flatpaks`, `overlays` | yes | Which list. |
 | `names` | array of string | yes | The complete list after this call; an empty list clears it. |
-| `scope` | string | yes | Where it applies: "org", "group:<name>" or "device:<tag>". |
+| `scope` | string | yes | Where it applies: "org", "group:&lt;name&gt;" or "device:&lt;tag&gt;". |
 
 ### Assignment
 
@@ -1141,7 +1141,7 @@ A policy bound to a scope, optionally narrowed by a filter.
 | `filter` | string |  | A filter's id; the policy then applies only to the devices it selects. Empty selects every device. |
 | `policy` | string | yes | The policy's id. |
 | `priority` | integer |  | Breaks a tie between assignments that set the same key at the same scope: higher wins. |
-| `target` | string | yes | Where it applies: "org", "group:<name>" or "device:<tag>". |
+| `target` | string | yes | Where it applies: "org", "group:&lt;name&gt;" or "device:&lt;tag&gt;". |
 
 ### AssignmentRemoval
 
@@ -1151,7 +1151,7 @@ Which assignment to remove.
 |---|---|---|---|
 | `filter` | string |  | The filter the assignment was narrowed by, if any. |
 | `policy` | string | yes | The policy's id. |
-| `target` | string | yes | Where it applies: "org", "group:<name>" or "device:<tag>". |
+| `target` | string | yes | Where it applies: "org", "group:&lt;name&gt;" or "device:&lt;tag&gt;". |
 
 ### Assurance
 
@@ -1185,7 +1185,7 @@ One setting edit on a change request's branch.
 | `clear` | boolean |  | Remove the key at this scope instead of setting it. |
 | `enforce` | boolean |  | Lock the value, so a narrower scope cannot weaken it. Left out, the lock stays as it is. |
 | `key` | string | yes | The setting's catalog key. |
-| `scope` | string | yes | Where it applies: "org", "group:<name>" or "device:<tag>". |
+| `scope` | string | yes | Where it applies: "org", "group:&lt;name&gt;" or "device:&lt;tag&gt;". |
 | `value` | any |  | The value, typed as the catalog entry for the key says: a boolean, a number, a string or a list. Ignored with clear. |
 
 ### ChangeRequest
@@ -1392,7 +1392,7 @@ One test on one device attribute.
 
 | Field | Type | Required | Meaning |
 |---|---|---|---|
-| `attr` | string | yes | The attribute: tag, class, hardware, assignedUser, group (membership, including parent groups) or "label:<key>". |
+| `attr` | string | yes | The attribute: tag, class, hardware, assignedUser, group (membership, including parent groups) or "label:&lt;key&gt;". |
 | `op` | one of `eq`, `ne`, `prefix`, `in` | yes | How it is compared. |
 | `value` | string |  | The value to compare with; for every op but in. |
 | `values` | array of string |  | The values to compare with; for in. |
@@ -1545,7 +1545,7 @@ An API token to make.
 |---|---|---|---|
 | `ceiling` | one of `viewer`, `editor`, `owner` |  | The highest role the token may use, whatever its holder has. |
 | `groups` | array of string |  | For a service account: the groups it is in. |
-| `id` | string | yes | Its id, by which it is listed and revoked. A service account becomes the principal svc:<id>. |
+| `id` | string | yes | Its id, by which it is listed and revoked. A service account becomes the principal svc:&lt;id&gt;. |
 | `kind` | one of `personal`, `service` |  | A personal token acts as you; a service account is a principal of its own, made by an org owner. Left out, personal. |
 | `name` | string | yes | A label for people. |
 | `ttlDays` | integer |  | How many days it is valid. Left out, the console's default. |
@@ -1704,7 +1704,7 @@ One setting at one scope.
 |---|---|---|---|
 | `enforce` | boolean |  | Lock the value, so a narrower scope cannot weaken it. Left out, the lock stays as it is. |
 | `key` | string | yes | The setting's catalog key. |
-| `scope` | string | yes | Where it applies: "org", "group:<name>" or "device:<tag>". |
+| `scope` | string | yes | Where it applies: "org", "group:&lt;name&gt;" or "device:&lt;tag&gt;". |
 | `value` | any | yes | The value, typed as the catalog entry for the key says: a boolean, a number, a string or a list. |
 
 ### SettingClear
@@ -1714,7 +1714,7 @@ Which setting to remove.
 | Field | Type | Required | Meaning |
 |---|---|---|---|
 | `key` | string | yes | The setting's catalog key. |
-| `scope` | string | yes | Where it applies: "org", "group:<name>" or "device:<tag>". |
+| `scope` | string | yes | Where it applies: "org", "group:&lt;name&gt;" or "device:&lt;tag&gt;". |
 
 ### SettingSource
 
@@ -1723,7 +1723,7 @@ Where a setting comes from.
 | Field | Type | Required | Meaning |
 |---|---|---|---|
 | `policy` | string |  | The policy that sets it there, when a policy does. |
-| `scope` | string | yes | The scope that sets it: "org", "group:<name>" or "device:<tag>". |
+| `scope` | string | yes | The scope that sets it: "org", "group:&lt;name&gt;" or "device:&lt;tag&gt;". |
 
 ### Status
 

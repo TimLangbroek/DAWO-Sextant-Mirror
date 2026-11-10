@@ -83,7 +83,7 @@ are read from the environment, and the chart mounts them from one secret
 | `SEXTANT_CHECKIN_TOKEN` | The shared token devices present when they check in. The agent carries the same value. |
 | `SEXTANT_SECRET_KEY` | Base64 of exactly 32 bytes. Seals typed secrets (SMTP passwords, LUKS recovery keys) at rest. Without it those features disable themselves and say so, rather than storing anything in the clear. |
 | `SEXTANT_SESSION_KEY` | Base64 of exactly 32 bytes. Seals session cookies. **Required** as soon as an OIDC issuer is set: the console refuses to start without it rather than fall back to something weaker. Keep the same value across replicas and restarts, or everyone is logged out. |
-| `SEXTANT_API_TOKEN` | Bearer token for the machine API. |
+| `SEXTANT_API_TOKEN` | Bearer token for the machine API; what that API offers is in the [API reference](../reference/api.md). |
 | `SEXTANT_OIDC_CLIENT_SECRET` | The console's OIDC client secret. |
 | `SEXTANT_LDAP_BIND_PASSWORD` | Bind password, when LDAP supplies the group picker. |
 

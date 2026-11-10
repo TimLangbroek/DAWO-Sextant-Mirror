@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"testing"
@@ -70,6 +71,13 @@ func TestTheAPIReferenceNamesEveryOperation(t *testing.T) {
 	}
 	if n == 0 {
 		t.Fatal("the spec has no operations; refusing to pass on nothing")
+	}
+	// The page's own comment and code spans aside, a "<" is a tag to Markdown.
+	_, body, _ := strings.Cut(page, "-->")
+	body = regexp.MustCompile("`[^`]*`").ReplaceAllString(body, "``")
+	if i := strings.Index(body, "<"); i >= 0 {
+		t.Errorf("the page has a bare %q, which Markdown reads as an HTML tag: ...%s...",
+			"<", body[max(0, i-30):min(len(body), i+30)])
 	}
 }
 
@@ -136,7 +144,7 @@ func renderReference(raw []byte) (string, error) {
 	w("     go test ./internal/http/api -run TestTheAPIReferenceIsCurrent -update -->\n\n")
 	w("Every console serves this contract as OpenAPI %s at `GET /api/v1/openapi.json`, without\n", "3.0")
 	w("a credential. This page is the same document for reading. Contract version: %s.\n\n", spec.Info.Version)
-	w("%s\n\n", strings.TrimSpace(spec.Info.Description))
+	w("%s\n\n", prose(strings.TrimSpace(spec.Info.Description)))
 
 	paths := make([]string, 0, len(spec.Paths))
 	for p := range spec.Paths {
@@ -163,14 +171,14 @@ func renderReference(raw []byte) (string, error) {
 			}
 			w("### `%s %s`\n\n", strings.ToUpper(m), p)
 			if op.Summary != "" {
-				w("%s.", strings.TrimSuffix(op.Summary, "."))
+				w("%s.", prose(strings.TrimSuffix(op.Summary, ".")))
 				if op.Deprecated {
 					w(" **Deprecated.**")
 				}
 				w("\n\n")
 			}
 			if d := strings.TrimSpace(op.Description); d != "" {
-				w("%s\n\n", d)
+				w("%s\n\n", prose(d))
 			}
 			if len(op.Parameters) > 0 {
 				w("| Parameter | In | Type | Meaning |\n|---|---|---|---|\n")
@@ -217,7 +225,7 @@ func renderReference(raw []byte) (string, error) {
 		s := spec.Components.Schemas[n]
 		w("### %s\n\n", n)
 		if d := strings.TrimSpace(s.Description); d != "" {
-			w("%s\n\n", d)
+			w("%s\n\n", prose(d))
 		}
 		if len(s.Properties) == 0 {
 			w("Type: %s.\n\n", typeOf(s))
@@ -278,5 +286,11 @@ func typeOf(s refSchema) string {
 // cell makes text safe inside a table cell: one line, no bare pipes.
 func cell(s string) string {
 	s = strings.Join(strings.Fields(s), " ")
-	return strings.ReplaceAll(s, "|", "\\|")
+	return strings.ReplaceAll(prose(s), "|", "\\|")
+}
+
+// prose makes spec text safe as Markdown: "group:<name>" would otherwise
+// be read as an HTML tag, and the tag swallows the rest of the table.
+func prose(s string) string {
+	return strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;").Replace(s)
 }
