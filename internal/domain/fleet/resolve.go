@@ -16,7 +16,7 @@ import (
 // Policies extend the rule without changing it: assignments compile into
 // contributors on the same scope chain (see chain.go). Ties at equal
 // specificity break on: inline scope settings beat policy contributions,
-// then higher assignment priority, then deterministic assignment order.
+// then deterministic assignment order. Priority is not read (ADR 0026).
 
 // Source identifies what set a resolved value: the scope ref ("org",
 // "group:<name>", "device") and, when a policy delivered it, the policy id.

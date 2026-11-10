@@ -61,7 +61,9 @@ applicable contributions into one ordered chain, then one precedence rule:
   emits mkForce.
 - default: the most specific scope wins (device beats group beats org); nix
   emits mkDefault.
-- ties break on assignment priority, then deterministic policy order.
+- at the same scope, a scope's own value beats a policy's, and two policies
+  fall back to the order they are declared in; the console reports that
+  collision instead of hiding it (ADR 0026).
 
 Every resolved value carries provenance: which policy or scope set it, and
 why it won.

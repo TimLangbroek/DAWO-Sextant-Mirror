@@ -7,8 +7,8 @@
 # Precedence (identical to the Go resolver):
 #   enforced -> the MOST GENERAL enforcing contributor wins (mkForce side);
 #   default  -> the MOST SPECIFIC contributor wins (mkDefault side);
-#   ties: inline scope settings beat policy contributions, then higher
-#   assignment priority, then earlier assignment order.
+#   ties: inline scope settings beat policy contributions, then earlier
+#   assignment order. An assignment's priority is not read (ADR 0026).
 #
 # Input: fleet = the parsed fleet.json (v3), tag = device tag.
 # Output: { <key> = { value; source = { scope; policy? }; enforced; }; }
@@ -135,7 +135,6 @@ let
           {
             inherit spec;
             inline = true;
-            prio = 0;
             order = -1;
             source = { scope = scopeName; };
             settings = s.settings or { };
@@ -165,7 +164,6 @@ let
           else [{
             spec = ap.spec;
             inline = false;
-            prio = a.priority or 0;
             order = i;
             source = { scope = displayScope a.target; policy = a.policy; };
             settings = p.settings or { };
@@ -180,7 +178,6 @@ let
     if a.spec != b.spec
     then (if wantGeneral then a.spec < b.spec else a.spec > b.spec)
     else if a.inline != b.inline then a.inline
-    else if a.prio != b.prio then a.prio > b.prio
     else a.order < b.order;
 
   pick = wantGeneral: cs:

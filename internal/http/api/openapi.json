@@ -112,7 +112,7 @@
           },
           "priority": {
             "type": "integer",
-            "description": "Breaks a tie between assignments that set the same key at the same scope: higher wins."
+            "description": "Does nothing since ADR 0026; kept so an older fleet document still reads. The Policies page lists the assignments that carry one."
           }
         },
         "required": [

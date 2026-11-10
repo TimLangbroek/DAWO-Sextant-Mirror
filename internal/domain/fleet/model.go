@@ -375,8 +375,9 @@ func (c Condition) Holds(metrics map[string]float64) (holds, ok bool) {
 }
 
 // Assignment binds one policy to one scope target, optionally narrowed by a
-// filter. Priority breaks ties between assignments contributing the same key
-// at the same scope specificity; higher wins.
+// filter. Priority does nothing since ADR 0026: it stays so an older fleet
+// document still reads, and the Policies page lists every assignment that
+// carries one.
 type Assignment struct {
 	Policy string `json:"policy"`
 	// Target is a scope ref: "org", "group:<name>" or "device:<tag>".

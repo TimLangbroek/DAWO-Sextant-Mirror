@@ -55,11 +55,15 @@ A policy on its own does nothing. An **assignment** binds it to a scope:
 - **Target** - `org`, `group:<name>` or `device:<tag>`.
 - **Filter** - optional; narrows the assignment to devices matching a rule set
   (all rules, or any). Without one it covers every device in the target.
-- **Priority** - decides which policy wins when two set the same key.
-
 So the same policy can be assigned broadly and narrowed by filter, rather than
 copied per group with small edits. Editing the policy updates everywhere it
 applies.
+
+There is no priority number (ADR 0026). When two policies set the same key at
+the same scope, the one declared first takes effect, and **Policies** shows
+the collision rather than letting the order hide it: make one assignment more
+specific, or take the key out of one policy. An older fleet document may still
+carry a `priority` on an assignment. It does nothing, and the page lists it.
 
 ## Where the values end up
 

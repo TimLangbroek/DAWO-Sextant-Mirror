@@ -171,6 +171,30 @@ func TestParity_TieBreaks(t *testing.T) {
 	assertParity(t, f, "lt-1")
 }
 
+// TestParity_PriorityIsInert: ADR 0026 took the priority out of the Go
+// resolver and left it in the nix twin, so an older fleet document whose
+// later assignment carries the higher priority made the device run that
+// policy while the console showed the first one. Declaration order decides
+// on both sides; the priority is read by neither.
+func TestParity_PriorityIsInert(t *testing.T) {
+	f := policyFleet(t)
+	apply(t, f,
+		PutPolicy("first", Policy{Settings: map[string]any{"x": "first"}, Enforced: []string{"x"}}),
+		PutPolicy("later", Policy{Settings: map[string]any{"x": "later", "y": "later"}, Enforced: []string{"x"}}),
+		PutPolicy("first-y", Policy{Settings: map[string]any{"y": "first"}}),
+		Assign(Assignment{Policy: "first", Target: "org"}),
+		Assign(Assignment{Policy: "first-y", Target: "group:frontoffice"}),
+		Assign(Assignment{Policy: "later", Target: "org", Priority: 9}),
+		Assign(Assignment{Policy: "later", Target: "group:frontoffice", Priority: 9}),
+	)
+	got := f.Resolve("lt-1")
+	if got["x"].Source.Policy != "first" || got["y"].Source.Policy != "first-y" {
+		t.Fatalf("the Go side read the priority: x from %q, y from %q",
+			got["x"].Source.Policy, got["y"].Source.Policy)
+	}
+	assertParity(t, f, "lt-1")
+}
+
 // TestParity_FilterOperators: every filter operator this domain supports
 // (eq/ne/prefix/in), plus AttrGroup ancestry and a label: rule, gated on the
 // policyFleet fixture (lt-1/lt-2 in frontoffice, a subgroup of stad;

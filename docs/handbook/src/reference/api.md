@@ -1140,7 +1140,7 @@ A policy bound to a scope, optionally narrowed by a filter.
 |---|---|---|---|
 | `filter` | string |  | A filter's id; the policy then applies only to the devices it selects. Empty selects every device. |
 | `policy` | string | yes | The policy's id. |
-| `priority` | integer |  | Breaks a tie between assignments that set the same key at the same scope: higher wins. |
+| `priority` | integer |  | Does nothing since ADR 0026; kept so an older fleet document still reads. The Policies page lists the assignments that carry one. |
 | `target` | string | yes | Where it applies: "org", "group:&lt;name&gt;" or "device:&lt;tag&gt;". |
 
 ### AssignmentRemoval
