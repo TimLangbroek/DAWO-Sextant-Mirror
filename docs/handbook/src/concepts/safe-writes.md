@@ -54,8 +54,14 @@ detail" fold if the short line is not enough to act on.
 document has a field ... that this build does not know".**
 The named field is in `fleet.json`, and this build has no place for it. If a
 newer Sextant wrote the document, upgrade this one; if it is a typo, correct it
-in the repository. Until then a running console keeps its last good copy and
-logs the refusal at every sync.
+in the repository. Until then a running console keeps its last good copy, and
+every page says since when, with the reason.
+
+**Every page says the console "cannot reach its fleet repository".**
+The fetch fails: the forge is down, the credential expired, or the address
+changed. The page leaves git's own message out, because it can carry the
+remote's address and a credential in it; the console's log has it. What the
+console shows meanwhile is the last copy it fetched.
 
 **Every write is refused, even ones that should evaluate fine.**
 In `remote` mode the gate is fail-closed: if the gate-runner cannot be

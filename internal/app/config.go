@@ -61,6 +61,46 @@ type ConfigService struct {
 	// fleet from one revision joined with a catalog from another. Readers
 	// must treat both as immutable.
 	snap atomic.Pointer[configSnapshot]
+
+	// fault is why the snapshot stopped following the remote, nil while it
+	// follows (SyncFault).
+	fault atomic.Pointer[SyncFault]
+}
+
+// SyncFault says why the console stopped following its repository, and
+// since when. It keeps serving the last copy it could read, because a flaky
+// remote must not take it down; without this the reason was only in the
+// log, and an operator read a stale fleet as the current one.
+type SyncFault struct {
+	// Read is true when the latest state arrived but could not be read: a
+	// fleet.json this build refuses, a malformed catalog. Detail is then
+	// the reason, which this build wrote and which is safe to show. A fetch
+	// failure carries no detail, because git's own message can carry the
+	// remote's address and whatever credential is in it.
+	Read   bool
+	Detail string
+	// Since is the first failing sync of this run of failures.
+	Since time.Time
+}
+
+// SyncFault is the current fault, or nil while the console follows.
+func (s *ConfigService) SyncFault() *SyncFault { return s.fault.Load() }
+
+// noteSync records one sync's outcome: success clears the fault, a failure
+// sets it and keeps the moment the failures began.
+func (s *ConfigService) noteSync(fetchErr, readErr error, now time.Time) {
+	if fetchErr == nil && readErr == nil {
+		s.fault.Store(nil)
+		return
+	}
+	f := &SyncFault{Since: now}
+	if prev := s.fault.Load(); prev != nil {
+		f.Since = prev.Since
+	}
+	if fetchErr == nil {
+		f.Read, f.Detail = true, readErr.Error()
+	}
+	s.fault.Store(f)
 }
 
 // configSnapshot pairs the fleet document with the catalog, hardware
@@ -323,12 +363,17 @@ func (s *ConfigService) SyncLoop(ctx context.Context, every time.Duration, log *
 			return
 		case <-t.C:
 			s.writeMu.Lock()
-			err := s.repo.Sync(ctx)
-			if err == nil {
-				err = s.reload()
+			fetchErr := s.repo.Sync(ctx)
+			var readErr error
+			if fetchErr == nil {
+				readErr = s.reload()
 			}
 			s.writeMu.Unlock()
-			if err != nil && ctx.Err() == nil {
+			if ctx.Err() != nil {
+				return // a sync cut short by shutdown says nothing about the remote
+			}
+			s.noteSync(fetchErr, readErr, time.Now())
+			if err := errors.Join(fetchErr, readErr); err != nil {
 				log.Warn("remote sync failed; keeping last good snapshot", "err", err)
 			}
 		}

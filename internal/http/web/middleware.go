@@ -178,6 +178,9 @@ func (s *Server) render(w http.ResponseWriter, name string, data map[string]any,
 	data["HasJoin"] = s.svc.Joins != nil
 	// Said before anyone fills in a form, not only after.
 	data["ReadOnly"] = !s.write
+	// A console that stopped following its repository still serves the last
+	// copy it read; every page says so, or a stale fleet reads as current.
+	data["SyncFault"] = s.svc.Config.SyncFault()
 	// The primary button on every page, and only for whoever it works for:
 	// it makes a code for a group, so a viewer who clicked it would land on
 	// a refusal, and so would anyone on a read-only console.

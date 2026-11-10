@@ -157,6 +157,12 @@
           <span class="material-symbols-outlined text-status-warn">lock</span>{{.L.T "readonly.banner"}}
         </div>
         {{end}}
+        {{with .SyncFault}}
+        <div class="mb-4 flex items-start gap-2 rounded-lg border border-status-warn/40 bg-status-warn/5 px-4 py-3 text-body-md text-ink" role="status" data-sync-fault>
+          <span class="material-symbols-outlined text-status-warn">sync_problem</span>
+          <div>{{if .Read}}{{$.L.T "sync.fault_read"}}{{else}}{{$.L.T "sync.fault_fetch"}}{{end}} {{.Since.UTC.Format "2006-01-02 15:04 UTC"}}.{{if .Read}}<div class="mt-1"><code class="text-code-inline">{{.Detail}}</code></div>{{end}}</div>
+        </div>
+        {{end}}
         {{with .Error}}
         <div class="mb-4 flex items-center gap-2 rounded-lg border border-error/30 bg-error-container px-4 py-3 text-body-md text-on-error-container">
           <span class="material-symbols-outlined">error</span>{{.}}
