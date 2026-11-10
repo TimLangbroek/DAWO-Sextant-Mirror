@@ -519,7 +519,9 @@ func (s *Server) device(w http.ResponseWriter, r *http.Request, v view) {
 		}
 	}
 	// Baseline verdict (design 0008) with its failing criteria spelled out.
-	if !d.Retired() {
+	// Neither a parked device nor one still being installed has one; the
+	// judge answers an empty verdict for both, which reads as a failure.
+	if !d.Retired() && !d.Provisional() {
 		data["Baseline"] = app.NewBaselineJudge(f, s.svc.Config.Profiles(), time.Now()).Verdict(tag, st, hasSt)
 	}
 	// Diagnostics (design 0010): the request button and, when a bundle
