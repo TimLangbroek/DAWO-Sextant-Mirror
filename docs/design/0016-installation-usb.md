@@ -1,7 +1,7 @@
 # 0016 - An installation USB per organisation
 
-Status: proposed, 2026-11-10. Builds on 0014 (the starter fleet) and 0015
-(join with a code). Three questions for Bram at the end.
+Status: accepted, 2026-11-10 (Bram took all three recommendations at the
+end). Builds on 0014 (the starter fleet) and 0015 (join with a code).
 
 ## Problem
 
@@ -140,7 +140,7 @@ stick is only needed for new hardware support in the live system.
 - The station (WP4). It reuses this stick with a "this becomes a station"
   choice, in its own design.
 
-## Questions for Bram
+## Decided by Bram (2026-11-10): all three recommendations
 
 1. **Unbound TPM2 at first boot.** Between install and **Secure this
    laptop**, the disk unlocks on this machine without Secure Boot. The

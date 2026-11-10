@@ -1,7 +1,7 @@
 # 0015 - A laptop joins with one code
 
-Status: proposed, 2026-11-10. Open question for Bram: laptops that already
-run NixOS (below).
+Status: accepted, 2026-11-10 (Bram). Laptops that already run NixOS:
+option 1, reinstalled from the USB stick or through a station (below).
 
 ## Problem
 
@@ -138,7 +138,10 @@ menu). Three ways out:
    its own `hardware-configuration.nix`. Refused: the gate would never see
    what the laptop builds.
 
-**Recommended: 1.** Option 2 can follow without changing anything above.
+**Decided (Bram, 2026-11-10): 1.** A laptop gets NixOS one of two ways,
+the installation USB (design 0016) or a station (design 0011), and both are
+worked out properly; there is no in-place takeover. Option 2 can follow
+without changing anything above.
 
 ## What changes for the existing paths
 

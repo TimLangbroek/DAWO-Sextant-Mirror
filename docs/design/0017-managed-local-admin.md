@@ -1,6 +1,12 @@
 # 0017 - A local administrator password the console holds
 
-Status: PROPOSED (2026-11-10). Closes #21 when built.
+Status: accepted, 2026-11-10 (Bram), with rotation after a reveal (below).
+Closes #21 when built.
+
+A local administrator password is discouraged. The console, recovery key and
+remote actions are the way into a device; this is for whoever chooses to keep
+a break-glass account anyway, and then the password must not outlive the
+moment somebody saw it.
 
 ## Problem
 
@@ -61,12 +67,22 @@ owner only, shown once, every reveal in the audit trail. "Rotate" sets the
 intent. The page says when the device last escrowed one, and warns when the
 account is managed and no password has arrived.
 
+**Rotation after a reveal.** A reveal of kind `admin` schedules a
+`rotate-admin` intent eight hours later. The delay is fixed; a setting
+follows when somebody needs another value. The delay leaves the operator
+time to type the password on a device that is offline; the intent lands on
+the device's next check-in after that, so the revealed password stops
+working without anyone remembering to press "Rotate". A second reveal within
+the window does not move the rotation, and a rotation the device reports as
+failed is not armed again for the same reveal; the owner presses "Rotate".
+Showing that failure on the device page after the intent clears is still to
+build. The reveal itself says the password will be replaced.
+
 ## What this deliberately does not do
 
-- **No rotation after every reveal by default.** Windows LAPS offers it; here
-  it would mean a password that changes while the operator is still typing it
-  on a device that is offline. The page offers "rotate" right after a reveal
-  instead. Open question 1.
+- **No rotation at the moment of the reveal.** It would mean a password that
+  changes while the operator is still typing it on a device that is offline.
+  Hence the delay above.
 - **No password from the console.** A password the console makes would have to
   reach the device, which is either a secret in the fleet repository or a
   channel this product does not have (design 0004: intents are data, not
@@ -76,13 +92,13 @@ account is managed and no password has arrived.
   step once a managed password has been revealed and tried, which is the
   point of #21.
 
-## Open questions for Bram
+## Decided (Bram, 2026-11-10)
 
-1. Rotate automatically some hours after a reveal, or only by hand?
-2. Is `managed` the right default for a NEW localAdmin block? The proposal
-   keeps it off so nothing changes under an existing fleet.
-3. Station class: same mechanism, or does a station keep a hash from the
-   overlay because its operator is not a console owner?
+1. Rotate automatically after a reveal: yes, with the delay above. The
+   local administrator password itself is discouraged.
+2. `managed` stays off for a new localAdmin block, and localAdmin itself
+   stays off; nothing changes under an existing fleet.
+3. Station class: the same mechanism (the proposal, not contested).
 
 ## Test plan
 
@@ -94,4 +110,5 @@ account is managed and no password has arrived.
 - Agent: the field goes out once, the copy stays until the header, and is
   gone after it.
 - Console: sealed as `admin`, header only when stored, reveal audited,
-  rotate commits the intent.
+  rotate commits the intent, a reveal of `admin` schedules one rotation and
+  a second reveal inside the window does not add another.
