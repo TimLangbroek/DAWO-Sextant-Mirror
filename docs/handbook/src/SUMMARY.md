@@ -30,6 +30,10 @@
 - [Approval flows](./concepts/approvals.md)
 - [Safe writes and the Nix gate](./concepts/safe-writes.md)
 
+# Reference
+
+- [API reference](./reference/api.md)
+
 # Architecture
 
 - [Overview](./architecture/overview.md)
