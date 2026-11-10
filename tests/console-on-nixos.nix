@@ -56,7 +56,16 @@ pkgs.testers.runNixOSTest {
     # exist until the test script makes it.
     systemd.services.sextant.serviceConfig.ReadWritePaths = [ "-/srv/fleet.git" ];
 
-    environment.systemPackages = [ pkgs.git pkgs.curl pkgs.jq ];
+    environment.systemPackages = [
+      pkgs.git
+      pkgs.curl
+      pkgs.jq
+      self.packages.${pkgs.stdenv.hostPlatform.system}.sextant-agent
+    ];
+
+    # A serial number, so a join can be told apart from a second one
+    # (design 0015). QEMU leaves it empty unless asked.
+    virtualisation.qemu.options = [ "-smbios type=1,serial=VMJOIN01" ];
   };
 
   testScript = ''
@@ -113,5 +122,56 @@ pkgs.testers.runNixOSTest {
         f"runuser -u sextant -- git --git-dir=/srv/fleet.git show main:fleet.json | {org_desktop}",
         timeout=60,
     )
+
+    # A laptop joins with a code (design 0015): made on the page, typed on
+    # the machine, and nothing else - no record made by hand, no credential
+    # copied. This VM is both console and laptop, over loopback.
+    import re
+
+    def make_code(form):
+        page = machine.succeed(
+            "curl -fsS -b /tmp/c -X POST http://127.0.0.1:8080/devices/add "
+            f"--data-urlencode csrf=dev-csrf {form}"
+        )
+        m = re.search(r"data-join-code>([0-9A-Z]{4}-[0-9A-Z]{4})<", page)
+        assert m, "no code on the page"
+        return m.group(1)
+
+    code = make_code("--data-urlencode group=pilot")
+    out = machine.succeed(f"sextant-agent join http://127.0.0.1:8080 {code} --state-dir /tmp/agent 2>&1")
+    assert "Joined as laptop-join01" in out, out
+    dev = machine.succeed(
+        "runuser -u sextant -- git --git-dir=/srv/fleet.git show main:fleet.json "
+        "| jq -c '.devices[\"laptop-join01\"] | [.groups, .itam.serial, .hardware, .state]'"
+    ).strip()
+    assert dev == '[["pilot"],"VMJOIN01","demo-vm","provisional"]', dev
+    machine.succeed("test \"$(stat -c %a /tmp/agent/credential)\" = 600")
+    machine.succeed("jq -e '.tag == \"laptop-join01\"' /tmp/agent/joined.json")
+
+    # The credential is the device's own: it pulls the fleet repository the
+    # console serves (design 0014), and the agent checks in with it, which
+    # makes the device active.
+    machine.succeed(
+        "git -c credential.helper= ls-remote "
+        "\"http://laptop-join01:$(cat /tmp/agent/credential)@127.0.0.1:8080/fleet.git\" main"
+    )
+    machine.succeed(
+        "SEXTANT_URL=http://127.0.0.1:8080 SEXTANT_TAG=laptop-join01 "
+        "SEXTANT_CREDENTIAL_FILE=/tmp/agent/credential sextant-agent --once"
+    )
+    machine.wait_until_succeeds(
+        "runuser -u sextant -- git -C /srv/sextant/overlay show HEAD:fleet.json "
+        "| jq -e '.devices[\"laptop-join01\"].state == null'",
+        timeout=60,
+    )
+
+    # The code was for one laptop, and this laptop is now a working device
+    # that a fresh code must not take over.
+    out = machine.fail(f"sextant-agent join http://127.0.0.1:8080 {code} --state-dir /tmp/again 2>&1")
+    assert "used up or expired" in out, out
+    second = make_code("--data-urlencode group=pilot")
+    out = machine.fail(f"sextant-agent join http://127.0.0.1:8080 {second} --state-dir /tmp/again 2>&1")
+    assert "already enrolled as laptop-join01" in out, out
+    machine.fail("test -e /tmp/again/credential")
   '';
 }
