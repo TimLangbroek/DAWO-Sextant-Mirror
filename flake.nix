@@ -149,6 +149,8 @@
       checks = forAll (pkgs: {
         # Cheap: evaluates the module and reads the unit back.
         console-module = import ./tests/console-module.nix { inherit self pkgs nixpkgs; };
+        # Cheap: the device bundle on stubbed core options (design 0014).
+        device-module = import ./tests/device-module.nix { inherit self pkgs nixpkgs; };
         # Deep: boots a machine and uses the console. Needs KVM, and a warm
         # cache - from cold it builds a whole NixOS closure.
         console-on-nixos = import ./tests/console-on-nixos.nix { inherit self pkgs; };
@@ -178,11 +180,25 @@
       });
 
       # Device-side agent module (ADR 0010).
-      nixosModules.agent = import ./deploy/nixos/agent.nix { inherit self; };
+      # Each carries a key, so importing it twice - directly and through
+      # nixosModules.device - is one import, not a duplicate declaration.
+      nixosModules.agent = {
+        key = "sextant/agent";
+        imports = [ (import ./deploy/nixos/agent.nix { inherit self; }) ];
+      };
 
       # Root action executor: consumes the agent's intent spool to lock or
       # crypto-wipe a device (design 0004). Wipe is gated and default-off.
-      nixosModules.actd = import ./deploy/nixos/actd.nix;
+      nixosModules.actd = {
+        key = "sextant/actd";
+        imports = [ ./deploy/nixos/actd.nix ];
+      };
+
+      # Everything a DAWO-Core machine needs to be a device of a Sextant
+      # fleet, in one import (design 0014): fleet wiring, the integrations
+      # the console configures, update window, boot health, elevation
+      # requests, user rights, cache auth, agenix secrets.
+      nixosModules.device = import ./deploy/nixos/device { inherit self; };
 
       # The console as a systemd service. One host, your own database and
       # proxy - the container path without the container (see
