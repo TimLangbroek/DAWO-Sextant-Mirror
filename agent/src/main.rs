@@ -100,6 +100,10 @@ fn main() -> ExitCode {
         // server confirms sealing it (design 0009); the local copy is
         // deleted only on that confirmation, never on a bare 2xx.
         let recovery = action::pending_recovery_key(&posture::default_root());
+        // The local administrator password the executor drew (design 0017)
+        // follows the same rule: it is already in force, so the copy here is
+        // the only one until the console confirms holding it.
+        let admin = action::pending_admin_password(&posture::default_root());
         // Phase stays "running": it is a lifecycle stage (discovered ->
         // installing -> installed -> running), not a build status. A failed
         // deployment does not move a device out of the running stage; it
@@ -134,10 +138,14 @@ fn main() -> ExitCode {
             health: Some(&health),
             integrations: Some(&integrations),
             recovery_key: recovery.as_deref(),
+            admin_password: admin.as_deref(),
         };
-        let (outcome, recovery_stored) = client.send(&beat);
-        if recovery_stored && recovery.is_some() {
+        let (outcome, stored) = client.send(&beat);
+        if stored.recovery_key && recovery.is_some() {
             action::clear_recovery_key(&posture::default_root());
+        }
+        if stored.admin_password && admin.is_some() {
+            action::clear_admin_password(&posture::default_root());
         }
         if beat_accepted(&outcome) {
             consecutive_failures = 0;

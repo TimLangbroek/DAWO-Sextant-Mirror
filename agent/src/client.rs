@@ -50,6 +50,21 @@ pub struct CheckIn<'a> {
     /// until the server confirms sealing it (design 0009); None otherwise.
     #[serde(rename = "recoveryKey", skip_serializing_if = "Option::is_none")]
     pub recovery_key: Option<&'a str>,
+    /// adminPassword carries a local administrator password the device drew
+    /// (design 0017), under the same rule as the recovery key.
+    #[serde(rename = "adminPassword", skip_serializing_if = "Option::is_none")]
+    pub admin_password: Option<&'a str>,
+}
+
+/// Stored is what the server confirmed sealing in this beat. Each flag
+/// decides whether the device deletes its only copy of that secret, so it is
+/// true only on the server's own header, never on a bare 2xx.
+#[derive(Debug, Default, PartialEq)]
+pub struct Stored {
+    /// X-Recovery-Key-Stored: the LUKS recovery key (design 0009).
+    pub recovery_key: bool,
+    /// X-Admin-Password-Stored: the administrator password (design 0017).
+    pub admin_password: bool,
 }
 
 /// Outcome of one beat, as far as the loop needs to know.
@@ -115,10 +130,10 @@ impl Client {
     }
 
     /// send posts one check-in and classifies the response. The second
-    /// return reports whether the server confirmed sealing this beat's
-    /// recovery key (the X-Recovery-Key-Stored header, design 0009) - the
-    /// caller deletes the local copy only on that confirmation.
-    pub fn send(&self, body: &CheckIn) -> (Outcome, bool) {
+    /// return reports which of this beat's escrowed secrets the server
+    /// confirmed sealing (designs 0009 and 0017) - the caller deletes a local
+    /// copy only on that confirmation.
+    pub fn send(&self, body: &CheckIn) -> (Outcome, Stored) {
         let res = self
             .agent
             .post(&self.url)
@@ -126,7 +141,10 @@ impl Client {
             .send_json(body);
         match res {
             Ok(resp) => {
-                let recovery_stored = resp.header("X-Recovery-Key-Stored").is_some();
+                let stored = Stored {
+                    recovery_key: resp.header("X-Recovery-Key-Stored").is_some(),
+                    admin_password: resp.header("X-Admin-Password-Stored").is_some(),
+                };
                 // 204 = nothing pending; 200 carries a remote-action intent.
                 if resp.status() == 200 {
                     if let Ok(doc) = resp.into_json::<serde_json::Value>() {
@@ -141,24 +159,24 @@ impl Client {
                                             .map(str::to_string),
                                         ts: doc.get("ts").and_then(|v| v.as_i64()),
                                     },
-                                    recovery_stored,
+                                    stored,
                                 );
                             }
                         }
                     }
                 }
-                (Outcome::Ok, recovery_stored)
+                (Outcome::Ok, stored)
             }
-            Err(ureq::Error::Status(401, _)) => (Outcome::Unauthorized, false),
-            Err(ureq::Error::Status(410, _)) => (Outcome::Retired, false),
+            Err(ureq::Error::Status(401, _)) => (Outcome::Unauthorized, Stored::default()),
+            Err(ureq::Error::Status(410, _)) => (Outcome::Retired, Stored::default()),
             Err(ureq::Error::Status(code, resp)) => (
                 Outcome::Transient(format!(
                     "server returned {code}: {}",
                     resp.into_string().unwrap_or_default().trim()
                 )),
-                false,
+                Stored::default(),
             ),
-            Err(e) => (Outcome::Transient(e.to_string()), false),
+            Err(e) => (Outcome::Transient(e.to_string()), Stored::default()),
         }
     }
 }
@@ -310,6 +328,7 @@ mod tests {
             health: None,
             integrations: None,
             recovery_key: None,
+            admin_password: None,
         }
     }
 
@@ -330,16 +349,70 @@ mod tests {
         let c = Client::new(&url, "sxt_test_secret");
         let b = beat();
 
-        assert!(!c.send(&b).1, "no header must never read as stored");
-        assert!(c.send(&b).1, "the header was sent and was not seen");
+        assert!(
+            !c.send(&b).1.recovery_key,
+            "no header must never read as stored"
+        );
+        assert!(
+            c.send(&b).1.recovery_key,
+            "the header was sent and was not seen"
+        );
         let (outcome, stored) = c.send(&b);
         assert!(matches!(outcome, Outcome::Intent { .. }));
         assert!(
-            stored,
+            stored.recovery_key,
             "an intent response dropped the recovery confirmation"
         );
 
         handle.join().unwrap();
+    }
+
+    /// The administrator password (design 0017) has its own header, and
+    /// each header confirms only its own secret: a console that sealed the
+    /// recovery key but not the password must not cost the device its
+    /// password, nor the other way round.
+    #[test]
+    fn each_secret_is_confirmed_only_by_its_own_header() {
+        let (url, handle) = rich_server(vec![
+            Reply::status(204).with("X-Admin-Password-Stored", "1"),
+            Reply::status(204).with("X-Recovery-Key-Stored", "1"),
+            Reply::json(r#"{"intent":"rotate-admin"}"#)
+                .with("X-Recovery-Key-Stored", "1")
+                .with("X-Admin-Password-Stored", "1"),
+        ]);
+        let c = Client::new(&url, "sxt_test_secret");
+        let mut b = beat();
+        b.admin_password = Some("ABCDE-FGHJK-LMNPQ-RSTUV");
+
+        let only_admin = Stored {
+            recovery_key: false,
+            admin_password: true,
+        };
+        let only_recovery = Stored {
+            recovery_key: true,
+            admin_password: false,
+        };
+        assert_eq!(c.send(&b).1, only_admin);
+        assert_eq!(c.send(&b).1, only_recovery);
+        let (outcome, stored) = c.send(&b);
+        assert!(
+            matches!(&outcome, Outcome::Intent { intent, .. } if intent == "rotate-admin"),
+            "got {outcome:?}"
+        );
+        assert_eq!(
+            stored,
+            Stored {
+                recovery_key: true,
+                admin_password: true
+            }
+        );
+
+        let bodies = handle.join().unwrap();
+        assert!(
+            bodies[0].contains(r#""adminPassword":"ABCDE-FGHJK-LMNPQ-RSTUV""#),
+            "the password is not on the wire as adminPassword: {}",
+            bodies[0]
+        );
     }
 
     /// The intent path is how every remote action reaches a device. It was
@@ -428,9 +501,10 @@ mod tests {
         let c = Client::new("http://127.0.0.1:1", "sxt_test_secret");
         let (outcome, stored) = c.send(&beat());
         assert!(matches!(outcome, Outcome::Transient(_)), "got {outcome:?}");
-        assert!(
-            !stored,
-            "a failed request claimed the recovery key was stored"
+        assert_eq!(
+            stored,
+            Stored::default(),
+            "a failed request claimed a secret was stored"
         );
         assert!(!c.upload_diagnostics("lt-1", b"x"));
     }
@@ -454,13 +528,15 @@ mod tests {
             health: None,
             integrations: None,
             recovery_key: None,
+            admin_password: None,
         };
         // The plain server sends no X-Recovery-Key-Stored header, so the
         // stored flag stays false on every classification.
-        assert_eq!(c.send(&body), (Outcome::Ok, false));
-        assert_eq!(c.send(&body), (Outcome::Unauthorized, false));
-        assert_eq!(c.send(&body), (Outcome::Retired, false));
-        assert!(matches!(c.send(&body), (Outcome::Transient(_), false)));
+        let none = Stored::default();
+        assert_eq!(c.send(&body), (Outcome::Ok, Stored::default()));
+        assert_eq!(c.send(&body), (Outcome::Unauthorized, Stored::default()));
+        assert_eq!(c.send(&body), (Outcome::Retired, Stored::default()));
+        assert!(matches!(c.send(&body), (Outcome::Transient(_), s) if s == none));
 
         let bodies = handle.join().unwrap();
         // Wire shape matches the server contract; absent fields are omitted.

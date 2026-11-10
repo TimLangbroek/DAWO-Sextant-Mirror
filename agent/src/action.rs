@@ -50,6 +50,12 @@ pub fn react(root: &Path, intent: &str) {
             // executor; the agent only records the request.
             spool(root, "provision");
         }
+        "rotate-admin" => {
+            // A new local administrator password (design 0017): the root
+            // executor draws it, sets it and leaves it for this agent to hand
+            // to the console, exactly like the LUKS recovery key.
+            spool(root, "rotate-admin");
+        }
         "wipe" => {
             spool(root, "wipe");
             eprintln!(
@@ -96,14 +102,32 @@ pub fn clear_diagnostics(root: &Path) {
     let _ = fs::remove_file(root.join(DIAG_FILE.trim_start_matches('/')));
 }
 
+/// ADMIN_FILE is where the root executor leaves the local administrator
+/// password it drew (design 0017), for the agent to escrow on the next beat.
+/// One-shot under the same rule as the recovery key: deleted only once the
+/// server confirms sealing it, because the password is already in force.
+const ADMIN_FILE: &str = "/var/lib/sextant-agent/admin.key";
+
 /// pending_recovery_key returns the recovery key awaiting escrow, if any.
 pub fn pending_recovery_key(root: &Path) -> Option<String> {
-    let key = fs::read_to_string(root.join(RECOVERY_FILE.trim_start_matches('/'))).ok()?;
-    let key = key.trim().to_string();
-    if key.is_empty() {
+    pending_escrow(root, RECOVERY_FILE)
+}
+
+/// pending_admin_password returns the administrator password awaiting
+/// escrow, if any.
+pub fn pending_admin_password(root: &Path) -> Option<String> {
+    pending_escrow(root, ADMIN_FILE)
+}
+
+/// pending_escrow reads a one-shot secret without consuming it: it stays
+/// pending until the server confirms sealing it.
+fn pending_escrow(root: &Path, file: &str) -> Option<String> {
+    let value = fs::read_to_string(root.join(file.trim_start_matches('/'))).ok()?;
+    let value = value.trim().to_string();
+    if value.is_empty() {
         None
     } else {
-        Some(key)
+        Some(value)
     }
 }
 
@@ -112,6 +136,12 @@ pub fn pending_recovery_key(root: &Path) -> Option<String> {
 /// so recovery material is never lost between mint and escrow.
 pub fn clear_recovery_key(root: &Path) {
     let _ = fs::remove_file(root.join(RECOVERY_FILE.trim_start_matches('/')));
+}
+
+/// clear_admin_password deletes the local copy, on the same confirmation
+/// (the X-Admin-Password-Stored response header) and for the same reason.
+pub fn clear_admin_password(root: &Path) {
+    let _ = fs::remove_file(root.join(ADMIN_FILE.trim_start_matches('/')));
 }
 
 /// executed_ack reads and clears the outcome the root executor recorded for the
@@ -271,6 +301,57 @@ mod tests {
         assert_eq!(pending_recovery_key(&root).as_deref(), Some("modhex-key"));
         clear_recovery_key(&root);
         assert_eq!(pending_recovery_key(&root), None);
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn rotate_admin_spools_for_the_executor() {
+        let root = tmp("rotate-admin");
+        react(&root, "rotate-admin");
+        assert!(root
+            .join(SPOOL.trim_start_matches('/'))
+            .join("rotate-admin.intent")
+            .exists());
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    /// The administrator password is already in force when the agent reads
+    /// it, so losing it before the console holds it locks the operator out.
+    /// It follows the recovery key's lifecycle, and the two never touch each
+    /// other's file.
+    #[test]
+    fn admin_password_pending_and_clear_lifecycle() {
+        let root = tmp("admin");
+        assert_eq!(pending_admin_password(&root), None);
+        let f = root.join(ADMIN_FILE.trim_start_matches('/'));
+        fs::create_dir_all(f.parent().unwrap()).unwrap();
+        fs::write(&f, "ABCDE-FGHJK-LMNPQ-RSTUV").unwrap();
+        fs::write(
+            root.join(RECOVERY_FILE.trim_start_matches('/')),
+            "modhex-key",
+        )
+        .unwrap();
+        assert_eq!(
+            pending_admin_password(&root).as_deref(),
+            Some("ABCDE-FGHJK-LMNPQ-RSTUV")
+        );
+        assert_eq!(
+            pending_admin_password(&root).as_deref(),
+            Some("ABCDE-FGHJK-LMNPQ-RSTUV")
+        );
+        clear_recovery_key(&root);
+        assert!(
+            pending_admin_password(&root).is_some(),
+            "clearing the recovery key took the administrator password with it"
+        );
+        fs::write(
+            root.join(RECOVERY_FILE.trim_start_matches('/')),
+            "modhex-key",
+        )
+        .unwrap();
+        clear_admin_password(&root);
+        assert_eq!(pending_admin_password(&root), None);
+        assert_eq!(pending_recovery_key(&root).as_deref(), Some("modhex-key"));
         let _ = fs::remove_dir_all(&root);
     }
 
