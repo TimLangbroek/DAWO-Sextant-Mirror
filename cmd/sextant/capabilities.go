@@ -7,6 +7,7 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
@@ -81,6 +82,7 @@ type deps struct {
 	users          ports.UserDirectory
 	compliance     *app.ComplianceService
 	elevation      *app.ElevationService
+	joins          *app.JoinService
 	forgeID        *app.ForgeIdentityService
 	retention      *app.RetentionSweeper
 	erasure        *app.ErasureService
@@ -120,6 +122,7 @@ func buildCapabilities(ctx context.Context, cfg *config.Config, log *slog.Logger
 	caps := []capability.Capability{
 		d.observedCapability(),
 		d.fleetRepoCapability(),
+		d.joinCapability(),
 		d.stationCapability(),
 		d.authCapability(), // mounts sessions; console reads them at mount time
 		d.consoleCapability(),
@@ -253,6 +256,18 @@ func (d *deps) buildConfigPlane() error {
 			})
 		d.tokens = app.NewTokenService(pg.Tokens(), clock, 0)
 		d.devCreds = app.NewDeviceCredentials(pg.Tokens(), clock)
+		// Join codes (design 0015) are hashed under a key derived from the
+		// session key, which the database does not hold. A console without
+		// one (loopback dev sign-in) gets a key for this run: its codes do
+		// not survive a restart, and nobody relies on that console's codes.
+		joinKey := cfg.SessionKey
+		if len(joinKey) == 0 {
+			joinKey = make([]byte, 32)
+			if _, err := rand.Read(joinKey); err != nil {
+				return fmt.Errorf("draw a join-code key: %w", err)
+			}
+		}
+		d.joins = app.NewJoinService(pg.JoinCodes(), svc, d.devCreds, clock, app.DefaultTenant, joinKey)
 		d.discovery = app.NewDiscoveryService(pg.Discovered(), clock, app.DefaultTenant)
 		d.imaging = app.NewImagingService(pg.ImageJobs(), clock, app.DefaultTenant)
 		d.staCreds = app.NewStationCredentials(pg.Tokens(), clock)
@@ -646,6 +661,37 @@ func (d *deps) fleetRepoCapability() capability.Capability {
 			mux.Handle("POST /fleet.git/git-upload-pack", limited)
 		},
 	}
+}
+
+// joinCapability lets a laptop exchange a join code for its credential
+// (design 0015). Guessing a code is what this endpoint invites, so it gets
+// sign-in's budget rather than check-in's.
+func (d *deps) joinCapability() capability.Capability {
+	return capability.Func{
+		CapName:   "join",
+		EnabledFn: func() bool { return d.joins != nil },
+		RoutesFn: func(mux *http.ServeMux) {
+			inner := http.NewServeMux()
+			api.NewJoin(d.joins, d.joinConsole,
+				func(r *http.Request) string { return mw.ClientIP(r, d.cfg.TrustProxy) }, d.log).Routes(inner)
+			mux.Handle("POST /api/join", mw.RateLimit(rate.Limit(2), 10, d.cfg.TrustProxy)(inner))
+		},
+	}
+}
+
+// joinConsole is where a joined laptop goes next: the console's public
+// address, or the one fleet.json records, and the branch devices follow.
+func (d *deps) joinConsole() (url, branch string) {
+	url, branch = d.cfg.PublicURL, "main"
+	if c := d.svc.Fleet().Console; c != nil {
+		if url == "" {
+			url = c.URL
+		}
+		if c.Branch != "" {
+			branch = c.Branch
+		}
+	}
+	return strings.TrimSuffix(url, "/"), branch
 }
 
 // stationCapability serves the imaging-station report endpoint (rate

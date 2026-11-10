@@ -118,6 +118,17 @@ refused, and only the two requests of a fetch are routed: there is no push.
 What a device gets is a copy made from what the remote has accepted, so a
 commit the console has not pushed yet never reaches one.
 
+A credential can also be had for a join code (`POST /api/join`,
+`internal/http/api/join.go`, design 0015), the one write no session or
+credential guards. A code is 40 bits, open for 24 hours and for the number
+of laptops its maker chose, and stored only as an HMAC under a key derived
+from the session key, so a database dump gives no code back. The endpoint
+has sign-in's rate limit (2 per second per address) and logs every refused
+code with its address. What a code buys is a NEW provisional device in the
+code's group: a laptop whose serial belongs to a working device is refused,
+because a serial is not a secret, and only a code made for one device
+(Re-enrol) rotates that device's credential.
+
 **R2 - CLOSED 2026-08-07, and it was worse than this said.** The shared
 bridge token was accepted for *any* tag, including tags that already held a
 per-device credential (`checkin.go:324-333`, and the same shape on the

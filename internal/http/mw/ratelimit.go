@@ -34,6 +34,11 @@ func clientIP(r *http.Request, trustProxy bool) string {
 	return ip
 }
 
+// ClientIP is the address a request is counted against, for a handler that
+// logs who it refused. The same rules as the limiter, so the address in the
+// log is the one the limit applied to.
+func ClientIP(r *http.Request, trustProxy bool) string { return clientIP(r, trustProxy) }
+
 // RateLimit guards brute-forceable endpoints (login, token auth, check-in)
 // with a per-client token bucket. Clients are keyed by IP (see clientIP for
 // the trusted-proxy handling); the map is pruned so it cannot grow unbounded.

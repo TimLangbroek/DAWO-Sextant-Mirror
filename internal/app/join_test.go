@@ -15,6 +15,7 @@ import (
 	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/adapters/git"
 	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/domain/fleet"
 	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/domain/joincode"
+	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/domain/token"
 	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/ports"
 )
 
@@ -393,5 +394,45 @@ func TestCreateChecksWhatTheCodeIsFor(t *testing.T) {
 	}
 	if c.Hash == nil || bytes.Contains(c.Hash, []byte(c.ID)) {
 		t.Fatal("no hash stored")
+	}
+}
+
+// cancelOnPut ends the request at the moment the credential is stored: the
+// device exists and has a credential, and the laptop is gone.
+type cancelOnPut struct {
+	ports.TokenStore
+	cancel func()
+}
+
+func (c cancelOnPut) Put(ctx context.Context, tok token.Token) error {
+	c.cancel()
+	return c.TokenStore.Put(ctx, tok)
+}
+
+func TestJoinALaptopThatLeftTriesAgain(t *testing.T) {
+	st := newJoinStack(t)
+	code := st.code(t, NewCode{Group: "pilot"})
+	tokens := newMemTokenStore()
+	ctx, cancel := context.WithCancel(context.Background())
+	st.svc.creds = NewDeviceCredentials(cancelOnPut{tokens, cancel}, st.clock)
+	if _, err := st.svc.Join(ctx, JoinRequest{Code: code, Serial: "PF3ABCDE", CPU: "GenuineIntel"}); err == nil {
+		t.Fatal("a join whose laptop left reported success")
+	}
+	if st.uses(t) != 1 {
+		t.Fatal("the use went to a laptop that never got its answer")
+	}
+	if !st.cfg.Fleet().Devices["laptop-3abcde"].Provisional() {
+		t.Fatal("the device was not committed before the laptop left; this test no longer tests the late case")
+	}
+
+	// The next attempt is matched on the serial and gets its own credential.
+	creds := NewDeviceCredentials(tokens, st.clock)
+	st.svc.creds = creds
+	got, err := st.svc.Join(context.Background(), JoinRequest{Code: code, Serial: "PF3ABCDE", CPU: "GenuineIntel"})
+	if err != nil || got.Tag != "laptop-3abcde" {
+		t.Fatalf("the second attempt: %+v %v", got, err)
+	}
+	if tag, ok := creds.Authenticate(context.Background(), got.Credential); !ok || tag != got.Tag {
+		t.Fatal("the second attempt's credential does not work")
 	}
 }

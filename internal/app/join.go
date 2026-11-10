@@ -195,6 +195,15 @@ func (s *JoinService) Join(ctx context.Context, req JoinRequest) (out Joined, er
 	if err != nil {
 		return Joined{}, fmt.Errorf("issue the credential for %s: %w", tag, err)
 	}
+	// A laptop that is no longer listening will never see this credential:
+	// a proxy in front of the console gave up during a slow gate, or the
+	// person pressed Ctrl-C. Treat that as a failed join so the use comes
+	// back. The device, if it was committed, is now a provisional record with
+	// this serial, so the laptop's next attempt is matched to it, skips the
+	// gate and gets a credential of its own straight away.
+	if err := ctx.Err(); err != nil {
+		return Joined{}, fmt.Errorf("the laptop left before the answer: %w", err)
+	}
 	return Joined{Tag: tag, Credential: secret}, nil
 }
 
