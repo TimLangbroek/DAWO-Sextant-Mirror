@@ -10,6 +10,12 @@ it succeeds, the change commits with the author's identity from their session.
 This is the core safety property: the console cannot commit a fleet that does
 not build.
 
+Before any of that, the console refuses to read a `fleet.json` with a field it
+does not know. A newer Sextant may have written the field, or somebody
+misspelled a key by hand. Reading on would drop it at the next write, in a
+commit about something else. The document's `version` guards the same edge
+for a whole new schema.
+
 ## Fail-closed
 
 In production the gate runs **remote**: the console ships no Nix, and delegates
@@ -43,6 +49,13 @@ trace - usually the actual cause (an unknown option, a wrong type, a value
 out of range), not the whole trace. A change-request's failure card, and any
 rejected save, carries the full multi-line detail behind a "technical
 detail" fold if the short line is not enough to act on.
+
+**The console will not start, or stops following the repository, with "fleet
+document has a field ... that this build does not know".**
+The named field is in `fleet.json`, and this build has no place for it. If a
+newer Sextant wrote the document, upgrade this one; if it is a typo, correct it
+in the repository. Until then a running console keeps its last good copy and
+logs the refusal at every sync.
 
 **Every write is refused, even ones that should evaluate fine.**
 In `remote` mode the gate is fail-closed: if the gate-runner cannot be

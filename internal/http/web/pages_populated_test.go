@@ -58,7 +58,7 @@ const populatedFleet = `{
                       "detail": "An update needs room to build and activate."}]
     }
   },
-  "filters": {"only-laptops": {"hardware": "hw"}},
+  "filters": {"only-laptops": {"rules": [{"attr": "hardware", "op": "eq", "value": "hw"}]}},
   "assignments": [
     {"policy": "baseline", "target": "org"},
     {"policy": "space", "target": "group:laptops", "filter": "only-laptops", "priority": 10}
