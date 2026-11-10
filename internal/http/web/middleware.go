@@ -105,7 +105,13 @@ func (s *Server) action(h func(http.ResponseWriter, *http.Request, view) error) 
 			return
 		}
 		if !s.write {
-			http.Error(w, "server is read-only", http.StatusForbidden)
+			// In words and inside the console: a form filled in and answered
+			// with "server is read-only" in plain text told nobody what had
+			// happened or who could change it.
+			s.render(w, "error", map[string]any{
+				"Title": v.L.T("error.title"), "Message": v.L.T("readonly.refused"),
+				"Back": backLink(r), "__status": http.StatusForbidden,
+			}, v)
 			return
 		}
 		// Console forms are small; bound the body before ParseForm buffers
@@ -170,6 +176,8 @@ func (s *Server) render(w http.ResponseWriter, name string, data map[string]any,
 	data["HasElevation"] = s.svc.Elevation != nil
 	data["HasEnrolment"] = s.svc.Discovery != nil
 	data["HasJoin"] = s.svc.Joins != nil
+	// Said before anyone fills in a form, not only after.
+	data["ReadOnly"] = !s.write
 	// The primary button on every page, and only for whoever it works for:
 	// it makes a code for a group, so a viewer who clicked it would land on
 	// a refusal.

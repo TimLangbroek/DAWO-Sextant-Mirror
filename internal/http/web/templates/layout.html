@@ -152,6 +152,11 @@
 
     <div class="flex-1 px-8 py-6">
       <div class="mx-auto max-w-[1280px]">
+        {{if .ReadOnly}}
+        <div class="mb-4 flex items-center gap-2 rounded-lg border border-status-warn/40 bg-status-warn/5 px-4 py-3 text-body-md text-ink" role="status">
+          <span class="material-symbols-outlined text-status-warn">lock</span>{{.L.T "readonly.banner"}}
+        </div>
+        {{end}}
         {{with .Error}}
         <div class="mb-4 flex items-center gap-2 rounded-lg border border-error/30 bg-error-container px-4 py-3 text-body-md text-on-error-container">
           <span class="material-symbols-outlined">error</span>{{.}}
