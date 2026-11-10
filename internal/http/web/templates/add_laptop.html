@@ -11,7 +11,6 @@
   <p class="mb-2 text-label-xs-caps uppercase text-text-tertiary">{{if .Tag}}{{$.L.T "join.code_for_device"}} <span class="font-mono normal-case">{{.Tag}}</span>{{else}}{{$.L.T "join.code_for"}} {{if .Group}}<span class="font-mono normal-case">{{.Group}}</span>{{else}}{{$.L.T "join.org"}}{{end}}{{end}}</p>
   <p class="mb-3 select-all font-mono text-[2.5rem] font-medium leading-none tracking-widest text-ink" data-join-code>{{.Code}}</p>
   <p class="mb-4 text-body-md text-text-secondary">{{$.L.T "join.valid_until"}} {{.Until}} · {{.Uses}} {{if eq .Uses 1}}{{$.L.T "join.laptop"}}{{else}}{{$.L.T "join.laptops"}}{{end}} · {{$.L.T "join.shown_once"}}</p>
-  <p class="mb-1 text-body-md text-ink">{{$.L.T "join.how_usb"}}</p>
   <p class="mb-1 text-body-md text-ink">{{$.L.T "join.how_command"}}</p>
   <pre class="mb-0 overflow-x-auto rounded-md bg-surface-container-low p-3 font-mono text-code-md"><code class="select-all">{{.Command}}</code></pre>
 </div>
