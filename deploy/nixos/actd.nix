@@ -260,8 +260,14 @@ let
           elif [ ''${#luksDevs[@]} -gt 1 ]; then
             echo "sextant-actd: ''${#luksDevs[@]} LUKS volumes present (''${luksDevs[*]}) - refusing to guess which one backs the system; not sealing" >&2
           fi
+          # --wipe-slot=tpm2: a laptop from the installation USB (design
+          # 0016) unlocked at first boot through a TPM2 slot bound to no PCR.
+          # Left in place it would keep opening the disk with Secure Boot off,
+          # which is what sealing to PCR 7 is for. cryptenroll wipes after it
+          # enrolled the new slot and never wipes that one; a device without
+          # such a slot loses nothing.
           if [ -n "$dev" ] && systemd-cryptenroll --unlock-key-file="$keyfile" \
-               --tpm2-device=auto --tpm2-pcrs=7 "$dev"; then
+               --tpm2-device=auto --tpm2-pcrs=7 --wipe-slot=tpm2 "$dev"; then
             # Escrow (design 0009): mint a recovery keyslot while the staged
             # enrol key still authorises one, and hand the phrase to the
             # unprivileged agent for one-shot upload to the console (deleted
