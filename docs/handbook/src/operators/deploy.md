@@ -168,6 +168,13 @@ environment as the console says what it would run with (address, sign-in,
 fleet repository, gate, database) or lists every reason it would refuse,
 each with what to do about it. It starts nothing and prints no secret.
 
+**Helm refuses the values: "additional properties ... not allowed".**
+The chart's schema names every value it reads and refuses the rest, so a
+misspelled key stops the install instead of leaving a default in place. The
+message names the key and where it sits. Correct it, or remove it if the
+chart stopped reading it in an upgrade. A Flux HelmRelease shows the same
+message in its status.
+
 **The console refuses to start / refuses session cookies.**
 Behind TLS on a non-loopback `--addr`, Sextant refuses to ship session
 cookies without the Secure flag - this is deliberate fail-closed behaviour,

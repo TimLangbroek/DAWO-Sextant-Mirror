@@ -183,3 +183,22 @@ if [ -n "$stray" ]; then
   echo "$stray" >&2
   exit 1
 fi
+
+# The values get the same treatment. Every key values.yaml has is in the
+# schema, and the schema refuses a key it does not name, so a misspelled
+# value is an install error instead of a default that quietly applies. The
+# renders above prove the first half; these prove the refusals fire, at the
+# top, deeper down, and on a type. Free-form maps (resources) stay open.
+refuse() {
+  if out=$(helm template deploy/helm $R --set gateMode=eval "$@" 2>&1); then
+    echo "the schema accepted $*"; exit 1
+  fi
+  echo "$out" | grep -q "schema" || { echo "$* refused, but not by the schema: $out"; exit 1; }
+}
+refuse --set gatemode=remote
+refuse --set gateRunner.persistance.enabled=true
+refuse --set-string devAuth.enabled=yes
+refuse --set simulator.station.failPercent=101
+helm template deploy/helm $R --set gateMode=eval --set resources.limits.cpu=2 \
+  --set gateRunner.evalWorkers=4 --set-string gateRunner.chunkSize=8 >/dev/null \
+  || { echo "the schema refused a free-form or numeric value it should take"; exit 1; }

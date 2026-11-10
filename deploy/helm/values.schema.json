@@ -29,7 +29,8 @@
             "Never"
           ]
         }
-      }
+      },
+      "additionalProperties": false
     },
     "replicaCount": {
       "type": "integer",
@@ -75,7 +76,8 @@
           "title": "Network policy engine",
           "description": "cilium ships CiliumNetworkPolicy, which is an unknown kind on any other CNI and fails the install there. kubernetes ships the same intent as plain NetworkPolicy. none leaves egress to the platform."
         }
-      }
+      },
+      "additionalProperties": false
     },
     "ingress": {
       "type": "object",
@@ -95,7 +97,8 @@
         "tls": {
           "type": "boolean"
         }
-      }
+      },
+      "additionalProperties": false
     },
     "certManager": {
       "type": "object",
@@ -113,7 +116,8 @@
             "Issuer"
           ]
         }
-      }
+      },
+      "additionalProperties": false
     },
     "oidc": {
       "type": "object",
@@ -130,8 +134,13 @@
         },
         "scopes": {
           "type": "string"
+        },
+        "groupsClaim": {
+          "type": "string",
+          "description": "The ID-token claim that carries groups. Empty is groups."
         }
-      }
+      },
+      "additionalProperties": false
     },
     "gitRemote": {
       "type": "object",
@@ -148,7 +157,8 @@
           "type": "string",
           "description": "Name of an existing Secret holding the push credential."
         }
-      }
+      },
+      "additionalProperties": false
     },
     "cnpg": {
       "type": "object",
@@ -200,10 +210,20 @@
             },
             "retention": {
               "type": "string"
+            },
+            "accessKeyIdKey": {
+              "type": "string",
+              "description": "Key in the backup secret that holds the access key id."
+            },
+            "secretAccessKeyKey": {
+              "type": "string",
+              "description": "Key in the backup secret that holds the secret access key."
             }
-          }
+          },
+          "additionalProperties": false
         }
-      }
+      },
+      "additionalProperties": false
     },
     "gateRunner": {
       "type": "object",
@@ -221,8 +241,17 @@
             },
             "tag": {
               "type": "string"
+            },
+            "pullPolicy": {
+              "type": "string",
+              "enum": [
+                "Always",
+                "IfNotPresent",
+                "Never"
+              ]
             }
-          }
+          },
+          "additionalProperties": false
         },
         "cache": {
           "type": "object",
@@ -238,10 +267,83 @@
             },
             "storageClass": {
               "type": "string"
+            },
+            "requireAuth": {
+              "type": "boolean",
+              "description": "Require a credential for the release cache. Roll the netrc out to every device first."
+            },
+            "sizeLimit": {
+              "type": "string",
+              "description": "Cap for the ephemeral cache volume, such as 20Gi."
             }
-          }
+          },
+          "additionalProperties": false
+        },
+        "hostVariants": {
+          "type": "string",
+          "description": "Comma-separated suffixes the generator emits per host, such as \",-sb\"."
+        },
+        "chunkSize": {
+          "type": [
+            "string",
+            "integer"
+          ],
+          "description": "Host toplevels per nix process in the eval gate. Empty is the binary's default."
+        },
+        "evalWorkers": {
+          "type": [
+            "string",
+            "integer"
+          ],
+          "description": "Concurrent eval batches. Peak memory multiplies by it. Empty is 1."
+        },
+        "gcInitialHeapSize": {
+          "type": [
+            "string",
+            "integer"
+          ],
+          "description": "Boehm's initial heap in bytes, as GC_INITIAL_HEAP_SIZE. Empty leaves it to the collector."
+        },
+        "evalJobs": {
+          "type": "string",
+          "description": "The nix-eval-jobs binary, such as nix-eval-jobs. Empty uses the in-process chunker."
+        },
+        "evalJobsMaxMemoryMB": {
+          "type": [
+            "string",
+            "integer"
+          ],
+          "description": "Per-worker memory ceiling for nix-eval-jobs, in MB."
+        },
+        "releaseChunkSize": {
+          "type": [
+            "string",
+            "integer"
+          ],
+          "description": "Host toplevels per nix process on the release build. Empty builds in one invocation."
+        },
+        "persistence": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "storageClass": {
+              "type": "string"
+            },
+            "dataSize": {
+              "type": "string",
+              "description": "Volume for the overlay clone, such as 2Gi."
+            }
+          },
+          "additionalProperties": false
+        },
+        "resources": {
+          "type": "object",
+          "description": "The gate-runner's requests and limits. Size them to evalWorkers and the eval ceilings."
         }
-      }
+      },
+      "additionalProperties": false
     },
     "persistence": {
       "type": "object",
@@ -255,7 +357,8 @@
         "storageClass": {
           "type": "string"
         }
-      }
+      },
+      "additionalProperties": false
     },
     "database": {
       "type": "object",
@@ -284,17 +387,28 @@
                 "tag": {
                   "type": "string"
                 }
-              }
+              },
+              "additionalProperties": false
             },
             "storage": {
               "type": "string"
             },
             "storageClass": {
               "type": "string"
+            },
+            "ephemeral": {
+              "type": "boolean",
+              "description": "Keep the embedded database on an emptyDir instead of a volume. It is then gone with the pod."
+            },
+            "resources": {
+              "type": "object",
+              "description": "The embedded database's requests and limits."
             }
-          }
+          },
+          "additionalProperties": false
         }
-      }
+      },
+      "additionalProperties": false
     },
     "route": {
       "type": "object",
@@ -310,7 +424,8 @@
           ],
           "description": "ingress, httproute (Gateway API, TLS on the Gateway) or none. Empty means ingress when ingress.enabled, none otherwise."
         }
-      }
+      },
+      "additionalProperties": false
     },
     "gateway": {
       "type": "object",
@@ -322,7 +437,193 @@
         "namespace": {
           "type": "string"
         }
+      },
+      "additionalProperties": false
+    },
+    "imagePullSecrets": {
+      "type": "array",
+      "title": "Image pull secrets",
+      "description": "Secrets for a private registry, as Kubernetes takes them: a list of {name}.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "additionalProperties": false
       }
+    },
+    "logFormat": {
+      "type": "string",
+      "description": "How the console and the gate-runner write their log.",
+      "enum": [
+        "json",
+        "text"
+      ],
+      "title": "Log format"
+    },
+    "viewerGroups": {
+      "type": "string",
+      "description": "Comma-separated groups from the identity provider that get the viewer role on the whole organisation.",
+      "title": "Viewer groups"
+    },
+    "editorGroups": {
+      "type": "string",
+      "description": "Comma-separated groups from the identity provider that get the editor role on the whole organisation.",
+      "title": "Editor groups"
+    },
+    "ownerGroups": {
+      "type": "string",
+      "description": "Comma-separated groups from the identity provider that get the owner role on the whole organisation.",
+      "title": "Owner groups"
+    },
+    "releaseCache": {
+      "type": "boolean",
+      "description": "Build each ring's release before it is promoted and serve it from the gate-runner's signed cache. Needs gateRunner.cache.keySecret.",
+      "title": "Release cache"
+    },
+    "defaultLocale": {
+      "type": "string",
+      "description": "The console's language for whoever has not chosen one. Empty is English.",
+      "enum": [
+        "",
+        "en",
+        "nl"
+      ],
+      "title": "Default language"
+    },
+    "defaultTimezone": {
+      "type": "string",
+      "description": "An IANA time zone such as Europe/Amsterdam, for whoever has not chosen one. Empty is UTC.",
+      "title": "Default time zone"
+    },
+    "upstreamRepo": {
+      "type": "string",
+      "description": "The core image repository the upstream watcher polls for new releases. Empty turns the watcher off."
+    },
+    "publicUrl": {
+      "type": "string",
+      "description": "The address people reach the console on, such as https://console.example.org. The OIDC redirect URL is derived from it, and an https address turns on secure cookies.",
+      "title": "Public address"
+    },
+    "ldap": {
+      "type": "object",
+      "title": "Directory browse",
+      "description": "Optional: group pickers read from an LDAP directory. Empty url leaves it off. The bind password goes in the secret as SEXTANT_LDAP_BIND_PASSWORD.",
+      "properties": {
+        "url": {
+          "type": "string",
+          "description": "ldap:// or ldaps:// address."
+        },
+        "bindDn": {
+          "type": "string"
+        },
+        "baseDn": {
+          "type": "string"
+        },
+        "groupFilter": {
+          "type": "string"
+        },
+        "nameAttr": {
+          "type": "string"
+        },
+        "caSecret": {
+          "type": "string",
+          "description": "A Secret holding ca.crt, for an ldaps:// directory whose certificate a private CA signs."
+        }
+      },
+      "additionalProperties": false
+    },
+    "resources": {
+      "type": "object",
+      "description": "The console container's requests and limits, as Kubernetes takes them."
+    },
+    "devAuth": {
+      "type": "object",
+      "title": "Passwordless demo",
+      "description": "Every request becomes an owner session and the console listens on loopback only, reached with kubectl port-forward. For a demo instance with invented devices, never for a real fleet.",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "simulator": {
+      "type": "object",
+      "title": "Simulated fleet",
+      "description": "fleetsim against this release's own console, for a demo instance. Keep off anywhere real devices report.",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "interval": {
+          "type": "string",
+          "description": "How often each simulated device checks in, such as 30s."
+        },
+        "image": {
+          "type": "object",
+          "properties": {
+            "repository": {
+              "type": "string"
+            },
+            "tag": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "sidecar": {
+          "type": "boolean",
+          "description": "Run inside the console pod; required with devAuth."
+        },
+        "station": {
+          "type": "object",
+          "description": "A simulated imaging station on the same fleet. A tag turns it on.",
+          "properties": {
+            "tag": {
+              "type": "string"
+            },
+            "pool": {
+              "type": "integer",
+              "description": "Machines waiting on the network.",
+              "minimum": 1
+            },
+            "failPercent": {
+              "type": "integer",
+              "description": "Share of jobs that fail once.",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "secureBoot": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "metrics": {
+      "type": "object",
+      "title": "Metrics",
+      "description": "separatePort keeps /metrics off the listener the ingress publishes; it discloses the build and the route inventory.",
+      "properties": {
+        "separatePort": {
+          "type": "boolean"
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        }
+      },
+      "additionalProperties": false
     }
-  }
+  },
+  "additionalProperties": false
 }
