@@ -63,7 +63,7 @@ its lifetime. Every refused attempt is logged with its address.
 
 ```json
 { "code": "K7QM-4XWD", "name": "", "serial": "PF3ABCDE", "vendor": "LENOVO",
-  "model": "21BR", "facts": { ... nixos-facter report, optional ... } }
+  "model": "21BR", "cpu": "GenuineIntel", "virtualisation": "none" }
 ```
 
 The console:
@@ -81,8 +81,8 @@ The console:
    be able to take over a device that exists. Re-enrol on a device's page
    makes a code bound to that tag; using it rotates the credential.
 4. **Picks the hardware profile** with the existing `Suggest(vendor,
-   model)`. No match: `generic-intel` or `generic-amd` by the CPU vendor in
-   the facter report, `vm` when it says virtual. A fleet with none of those
+   model)`. No match: `generic-intel` or `generic-amd` by the processor's
+   vendor string, `vm` when `systemd-detect-virt` says virtual. A fleet with none of those
    refuses with the vendor and model to add a profile for.
 5. **Commits through the gate** (`ConfigService.Apply`, `AddDevice` with
    `itam.serial` and `itam.model` filled), so the new host must evaluate
@@ -105,8 +105,8 @@ waiting for.
 
 `sextant-agent join <console-url> <code> [--name N]`, as root:
 
-- reads the serial, vendor and model from `/sys/class/dmi/id`, and the
-  facter report when nixos-facter is there;
+- reads the serial, vendor and model from `/sys/class/dmi/id`, the
+  processor's vendor from `/proc/cpuinfo` and `systemd-detect-virt`;
 - refuses a URL that is not https (or loopback), as the agent already does;
 - writes the credential to `/var/lib/sextant-agent/credential`, mode 0600,
   atomically and without a trailing newline, and the tag, URL and branch to
@@ -147,7 +147,7 @@ menu). Three ways out:
   and `POST /api/v1/devices` stay for scripts.
 - The station path is unchanged: a station enrols in batches and gets its
   credentials per job (design 0011).
-- The facter report a laptop sends at join is stored like a check-in's.
+- The facter report arrives with the first check-in, as it does today.
   Making it the hardware configuration (`hardware.facter.reportPath`, in
   current nixpkgs) is a later step; until then a model without a
   profile gets the generic one.
