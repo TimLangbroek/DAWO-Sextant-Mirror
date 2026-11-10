@@ -92,6 +92,8 @@ func (s *Server) renderAddLaptop(w http.ResponseWriter, r *http.Request, v view,
 		"Title": v.L.T("join.title"), "Nav": "devices",
 		"Groups": groups, "OrgEditor": orgEditor,
 		"Codes": rows, "Shown": shown, "MaxUses": joincode.MaxUses,
+		"USBOffered": s.svc.Installer != nil,
+		"USB":        s.installerState(r, r.URL.Query().Get("usb")),
 	}, v)
 }
 

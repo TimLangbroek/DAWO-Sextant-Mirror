@@ -6,6 +6,7 @@ package ports
 import (
 	"context"
 	"errors"
+	"io"
 	"strings"
 	"time"
 )
@@ -156,6 +157,24 @@ type CacheBuilder interface {
 	// by nature - the caller has already decided to stop - so a failure here
 	// is worth logging and nothing more.
 	CancelBuilds(ctx context.Context) error
+}
+
+// ArtifactState reports an artifact job: its phase, why it failed, and once
+// done the file name and size in bytes.
+type ArtifactState struct {
+	Phase  BuildPhase
+	Detail string
+	File   string
+	Size   int64
+}
+
+// ArtifactBuilder builds files from the fleet repository for people rather
+// than devices: the organisation's installation USB (design 0016).
+// EnsureArtifact is idempotent - it starts the job or reports it - and
+// OpenArtifact reads a finished one; the caller closes it.
+type ArtifactBuilder interface {
+	EnsureArtifact(ctx context.Context, rev, name string) (ArtifactState, error)
+	OpenArtifact(ctx context.Context, rev, name string) (io.ReadCloser, error)
 }
 
 // Clock supplies time so services stay deterministic under test.

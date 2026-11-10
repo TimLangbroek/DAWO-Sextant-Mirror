@@ -66,6 +66,10 @@ type Services struct {
 	// JoinConsole is the address and branch a joining laptop is told, for
 	// the command the page shows next to a code.
 	JoinConsole func() (url, branch string)
+	// Installer builds the organisation's installation USB on the
+	// gate-runner (design 0016); nil (no remote runner) leaves it off the
+	// page.
+	Installer ports.ArtifactBuilder
 }
 
 // Server renders the console.
@@ -191,6 +195,7 @@ func (s *Server) Routes(mux *http.ServeMux) {
 	get("/devices.csv", s.devicesCSV)
 	get("/devices/{tag}", s.device)
 	get("/devices/add", s.addLaptopPage)
+	get("/devices/add/usb/{rev}", s.getInstallerUSB)
 	get("/groups", s.groupsPage)
 	get("/settings", s.settingsPage)
 	get("/hardware", s.hardwarePage)
@@ -245,6 +250,7 @@ func (s *Server) Routes(mux *http.ServeMux) {
 	post("/devices", s.postDeviceEnroll)
 	post("/devices/add", s.postAddLaptop)
 	post("/devices/add/{id}/withdraw", s.postWithdrawJoinCode)
+	post("/devices/add/usb", s.postInstallerUSB)
 	post("/devices/{tag}/reenrol", s.postDeviceReenrol)
 	post("/devices/{tag}/settings", s.postDeviceSetting)
 	post("/devices/{tag}/posture", s.postDevicePosture)

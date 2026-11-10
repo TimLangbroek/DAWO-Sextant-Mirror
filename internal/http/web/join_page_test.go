@@ -96,6 +96,12 @@ func joinConsoleAs(t *testing.T, withJoins bool, seed string, sessions web.Sessi
 
 func joinConsoleWrite(t *testing.T, withJoins bool, seed string, sessions web.Sessions, write bool) (*httptest.Server, *app.JoinService, *memCodes, *app.ConfigService) {
 	t.Helper()
+	return joinConsoleWith(t, withJoins, seed, sessions, write, nil)
+}
+
+// joinConsoleWith also hands the console an installer builder (design 0016).
+func joinConsoleWith(t *testing.T, withJoins bool, seed string, sessions web.Sessions, write bool, installer ports.ArtifactBuilder) (*httptest.Server, *app.JoinService, *memCodes, *app.ConfigService) {
+	t.Helper()
 	dir := t.TempDir()
 	run := func(args ...string) {
 		if out, err := exec.Command("git", append([]string{"-C", dir}, args...)...).CombinedOutput(); err != nil {
@@ -119,7 +125,7 @@ func joinConsoleWrite(t *testing.T, withJoins bool, seed string, sessions web.Se
 	if err != nil {
 		t.Fatal(err)
 	}
-	svc := web.Services{Config: cfg}
+	svc := web.Services{Config: cfg, Installer: installer}
 	codes := &memCodes{m: map[string]joincode.Code{}}
 	var joins *app.JoinService
 	if withJoins {

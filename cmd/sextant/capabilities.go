@@ -767,6 +767,13 @@ func (d *deps) consoleCapability() capability.Capability {
 				d.log.Error("console skipped: no session source")
 				return
 			}
+			// The installation USB (design 0016) is built by a remote runner;
+			// without one the page does not offer it. An interface, so only
+			// a real builder goes in: a typed nil would look like one.
+			var installer ports.ArtifactBuilder
+			if d.cfg.GateMode == "remote" && d.cfg.GateURL != "" {
+				installer = gateadapter.NewRemoteBuilder(d.cfg.GateURL, d.cfg.GateToken)
+			}
 			console, err := web.New(
 				web.Services{Config: d.svc, Changes: d.changes, Rollouts: d.rollouts,
 					Inventory: d.inv, Tokens: d.tokens, Prefs: d.prefs,
@@ -775,7 +782,7 @@ func (d *deps) consoleCapability() capability.Capability {
 					DeviceSecrets: d.deviceSecrets, Diagnostics: d.diagnostics,
 					Notify: d.notify, Mail: d.mail, Users: d.users, Compliance: d.compliance,
 					Elevation: d.elevation, ForgeID: d.forgeID, Erasure: d.erasure,
-					Joins: d.joins, JoinConsole: d.joinConsole},
+					Joins: d.joins, JoinConsole: d.joinConsole, Installer: installer},
 				d.authz.Sessions.(web.Sessions), d.cfg.Write,
 				d.cfg.ViewerGroups, d.cfg.EditorGroups, d.cfg.OwnerGroups, d.log)
 			if err != nil {

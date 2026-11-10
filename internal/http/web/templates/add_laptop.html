@@ -11,7 +11,9 @@
   <p class="mb-2 text-label-xs-caps uppercase text-text-tertiary">{{if .Tag}}{{$.L.T "join.code_for_device"}} <span class="font-mono normal-case">{{.Tag}}</span>{{else}}{{$.L.T "join.code_for"}} {{if .Group}}<span class="font-mono normal-case">{{.Group}}</span>{{else}}{{$.L.T "join.org"}}{{end}}{{end}}</p>
   <p class="mb-3 select-all font-mono text-[2.5rem] font-medium leading-none tracking-widest text-ink" data-join-code>{{.Code}}</p>
   <p class="mb-4 text-body-md text-text-secondary">{{$.L.T "join.valid_until"}} {{.Until}} · {{.Uses}} {{if eq .Uses 1}}{{$.L.T "join.laptop"}}{{else}}{{$.L.T "join.laptops"}}{{end}} · {{$.L.T "join.shown_once"}}</p>
-  <p class="mb-1 text-body-md text-ink">{{$.L.T "join.how_command"}}</p>
+  {{if $.USBOffered}}<p class="mb-1 text-body-md text-ink">{{$.L.T "join.how_usb"}}</p>
+  <p class="mb-1 text-body-md text-ink">{{$.L.T "join.how_command_or"}}</p>
+  {{else}}<p class="mb-1 text-body-md text-ink">{{$.L.T "join.how_command"}}</p>{{end}}
   <pre class="mb-0 overflow-x-auto rounded-md bg-surface-container-low p-3 font-mono text-code-md"><code class="select-all">{{.Command}}</code></pre>
 </div>
 {{end}}
@@ -32,6 +34,33 @@
   </details>
   <button type="submit"><span class="material-symbols-outlined msz-18">password</span>{{.L.T "join.make"}}</button>
 </form>
+
+{{if .USBOffered}}
+<section id="usb" class="mb-10 max-w-xl rounded-lg border border-border-hairline bg-canvas p-6 shadow-sm">
+  <h2 class="mb-1 mt-0 flex items-center gap-2"><span class="material-symbols-outlined text-mint-deep">usb</span>{{.L.T "usb.title"}}</h2>
+  <p class="mb-4 text-body-md text-text-tertiary">{{.L.T "usb.intro"}}</p>
+  {{with .USB}}
+    {{if eq .Phase "done"}}
+    <p class="mb-2 text-body-md text-ink"><a class="btn" href="/devices/add/usb/{{.Rev}}" download><span class="material-symbols-outlined msz-18">download</span>{{$.L.T "usb.download"}}</a>
+      <span class="ml-2 font-mono text-body-sm text-text-tertiary">{{.File}} · {{.SizeMB}} MB · {{$.L.T "usb.revision"}} {{printf "%.7s" .Rev}}</span></p>
+    <p class="mb-0 text-body-sm text-text-tertiary">{{$.L.T "usb.write_hint"}}</p>
+    {{else if eq .Phase "building"}}
+    <p class="mb-0 text-body-md text-ink" role="status">{{$.L.T "usb.building"}} <span class="font-mono text-body-sm text-text-tertiary">{{$.L.T "usb.revision"}} {{printf "%.7s" .Rev}}</span></p>
+    {{else}}
+    <p class="mb-1 text-body-md text-status-error" role="alert">{{$.L.T "usb.failed"}}</p>
+    <pre class="mb-3 overflow-x-auto rounded-md bg-surface-container-low p-3 font-mono text-code-md">{{.Detail}}</pre>
+    {{if .AddLine}}<p class="mb-1 text-body-sm text-text-secondary">{{$.L.T "usb.add_line"}}</p>
+    <pre class="mb-3 overflow-x-auto rounded-md bg-surface-container-low p-3 font-mono text-code-md"><code class="select-all">{{.AddLine}}</code></pre>{{end}}
+    {{end}}
+  {{end}}
+  {{if or (not .USB) (ne .USB.Phase "building")}}
+  <form method="post" action="/devices/add/usb" class="!m-0 mt-2">
+    <input type="hidden" name="csrf" value="{{.CSRF}}">
+    <button type="submit" class="{{if .USB}}quiet{{end}}"><span class="material-symbols-outlined msz-18">usb</span>{{.L.T "usb.make"}}</button>
+  </form>
+  {{end}}
+</section>
+{{end}}
 
 <h2 class="mb-3">{{.L.T "join.open_codes"}}</h2>
 {{if .Codes}}
