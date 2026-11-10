@@ -7,3 +7,9 @@ internal/http/web/static/app.css linguist-generated=true
 # Rust build artefacts are not tracked (agent/.gitignore), but guard against
 # any that slip in so they never register as a language.
 agent/target/** linguist-generated=true
+
+# Every text file is LF in the work tree too, whatever core.autocrlf says.
+# Git for Windows defaults that to true, and a CRLF checkout failed its
+# own gates before anyone edited a line: gofmt flagged every Go file and
+# the scripts would not start (#173).
+* text=auto eol=lf
