@@ -197,7 +197,7 @@ func TestJoinMakesTheDeviceAndItsCredential(t *testing.T) {
 	}
 
 	// One laptop per code by default.
-	if _, err := st.svc.Join(ctx, JoinRequest{Code: code, Serial: "OTHER1"}); err != ErrCodeRefused {
+	if _, err := st.svc.Join(ctx, JoinRequest{Code: code, Serial: "OTHER1"}); !errors.Is(err, ErrCodeRefused) {
 		t.Fatalf("a used code joined a second laptop: %v", err)
 	}
 }
@@ -215,7 +215,7 @@ func TestJoinRefusesMalformedExpiredAndWithdrawnCodesAlike(t *testing.T) {
 		t.Fatal(err)
 	}
 	for name, code := range map[string]string{"expired": expired, "withdrawn": withdrawn, "malformed": "K7QM-4XW", "unknown": "0000-0000"} {
-		if _, err := st.svc.Join(ctx, JoinRequest{Code: code, Serial: "NEW1"}); err != ErrCodeRefused {
+		if _, err := st.svc.Join(ctx, JoinRequest{Code: code, Serial: "NEW1"}); !errors.Is(err, ErrCodeRefused) {
 			t.Errorf("%s code: %v, want the one refusal for every unusable code", name, err)
 		}
 	}
@@ -305,7 +305,7 @@ func TestReenrolCodeIsForOneDevice(t *testing.T) {
 		t.Fatal("the new credential does not work")
 	}
 	// A re-enrol code is for one use, whatever was asked.
-	if _, err := st.svc.Join(ctx, JoinRequest{Code: code, Serial: "SER-ACTIVE"}); err != ErrCodeRefused {
+	if _, err := st.svc.Join(ctx, JoinRequest{Code: code, Serial: "SER-ACTIVE"}); !errors.Is(err, ErrCodeRefused) {
 		t.Fatalf("a re-enrol code worked twice: %v", err)
 	}
 	if g := st.cfg.Fleet().Devices["lt-active"].Groups; len(g) != 1 || g[0] != "pilot" {

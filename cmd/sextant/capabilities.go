@@ -783,7 +783,8 @@ func (d *deps) consoleCapability() capability.Capability {
 					Discovery: d.discovery, Imaging: d.imaging, StationCreds: d.staCreds,
 					DeviceSecrets: d.deviceSecrets, Diagnostics: d.diagnostics,
 					Notify: d.notify, Mail: d.mail, Users: d.users, Compliance: d.compliance,
-					Elevation: d.elevation, ForgeID: d.forgeID, Erasure: d.erasure},
+					Elevation: d.elevation, ForgeID: d.forgeID, Erasure: d.erasure,
+					Joins: d.joins, JoinConsole: d.joinConsole},
 				d.authz.Sessions.(web.Sessions), d.cfg.Write,
 				d.cfg.ViewerGroups, d.cfg.EditorGroups, d.cfg.OwnerGroups, d.log)
 			if err != nil {

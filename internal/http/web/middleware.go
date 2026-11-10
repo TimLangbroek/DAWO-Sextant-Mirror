@@ -169,6 +169,7 @@ func (s *Server) render(w http.ResponseWriter, name string, data map[string]any,
 	// sidebar offered - so the sidebar stops offering them instead.
 	data["HasElevation"] = s.svc.Elevation != nil
 	data["HasEnrolment"] = s.svc.Discovery != nil
+	data["HasJoin"] = s.svc.Joins != nil
 	// CanOrgOwn gates owner-only nav entries (service accounts); pages that
 	// already set their own CanOrgOwn keep theirs.
 	if _, ok := data["CanOrgOwn"]; !ok {

@@ -39,11 +39,16 @@
       <p class="text-body-sm font-normal normal-case tracking-normal text-text-tertiary">{{.L.T "layout.tagline"}}</p>
     </div>
 
-    <!-- Primary action: enroll a device (the "start something new" CTA).
+    <!-- Primary action: add a laptop with a code (design 0015), or, on a
+         console without the database, the station page it replaced.
          Gated with the nav entry below it: without the observed plane the
          page it opens cannot work, and a dead primary action is worse than a
          missing one. -->
-    {{if .HasEnrolment}}
+    {{if .HasJoin}}
+    <div class="px-4 py-3">
+      <a href="/devices/add" class="flex w-full items-center justify-center gap-2 rounded-full bg-ink px-4 py-2 text-label-md text-canvas transition-opacity hover:opacity-90"><span class="material-symbols-outlined msz-18">add</span>{{.L.T "layout.add_laptop"}}</a>
+    </div>
+    {{else if .HasEnrolment}}
     <div class="px-4 py-3">
       <a href="/enroll" class="flex w-full items-center justify-center gap-2 rounded-full bg-ink px-4 py-2 text-label-md text-canvas transition-opacity hover:opacity-90"><span class="material-symbols-outlined msz-18">add</span>{{.L.T "layout.enroll_device"}}</a>
     </div>

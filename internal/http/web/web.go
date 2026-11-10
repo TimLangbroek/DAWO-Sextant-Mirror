@@ -57,6 +57,12 @@ type Services struct {
 	// leaves the page saying why rather than hiding it, because "we cannot
 	// do that here" is an answer a DPO needs.
 	Erasure *app.ErasureService
+	// Joins makes the codes a laptop joins with (design 0015); nil (no
+	// database) leaves "Add a laptop" saying why.
+	Joins *app.JoinService
+	// JoinConsole is the address and branch a joining laptop is told, for
+	// the command the page shows next to a code.
+	JoinConsole func() (url, branch string)
 }
 
 // Server renders the console.
@@ -146,7 +152,7 @@ func (s *Server) SetStatusOnMain(v bool) { s.statusOnMain = v }
 func New(svc Services, sessions Sessions, write bool,
 	baseViewer, baseEditor, baseOwner []string, log *slog.Logger) (*Server, error) {
 	funcs := templateFuncs()
-	pages := []string{"overview", "devices", "device", "groups", "settings", "policies", "hardware", "compliance", "elevation", "changes", "diff", "rollout", "access", "audit", "profile", "station", "secrets", "updates", "org_updates", "service_accounts", "enroll", "wizard", "secret_reveal", "integrations", "overlays", "forge", "erasure", "notifications", "mail", "org", "error", "rollout_confirm", "merge_confirm", "assurance_confirm"}
+	pages := []string{"overview", "devices", "device", "groups", "settings", "policies", "hardware", "compliance", "elevation", "changes", "diff", "rollout", "access", "audit", "profile", "station", "secrets", "updates", "org_updates", "service_accounts", "enroll", "wizard", "secret_reveal", "integrations", "overlays", "forge", "erasure", "notifications", "mail", "org", "error", "rollout_confirm", "merge_confirm", "assurance_confirm", "add_laptop"}
 	tmpl := make(map[string]*template.Template, len(pages)+1)
 	for _, p := range pages {
 		t, err := template.New("layout.html").Funcs(funcs).ParseFS(assets, "templates/layout.html", "templates/"+p+".html")
@@ -181,6 +187,7 @@ func (s *Server) Routes(mux *http.ServeMux) {
 	get("/devices", s.devices)
 	get("/devices.csv", s.devicesCSV)
 	get("/devices/{tag}", s.device)
+	get("/devices/add", s.addLaptopPage)
 	get("/groups", s.groupsPage)
 	get("/settings", s.settingsPage)
 	get("/hardware", s.hardwarePage)
@@ -233,6 +240,9 @@ func (s *Server) Routes(mux *http.ServeMux) {
 	post("/mail/test", s.postMailTest)
 	post("/mail/delete", s.postMailDelete)
 	post("/devices", s.postDeviceEnroll)
+	post("/devices/add", s.postAddLaptop)
+	post("/devices/add/{id}/withdraw", s.postWithdrawJoinCode)
+	post("/devices/{tag}/reenrol", s.postDeviceReenrol)
 	post("/devices/{tag}/settings", s.postDeviceSetting)
 	post("/devices/{tag}/posture", s.postDevicePosture)
 	post("/devices/{tag}/intent", s.postDeviceIntent)

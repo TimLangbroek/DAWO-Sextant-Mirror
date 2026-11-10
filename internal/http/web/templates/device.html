@@ -402,6 +402,11 @@
       <form method="post" action="/devices/{{.Tag}}/credential" class="inline">
         <input type="hidden" name="csrf" value="{{.CSRF}}"><button type="submit" class="quiet"><span class="material-symbols-outlined msz-18">autorenew</span>{{.L.T "device.reissue_credential"}}</button>
       </form>
+      {{if .HasJoin}}
+      <form method="post" action="/devices/{{.Tag}}/reenrol" class="inline">
+        <input type="hidden" name="csrf" value="{{.CSRF}}"><button type="submit" class="quiet" title="{{.L.T "device.reenrol_hint"}}"><span class="material-symbols-outlined msz-18">password</span>{{.L.T "device.reenrol"}}</button>
+      </form>
+      {{end}}
       <form method="post" action="/devices/{{.Tag}}/retire" class="inline"
             data-confirm="{{.L.T "device.retire_confirm_pre"}} {{.Tag}}{{.L.T "device.retire_confirm_post"}}">
         <input type="hidden" name="csrf" value="{{.CSRF}}"><button type="submit" class="quiet">{{.L.T "device.retire"}}</button>

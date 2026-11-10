@@ -88,12 +88,12 @@ var ErrMalformed = errors.New("a join code is eight letters and digits")
 func Normalize(typed string) (string, error) {
 	var b strings.Builder
 	for _, r := range strings.ToUpper(typed) {
-		switch {
-		case r == '-' || r == ' ':
+		switch r {
+		case '-', ' ':
 			continue
-		case r == 'O':
+		case 'O':
 			r = '0'
-		case r == 'I' || r == 'L':
+		case 'I', 'L':
 			r = '1'
 		}
 		if !strings.ContainsRune(alphabet, r) {
@@ -143,9 +143,9 @@ func TagFromSerial(serial string) string {
 		return ""
 	}
 	var keep []byte
-	for _, r := range strings.ToLower(serial) {
-		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
-			keep = append(keep, byte(r))
+	for _, c := range []byte(strings.ToLower(serial)) {
+		if (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') {
+			keep = append(keep, c)
 		}
 	}
 	if len(keep) == 0 {
