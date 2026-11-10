@@ -25,6 +25,10 @@ func (s *Server) policies(w http.ResponseWriter, r *http.Request, v view) {
 		fleet.Assignment
 		Devices int
 		Behind  int
+		// Rules is what the filter selects, shown on the assignment's own
+		// line so "who gets this" does not need the filter table (#33).
+		Rules   []fleet.FilterRule
+		AnyRule bool // the filter's rules join with "or", not "and"
 	}
 	type prow struct {
 		ID, Description string
@@ -49,7 +53,9 @@ func (s *Server) policies(w http.ResponseWriter, r *http.Request, v view) {
 		for _, a := range f.Assignments {
 			if a.Policy == id {
 				devs := f.AssignmentDevices(a)
-				asn = append(asn, arow{Assignment: a, Devices: len(devs), Behind: behindOf(devs)})
+				fl := f.Filters[a.Filter]
+				asn = append(asn, arow{Assignment: a, Devices: len(devs), Behind: behindOf(devs),
+					Rules: fl.Rules, AnyRule: fl.Match == "any"})
 			}
 		}
 		var lines []string

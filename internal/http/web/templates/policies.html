@@ -143,6 +143,7 @@
           <span class="text-text-tertiary">{{$.L.T "policies.applies_to"}}</span>
           <span class="font-medium text-ink">{{.Target}}</span>
           {{with .Filter}}<span class="text-text-tertiary">·</span><span class="text-text-secondary">{{.}}</span>{{end}}
+          {{if .Rules}}{{$any := .AnyRule}}<code class="text-code-inline text-text-tertiary" data-filter-rules>{{range $i, $r := .Rules}}{{if $i}} {{if $any}}{{$.L.T "policies.rules_or"}}{{else}}{{$.L.T "policies.rules_and"}}{{end}} {{end}}{{$r.Attr}} {{$r.Op}}{{with $r.Value}} {{.}}{{end}}{{range $j, $v := $r.Values}}{{if $j}},{{end}} {{$v}}{{end}}{{end}}</code>{{end}}
           {{if .Devices}}
           <span class="ml-auto whitespace-nowrap text-text-secondary">{{.Devices}} {{if eq .Devices 1}}{{$.L.T "policies.device_one"}}{{else}}{{$.L.T "policies.devices_suffix"}}{{end}}{{if .Behind}} <span class="text-status-warn" title="{{$.L.T "policies.behind_hint"}}">({{.Behind}} {{$.L.T "policies.behind_suffix"}})</span>{{end}}</span>
           {{else}}

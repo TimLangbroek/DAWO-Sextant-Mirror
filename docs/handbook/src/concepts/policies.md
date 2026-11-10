@@ -54,7 +54,9 @@ A policy on its own does nothing. An **assignment** binds it to a scope:
 
 - **Target** - `org`, `group:<name>` or `device:<tag>`.
 - **Filter** - optional; narrows the assignment to devices matching a rule set
-  (all rules, or any). Without one it covers every device in the target.
+  (all rules, or any). Without one it covers every device in the target. The
+  assignment's line on **Policies** spells out the rules and counts the
+  devices they reach, so nobody has to look the filter up.
 So the same policy can be assigned broadly and narrowed by filter, rather than
 copied per group with small edits. Editing the policy updates everywhere it
 applies.
