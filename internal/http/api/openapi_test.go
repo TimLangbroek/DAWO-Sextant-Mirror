@@ -14,6 +14,7 @@ import (
 	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/adapters/git"
 	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/adapters/state"
 	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/app"
+	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/domain/observed"
 	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/domain/rollout"
 	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/ports"
 )
@@ -51,12 +52,22 @@ func fullAPI(t *testing.T, mux *http.ServeMux) *API {
 	rollouts := app.NewRolloutService(svc, st.Rollouts(), zeroConv{}, tickClock{},
 		slog.New(slog.NewTextHandler(io.Discard, nil)))
 	fo := newFakeObserved()
+	// lt-1 has checked in and sent its facts, so the reads about it answer.
+	if _, err := fo.Upsert(context.Background(), app.DefaultTenant, observed.CheckIn{Tag: "lt-1", Revision: "v1",
+		Phase: observed.Running}, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	if err := fo.PutFacts(context.Background(), app.DefaultTenant, "lt-1", []byte(`{"cpu":"test"}`), time.Now()); err != nil {
+		t.Fatal(err)
+	}
 	inv := app.NewInventoryService(fo, fo, tickClock{}, "")
 	toks := app.NewTokenService(newAPIMemTokenStore(), tickClock{}, 0)
 	creds := app.NewDeviceCredentials(newAPIMemTokenStore(), tickClock{})
+	ev := app.NewEvidenceService(svc, changes, tickClock{})
 
 	a := New(Services{Config: svc, Changes: changes, Rollouts: rollouts, Inventory: inv,
-		Tokens: toks, DevCreds: creds, Prefs: memPrefs{}}, Authz{}, testToken, true, discardLog())
+		Tokens: toks, DevCreds: creds, Prefs: memPrefs{}, Directory: &fakeDirectory{}, Evidence: ev},
+		Authz{}, testToken, true, discardLog())
 	a.Routes(mux)
 	return a
 }

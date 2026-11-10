@@ -238,7 +238,7 @@ List change requests.
 
 | Answer | Body | Meaning |
 |---|---|---|
-| `200` |  | OK |
+| `200` | array of [ChangeRequest](#changerequest) | OK |
 | `401` | [Error](#error) | No credential, or one that does not verify. |
 | `403` | [Error](#error) | Authenticated, but no role at the required scope - or the server is read-only (--write not set), or the X-CSRF-Token is missing on a session-authenticated mutation. |
 | `404` | [Error](#error) | No such endpoint, or the named resource does not exist. |
@@ -252,7 +252,7 @@ Request body: [NewChange](#newchange).
 
 | Answer | Body | Meaning |
 |---|---|---|
-| `201` | [Status](#status) | Created. |
+| `201` | [ChangeRequest](#changerequest) | Created. |
 | `400` | [Error](#error) | The request could not be used: malformed body, unknown key, wrong-typed value, or a reference that resolves to nothing. |
 | `401` | [Error](#error) | No credential, or one that does not verify. |
 | `403` | [Error](#error) | Authenticated, but no role at the required scope - or the server is read-only (--write not set), or the X-CSRF-Token is missing on a session-authenticated mutation. |
@@ -272,7 +272,7 @@ One change request.
 
 | Answer | Body | Meaning |
 |---|---|---|
-| `200` |  | OK |
+| `200` | [ChangeRequest](#changerequest) | OK |
 | `401` | [Error](#error) | No credential, or one that does not verify. |
 | `403` | [Error](#error) | Authenticated, but no role at the required scope - or the server is read-only (--write not set), or the X-CSRF-Token is missing on a session-authenticated mutation. |
 | `404` | [Error](#error) | No such endpoint, or the named resource does not exist. |
@@ -288,7 +288,7 @@ Abandon a change.
 
 | Answer | Body | Meaning |
 |---|---|---|
-| `200` | [Status](#status) | OK |
+| `200` | [ChangeRequest](#changerequest) | OK |
 | `400` | [Error](#error) | The request could not be used: malformed body, unknown key, wrong-typed value, or a reference that resolves to nothing. |
 | `401` | [Error](#error) | No credential, or one that does not verify. |
 | `403` | [Error](#error) | Authenticated, but no role at the required scope - or the server is read-only (--write not set), or the X-CSRF-Token is missing on a session-authenticated mutation. |
@@ -308,7 +308,7 @@ Unified diff the change would apply.
 
 | Answer | Body | Meaning |
 |---|---|---|
-| `200` |  | OK |
+| `200` |  | The change as a unified diff of fleet.json. |
 | `401` | [Error](#error) | No credential, or one that does not verify. |
 | `403` | [Error](#error) | Authenticated, but no role at the required scope - or the server is read-only (--write not set), or the X-CSRF-Token is missing on a session-authenticated mutation. |
 | `404` | [Error](#error) | No such endpoint, or the named resource does not exist. |
@@ -346,7 +346,7 @@ Merge a ready change (owner).
 
 | Answer | Body | Meaning |
 |---|---|---|
-| `200` | [Status](#status) | OK |
+| `200` | [ChangeRequest](#changerequest) | OK |
 | `400` | [Error](#error) | The request could not be used: malformed body, unknown key, wrong-typed value, or a reference that resolves to nothing. |
 | `401` | [Error](#error) | No credential, or one that does not verify. |
 | `403` | [Error](#error) | Authenticated, but no role at the required scope - or the server is read-only (--write not set), or the X-CSRF-Token is missing on a session-authenticated mutation. |
@@ -366,7 +366,7 @@ Run the build gate.
 
 | Answer | Body | Meaning |
 |---|---|---|
-| `200` | [Status](#status) | OK |
+| `200` | [ChangeRequest](#changerequest) | OK |
 | `400` | [Error](#error) | The request could not be used: malformed body, unknown key, wrong-typed value, or a reference that resolves to nothing. |
 | `401` | [Error](#error) | No credential, or one that does not verify. |
 | `403` | [Error](#error) | Authenticated, but no role at the required scope - or the server is read-only (--write not set), or the X-CSRF-Token is missing on a session-authenticated mutation. |
@@ -401,7 +401,7 @@ Request body: [NewDevice](#newdevice).
 
 | Answer | Body | Meaning |
 |---|---|---|
-| `201` | object with `credentialError`, `credential`, `notice`, `status`, `tag` | The device was enrolled. |
+| `201` | [DeviceWithCredential](#devicewithcredential) | The device was enrolled. |
 | `400` | [Error](#error) | The request could not be used: malformed body, unknown key, wrong-typed value, or a reference that resolves to nothing. |
 | `401` | [Error](#error) | No credential, or one that does not verify. |
 | `403` | [Error](#error) | Authenticated, but no role at the required scope - or the server is read-only (--write not set), or the X-CSRF-Token is missing on a session-authenticated mutation. |
@@ -421,7 +421,7 @@ Device with resolved configuration.
 
 | Answer | Body | Meaning |
 |---|---|---|
-| `200` |  | OK |
+| `200` | [DeviceDetail](#devicedetail) | OK |
 | `401` | [Error](#error) | No credential, or one that does not verify. |
 | `403` | [Error](#error) | Authenticated, but no role at the required scope - or the server is read-only (--write not set), or the X-CSRF-Token is missing on a session-authenticated mutation. |
 | `404` | [Error](#error) | No such endpoint, or the named resource does not exist. |
@@ -507,7 +507,7 @@ Request body: [DeviceIntent](#deviceintent).
 
 | Answer | Body | Meaning |
 |---|---|---|
-| `200` | [Status](#status) | OK |
+| `200` | [IntentArmed](#intentarmed) | OK |
 | `400` | [Error](#error) | The request could not be used: malformed body, unknown key, wrong-typed value, or a reference that resolves to nothing. |
 | `401` | [Error](#error) | No credential, or one that does not verify. |
 | `403` | [Error](#error) | Authenticated, but no role at the required scope - or the server is read-only (--write not set), or the X-CSRF-Token is missing on a session-authenticated mutation. |
@@ -551,7 +551,7 @@ Returns the device to service and issues a fresh credential (shown once). Editor
 
 | Answer | Body | Meaning |
 |---|---|---|
-| `200` | [Status](#status) | OK |
+| `200` | [DeviceWithCredential](#devicewithcredential) | OK |
 | `400` | [Error](#error) | The request could not be used: malformed body, unknown key, wrong-typed value, or a reference that resolves to nothing. |
 | `401` | [Error](#error) | No credential, or one that does not verify. |
 | `403` | [Error](#error) | Authenticated, but no role at the required scope - or the server is read-only (--write not set), or the X-CSRF-Token is missing on a session-authenticated mutation. |
@@ -596,7 +596,7 @@ Groups matching ?q= (substring) from the configured LDAP directory, for access-b
 
 | Answer | Body | Meaning |
 |---|---|---|
-| `200` |  | OK |
+| `200` | array of [DirectoryGroup](#directorygroup) | OK |
 | `401` | [Error](#error) | No credential, or one that does not verify. |
 | `403` | [Error](#error) | Authenticated, but no role at the required scope - or the server is read-only (--write not set), or the X-CSRF-Token is missing on a session-authenticated mutation. |
 | `404` | [Error](#error) | No such endpoint, or the named resource does not exist. |
@@ -610,7 +610,7 @@ Self-contained JSON bundle for a period (?from=&to=, RFC 3339; default last 30 d
 
 | Answer | Body | Meaning |
 |---|---|---|
-| `200` |  | OK |
+| `200` | [Evidence](#evidence) | OK |
 | `401` | [Error](#error) | No credential, or one that does not verify. |
 | `403` | [Error](#error) | Authenticated, but no role at the required scope - or the server is read-only (--write not set), or the X-CSRF-Token is missing on a session-authenticated mutation. |
 | `404` | [Error](#error) | No such endpoint, or the named resource does not exist. |
@@ -626,7 +626,7 @@ Hardware facts of one device.
 
 | Answer | Body | Meaning |
 |---|---|---|
-| `200` |  | OK |
+| `200` | [DeviceFacts](#devicefacts) | OK |
 | `401` | [Error](#error) | No credential, or one that does not verify. |
 | `403` | [Error](#error) | Authenticated, but no role at the required scope - or the server is read-only (--write not set), or the X-CSRF-Token is missing on a session-authenticated mutation. |
 | `404` | [Error](#error) | No such endpoint, or the named resource does not exist. |
@@ -680,7 +680,7 @@ Full fleet document.
 
 | Answer | Body | Meaning |
 |---|---|---|
-| `200` |  | OK |
+| `200` | [Fleet](#fleet) | OK |
 | `401` | [Error](#error) | No credential, or one that does not verify. |
 | `403` | [Error](#error) | Authenticated, but no role at the required scope - or the server is read-only (--write not set), or the X-CSRF-Token is missing on a session-authenticated mutation. |
 | `404` | [Error](#error) | No such endpoint, or the named resource does not exist. |
@@ -860,7 +860,7 @@ Rollout state and ring convergence.
 
 | Answer | Body | Meaning |
 |---|---|---|
-| `200` |  | OK |
+| `200` | [RolloutView](#rolloutview) | OK |
 | `401` | [Error](#error) | No credential, or one that does not verify. |
 | `403` | [Error](#error) | Authenticated, but no role at the required scope - or the server is read-only (--write not set), or the X-CSRF-Token is missing on a session-authenticated mutation. |
 | `404` | [Error](#error) | No such endpoint, or the named resource does not exist. |
@@ -874,7 +874,7 @@ Request body: [RolloutStart](#rolloutstart).
 
 | Answer | Body | Meaning |
 |---|---|---|
-| `201` | [Status](#status) | Created. |
+| `201` | [RolloutState](#rolloutstate) | Created. |
 | `400` | [Error](#error) | The request could not be used: malformed body, unknown key, wrong-typed value, or a reference that resolves to nothing. |
 | `401` | [Error](#error) | No credential, or one that does not verify. |
 | `403` | [Error](#error) | Authenticated, but no role at the required scope - or the server is read-only (--write not set), or the X-CSRF-Token is missing on a session-authenticated mutation. |
@@ -890,7 +890,7 @@ Cancel the active rollout.
 
 | Answer | Body | Meaning |
 |---|---|---|
-| `200` | [Status](#status) | OK |
+| `200` | [RolloutState](#rolloutstate) | OK |
 | `400` | [Error](#error) | The request could not be used: malformed body, unknown key, wrong-typed value, or a reference that resolves to nothing. |
 | `401` | [Error](#error) | No credential, or one that does not verify. |
 | `403` | [Error](#error) | Authenticated, but no role at the required scope - or the server is read-only (--write not set), or the X-CSRF-Token is missing on a session-authenticated mutation. |
@@ -956,7 +956,7 @@ Request body: [NewSecretRef](#newsecretref).
 
 | Answer | Body | Meaning |
 |---|---|---|
-| `201` |  | Created |
+| `201` | object with `name` | Created |
 | `400` | [Error](#error) | The request could not be used: malformed body, unknown key, wrong-typed value, or a reference that resolves to nothing. |
 | `401` | [Error](#error) | No credential, or one that does not verify. |
 | `403` | [Error](#error) | Authenticated, but no role at the required scope - or the server is read-only (--write not set), or the X-CSRF-Token is missing on a session-authenticated mutation. |
@@ -1028,7 +1028,7 @@ Observed status of every device.
 
 | Answer | Body | Meaning |
 |---|---|---|
-| `200` |  | OK |
+| `200` | array of [DeviceStatus](#devicestatus) | OK |
 | `401` | [Error](#error) | No credential, or one that does not verify. |
 | `403` | [Error](#error) | Authenticated, but no role at the required scope - or the server is read-only (--write not set), or the X-CSRF-Token is missing on a session-authenticated mutation. |
 | `404` | [Error](#error) | No such endpoint, or the named resource does not exist. |
@@ -1044,7 +1044,7 @@ Observed status of one device.
 
 | Answer | Body | Meaning |
 |---|---|---|
-| `200` |  | OK |
+| `200` | [DeviceStatus](#devicestatus) | OK |
 | `401` | [Error](#error) | No credential, or one that does not verify. |
 | `403` | [Error](#error) | Authenticated, but no role at the required scope - or the server is read-only (--write not set), or the X-CSRF-Token is missing on a session-authenticated mutation. |
 | `404` | [Error](#error) | No such endpoint, or the named resource does not exist. |
@@ -1056,7 +1056,7 @@ List your API tokens.
 
 | Answer | Body | Meaning |
 |---|---|---|
-| `200` |  | OK |
+| `200` | array of [Token](#token) | OK |
 | `401` | [Error](#error) | No credential, or one that does not verify. |
 | `403` | [Error](#error) | Authenticated, but no role at the required scope - or the server is read-only (--write not set), or the X-CSRF-Token is missing on a session-authenticated mutation. |
 | `404` | [Error](#error) | No such endpoint, or the named resource does not exist. |
@@ -1070,7 +1070,7 @@ Request body: [NewToken](#newtoken).
 
 | Answer | Body | Meaning |
 |---|---|---|
-| `201` |  | Created |
+| `201` | [NewTokenAnswer](#newtokenanswer) | Created |
 | `400` | [Error](#error) | The request could not be used: malformed body, unknown key, wrong-typed value, or a reference that resolves to nothing. |
 | `401` | [Error](#error) | No credential, or one that does not verify. |
 | `403` | [Error](#error) | Authenticated, but no role at the required scope - or the server is read-only (--write not set), or the X-CSRF-Token is missing on a session-authenticated mutation. |
@@ -1170,11 +1170,11 @@ One entry of the configuration audit trail. It is git history, so it is append-o
 
 | Field | Type | Required | Meaning |
 |---|---|---|---|
-| `author` | string |  |  |
-| `email` | string |  |  |
+| `author` | string |  | Who made the commit, by name. |
+| `email` | string |  | Their e-mail address, as the commit records it. |
 | `hash` | string |  | Commit hash. |
 | `subject` | string |  | Commit subject: what changed, in the words the console wrote. |
-| `when` | string |  |  |
+| `when` | string |  | When it was committed. |
 
 ### ChangeEdit
 
@@ -1187,6 +1187,24 @@ One setting edit on a change request's branch.
 | `key` | string | yes | The setting's catalog key. |
 | `scope` | string | yes | Where it applies: "org", "group:<name>" or "device:<tag>". |
 | `value` | any |  | The value, typed as the catalog entry for the key says: a boolean, a number, a string or a list. Ignored with clear. |
+
+### ChangeRequest
+
+A change request: settings edited on a branch of their own, merged into the fleet after the gate has built the devices it touches.
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `author` | string | yes | Who opened it, by display name. |
+| `authorSubject` | string |  | Who opened it, by the identity provider's subject; four-eyes compares this one. |
+| `branch` | string | yes | The branch of the fleet repository it lives on. |
+| `created` | string | yes | When it was opened. |
+| `error` | string |  | Why the gate or the build refused it, when it did. |
+| `hosts` | array of string |  | The devices its edits can reach, which the gate builds. |
+| `id` | string | yes | Its id. |
+| `status` | one of `draft`, `building`, `failed`, `ready`, `merged`, `abandoned` | yes | Where it is. |
+| `title` | string | yes | What it is for. |
+| `updated` | string | yes | When it last changed. |
+| `wholeFleet` | boolean |  | An edit reached the whole fleet, so the gate builds every device. |
 
 ### Condition
 
@@ -1211,6 +1229,26 @@ A device as the fleet document holds it. This is the CONFIGURATION view; what a 
 | `hardware` | string |  | Hardware profile name from the overlay. |
 | `tag` | string | yes | Stable identifier. A lowercase slug; also the machine hostname. |
 
+### DeviceDetail
+
+One device: its record, the settings that apply to it and where each comes from, and its apps.
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `apps` | object with `flatpaks`, `overlays`, `packages` | yes | The apps it gets, after every scope has added its own. |
+| `device` | [DeviceRecord](#devicerecord) | yes |  |
+| `resolved` | array of [ResolvedSetting](#resolvedsetting) | yes | Every setting that applies, sorted by key. |
+| `tag` | string | yes | Its tag. |
+
+### DeviceFacts
+
+What a device last reported about its hardware.
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `facts` | object | yes | The report, as the agent sent it. |
+| `updatedAt` | string | yes | When it reported. |
+
 ### DeviceIntent
 
 An action for a device to carry out at its next check-in.
@@ -1233,11 +1271,110 @@ The device fields to change. A field left out stays as it is.
 | `itam` | [ITAM](#itam) |  |  |
 | `labels` | object of string values |  | Free key-value labels, as a complete set. |
 
+### DeviceRecord
+
+A device as the fleet repository holds it.
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `accepted` | object of string values |  | Accepted risks: a control's key to why it does not hold here. |
+| `assignedUser` | string |  | Who uses it. |
+| `class` | string |  | The device class, such as laptop. |
+| `enforced` | array of string |  | Keys among settings that cannot be changed for it elsewhere. |
+| `enrolled` | string |  | When the record was made. |
+| `flatpaks` | array of string |  | Flatpak apps for this device itself. |
+| `groups` | array of string |  | The groups it is in. Order counts: where two unrelated groups set the same key, the earlier one wins. |
+| `hardware` | string | yes | The hardware profile its configuration is built for. |
+| `intent` | string |  | An action waiting for its next check-in. Empty is none. |
+| `itam` | [ITAM](#itam) |  |  |
+| `labels` | object of string values |  | Free key-value labels. |
+| `overlays` | array of string |  | Overlay modules for this device itself. |
+| `packages` | array of string |  | Nix packages for this device itself. |
+| `pin` | string |  | A rollout wave's group this device follows before the rest of its group does. |
+| `settings` | object of any values |  | Settings set on this device itself. |
+| `spec` | [HardwareSpec](#hardwarespec) |  |  |
+| `state` | one of ``, `provisional`, `retired` |  | Where it is in its life. Empty is active. |
+
+### DeviceStatus
+
+What a device last reported about itself.
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `ack` | string |  | The last action the device confirmed carrying out. |
+| `error` | string |  | What went wrong, when the device said something did. |
+| `health` | [Health](#health) |  |  |
+| `integrations` | object of [IntegrationState](#integrationstate) values |  | Each integration turned on for it, by name, as it last saw it. |
+| `lastSeen` | string | yes | When it last checked in. |
+| `online` | boolean | yes | It checked in recently enough to count as there. |
+| `phase` | one of `discovered`, `installing`, `installed`, `running` |  | Where it is in its installation. |
+| `revision` | string |  | The fleet revision it runs. |
+| `sb` | string |  | Secure Boot, as the device sees it. Empty when it did not say. |
+| `tag` | string | yes | Its tag. |
+| `tpm2` | string |  | The TPM2, as the device sees it. Empty when it did not say. |
+| `usage` | [Usage](#usage) |  |  |
+
+### DeviceWithCredential
+
+A device that may check in again, with the credential to do it.
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `credential` | string |  | The secret the device checks in with. Shown once; store it before leaving this answer. |
+| `credentialError` | string |  | Present when no credential could be made: make one with POST /api/v1/devices/{tag}/credential before the device checks in. |
+| `notice` | string |  | A reminder that the credential is not shown again. |
+| `status` | string | yes | What happened. |
+| `tag` | string |  | The device's tag. |
+
+### DirectoryGroup
+
+A group in the identity provider's directory.
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `id` | string | yes | Its id in the directory. |
+| `name` | string | yes | Its name. |
+
 ### Error
 
 | Field | Type | Required | Meaning |
 |---|---|---|---|
 | `error` | string | yes | Human-readable reason. Safe to show an operator: it never carries internals - a 500 is always the literal string "internal error", with the detail in the server log. |
+
+### Evidence
+
+What an auditor asks for over a period: the controls in force, and every commit, change request and rollout in it.
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `changes` | array of [ChangeRequest](#changerequest) | yes | Every change request touched in the period. |
+| `commits` | array of [AuditEntry](#auditentry) | yes | Every commit to the fleet repository in the period, newest first. |
+| `controls` | [EvidenceControls](#evidencecontrols) | yes |  |
+| `from` | string | yes | The start of the period, included. |
+| `generatedAt` | string | yes | When this was made. |
+| `rollouts` | array of [EvidenceRollout](#evidencerollout) | yes | Every promotion of a rollout wave in the period. |
+| `to` | string | yes | Its end, not included. |
+
+### EvidenceControls
+
+The audit controls in force when the evidence was made.
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `manualRolloutOnly` | boolean | yes | Merging starts no rollout. |
+| `requireChangeRequest` | boolean | yes | Settings change only through a change request. |
+| `requireFourEyes` | boolean | yes | A change cannot be merged by the person who made it. |
+| `requireTestWave` | boolean | yes | A rollout needs a first wave that waits for approval. |
+
+### EvidenceRollout
+
+One rollout step.
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `hash` | string | yes | Its hash. |
+| `subject` | string | yes | The commit that moved the wave. |
+| `when` | string | yes | When. |
 
 ### Filter
 
@@ -1260,6 +1397,12 @@ One test on one device attribute.
 | `value` | string |  | The value to compare with; for every op but in. |
 | `values` | array of string |  | The values to compare with; for in. |
 
+### Fleet
+
+The fleet document as the fleet repository holds it in fleet.json, with only what the caller may see.
+
+Type: object.
+
 ### GroupPatch
 
 The group fields to change; at least one. A field left out stays as it is.
@@ -1268,6 +1411,30 @@ The group fields to change; at least one. A field left out stays as it is.
 |---|---|---|---|
 | `idpGroup` | string |  | The identity provider group whose members belong to it. |
 | `parent` | string |  | The new parent group; empty makes it a top-level group. |
+
+### HardwareSpec
+
+The hardware an installation station found when it enrolled the device.
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `cores` | integer |  | Processor cores. |
+| `cpu` | string |  | The processor. |
+| `diskGB` | integer |  | Disk, in GB. |
+| `firmware` | string |  | The firmware version. |
+| `memGB` | integer |  | Memory, in GB. |
+| `model` | string |  | The model. |
+| `serial` | string |  | The serial number. |
+| `vendor` | string |  | The maker. |
+
+### Health
+
+systemd's last verdict on the machine.
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `failedUnits` | array of string |  | The units that failed. |
+| `state` | string |  | systemd's own word, such as "running" or "degraded". |
 
 ### HostKey
 
@@ -1288,6 +1455,24 @@ Asset-management details of a device.
 | `serial` | string |  | The serial number. |
 | `site` | string |  | Where it is. |
 
+### IntegrationState
+
+One integration as the device last saw it.
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `detail` | string |  | What the device saw, such as the address it reached. |
+| `state` | string |  | "up" or "down"; empty when nobody measured, which is not the same as down. |
+
+### IntentArmed
+
+An action armed for a device.
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `intent` | string | yes | The action. |
+| `status` | string | yes | What happened. |
+
 ### IssuedCredential
 
 A device credential, shown this once.
@@ -1304,9 +1489,9 @@ Who the caller is and what they may do. The roles map is resolved per request, n
 | Field | Type | Required | Meaning |
 |---|---|---|---|
 | `ceiling` | string |  | Present only for a scoped token: the highest role it may reach regardless of the underlying grant. |
-| `email` | string |  |  |
+| `email` | string |  | E-mail address from the identity provider. |
 | `groups` | array of string |  | Directory groups. Always an array, never null. |
-| `name` | string |  |  |
+| `name` | string |  | Display name from the identity provider. |
 | `roles` | object of string values |  | Resolved role per scope, e.g. {"org":"editor","group:pilot":"owner"}. Only scopes where the caller holds at least viewer appear. |
 | `service` | boolean |  | True for a service account rather than a person. |
 | `subject` | string |  | Identifier from the identity provider. |
@@ -1365,6 +1550,16 @@ An API token to make.
 | `name` | string | yes | A label for people. |
 | `ttlDays` | integer |  | How many days it is valid. Left out, the console's default. |
 
+### NewTokenAnswer
+
+A token, with its secret shown this once.
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `notice` | string | yes | A reminder that the secret is not shown again. |
+| `secret` | string | yes | The bearer secret. Shown once; the console keeps only its hash. |
+| `token` | [Token](#token) | yes |  |
+
 ### Policy
 
 A named set of settings and conditions, applied where it is assigned.
@@ -1387,6 +1582,31 @@ Your own preferences. Empty means the organisation's default.
 |---|---|---|---|
 | `locale` | one of `en`, `nl` |  | The console's language. |
 | `timezone` | string |  | An IANA time zone, such as "Europe/Amsterdam". |
+
+### ResolvedSetting
+
+One setting as it applies to a device, and where it comes from.
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `enforced` | boolean | yes | A narrower scope cannot change it. |
+| `key` | string | yes | The setting's catalog key. |
+| `source` | [SettingSource](#settingsource) | yes |  |
+| `value` | any | yes | Its value. |
+
+### RingProgress
+
+How far one wave of the active run is. The field names start with a capital, unlike the rest of the API.
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `Absent` | integer | yes | Devices not seen for a while; they do not count against the wave. |
+| `Broken` | integer | yes | Of those on target, how many report an error or are stuck. |
+| `GroupTotal` | integer | yes | How many devices the group has. |
+| `Healthy` | integer | yes | Of those on target, how many are healthy. |
+| `OnTarget` | integer | yes | Of those that are there, how many run the target. |
+| `Released` | integer | yes | How many of the group have been given the target so far. |
+| `Total` | integer | yes | Devices in the wave so far. |
 
 ### RolloutPlan
 
@@ -1428,6 +1648,28 @@ The revision to roll out.
 |---|---|---|---|
 | `target` | string | yes | A commit of the fleet repository. |
 
+### RolloutState
+
+A rollout run.
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `approvedAt` | object of string values |  | Per wave: when somebody approved it. |
+| `buildRequestedAt` | object of string values |  | Per wave: when its build was asked for. |
+| `changeId` | string |  | The change request the run delivers, when it delivers one. |
+| `changeTitle` | string |  | That change request's title. |
+| `convergedAt` | object of string values |  | Per wave: when all its devices first ran the target. |
+| `promotedAt` | object of string values |  | Per wave, by number: when it was given the target. |
+| `reason` | string |  | Why it halted. |
+| `ring` | integer | yes | The wave it is on, counted from 0. |
+| `rings` | array of [RolloutRing](#rolloutring) |  | The run's own waves, fixed when it started. |
+| `started` | string | yes | When it started. |
+| `status` | one of `active`, `paused`, `halted`, `completed`, `cancelled` | yes | Where the run is. |
+| `target` | string | yes | The revision every wave moves to. |
+| `updated` | string | yes | When it last changed. |
+| `waiting` | string |  | What it waits for, in words; empty once it has ended. |
+| `waitingSince` | string |  | Since when it has waited for that. |
+
 ### RolloutTick
 
 What one step of the rollout engine did.
@@ -1437,11 +1679,21 @@ What one step of the rollout engine did.
 | `action` | object with `kind`, `reason` |  | What the step decided; absent when no run is active. |
 | `state` | object | yes | The run's state after the step, as GET /api/v1/rollout answers it; null when there has never been a run. |
 
+### RolloutView
+
+The rollout as it stands.
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `active` | boolean | yes | A run is going. |
+| `rings` | array of [RingProgress](#ringprogress) |  | Progress per wave of the run. |
+| `state` | [RolloutState](#rolloutstate) |  |  |
+
 ### SecretRef
 
 | Field | Type | Required | Meaning |
 |---|---|---|---|
-| `description` | string |  |  |
+| `description` | string |  | What the secret is for. |
 | `name` | string | yes | The reference a setting uses. Never a value. |
 
 ### SettingChange
@@ -1464,6 +1716,15 @@ Which setting to remove.
 | `key` | string | yes | The setting's catalog key. |
 | `scope` | string | yes | Where it applies: "org", "group:<name>" or "device:<tag>". |
 
+### SettingSource
+
+Where a setting comes from.
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `policy` | string |  | The policy that sets it there, when a policy does. |
+| `scope` | string | yes | The scope that sets it: "org", "group:<name>" or "device:<tag>". |
+
 ### Status
 
 The answer to a write that has nothing to return but its own success.
@@ -1471,3 +1732,31 @@ The answer to a write that has nothing to return but its own success.
 | Field | Type | Required | Meaning |
 |---|---|---|---|
 | `status` | string | yes | What happened, e.g. "enrolled", "removed", "applied". |
+
+### Token
+
+An API token, without its secret.
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `ceiling` | string |  | The highest role it may use. Empty is no limit beyond its holder's. |
+| `created` | string | yes | When it was made. |
+| `expires` | string | yes | When it stops working. |
+| `groups` | array of string |  | The groups it carries. |
+| `id` | string | yes | Its id. |
+| `kind` | one of `personal`, `service`, `device`, `station` | yes | What it is. |
+| `lastUsed` | string |  | When it was last used. |
+| `name` | string | yes | Its label. |
+| `subject` | string | yes | Who it acts as. |
+
+### Usage
+
+What the device last measured of its own load.
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `cpuPct` | integer |  | Processor use, in percent. |
+| `diskTotalGB` | integer |  | Disk, in GB. |
+| `diskUsedGB` | integer |  | Disk in use, in GB. |
+| `memTotalMB` | integer |  | Memory, in MB. |
+| `memUsedMB` | integer |  | Memory in use, in MB. |

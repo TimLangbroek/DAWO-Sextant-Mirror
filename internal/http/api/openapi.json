@@ -177,14 +177,17 @@
             "description": "Commit subject: what changed, in the words the console wrote."
           },
           "author": {
-            "type": "string"
+            "type": "string",
+            "description": "Who made the commit, by name."
           },
           "email": {
-            "type": "string"
+            "type": "string",
+            "description": "Their e-mail address, as the commit records it."
           },
           "when": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "description": "When it was committed."
           }
         }
       },
@@ -215,6 +218,78 @@
         "required": [
           "scope",
           "key"
+        ]
+      },
+      "ChangeRequest": {
+        "type": "object",
+        "description": "A change request: settings edited on a branch of their own, merged into the fleet after the gate has built the devices it touches.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Its id."
+          },
+          "title": {
+            "type": "string",
+            "description": "What it is for."
+          },
+          "author": {
+            "type": "string",
+            "description": "Who opened it, by display name."
+          },
+          "authorSubject": {
+            "type": "string",
+            "description": "Who opened it, by the identity provider's subject; four-eyes compares this one."
+          },
+          "branch": {
+            "type": "string",
+            "description": "The branch of the fleet repository it lives on."
+          },
+          "status": {
+            "type": "string",
+            "description": "Where it is.",
+            "enum": [
+              "draft",
+              "building",
+              "failed",
+              "ready",
+              "merged",
+              "abandoned"
+            ]
+          },
+          "error": {
+            "type": "string",
+            "description": "Why the gate or the build refused it, when it did."
+          },
+          "created": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When it was opened."
+          },
+          "updated": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When it last changed."
+          },
+          "hosts": {
+            "type": "array",
+            "description": "The devices its edits can reach, which the gate builds.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "wholeFleet": {
+            "type": "boolean",
+            "description": "An edit reached the whole fleet, so the gate builds every device."
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "author",
+          "branch",
+          "status",
+          "created",
+          "updated"
         ]
       },
       "Condition": {
@@ -283,6 +358,83 @@
           }
         }
       },
+      "DeviceDetail": {
+        "type": "object",
+        "description": "One device: its record, the settings that apply to it and where each comes from, and its apps.",
+        "properties": {
+          "tag": {
+            "type": "string",
+            "description": "Its tag."
+          },
+          "device": {
+            "$ref": "#/components/schemas/DeviceRecord"
+          },
+          "resolved": {
+            "type": "array",
+            "description": "Every setting that applies, sorted by key.",
+            "items": {
+              "$ref": "#/components/schemas/ResolvedSetting"
+            }
+          },
+          "apps": {
+            "type": "object",
+            "description": "The apps it gets, after every scope has added its own.",
+            "properties": {
+              "packages": {
+                "type": "array",
+                "description": "Nix packages.",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "flatpaks": {
+                "type": "array",
+                "description": "Flatpak apps.",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "overlays": {
+                "type": "array",
+                "description": "Overlay modules.",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "packages",
+              "flatpaks",
+              "overlays"
+            ]
+          }
+        },
+        "required": [
+          "tag",
+          "device",
+          "resolved",
+          "apps"
+        ]
+      },
+      "DeviceFacts": {
+        "type": "object",
+        "description": "What a device last reported about its hardware.",
+        "properties": {
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When it reported."
+          },
+          "facts": {
+            "type": "object",
+            "description": "The report, as the agent sent it."
+          }
+        },
+        "required": [
+          "updatedAt",
+          "facts"
+        ]
+      },
       "DeviceIntent": {
         "type": "object",
         "description": "An action for a device to carry out at its next check-in.",
@@ -341,6 +493,223 @@
           }
         }
       },
+      "DeviceRecord": {
+        "type": "object",
+        "description": "A device as the fleet repository holds it.",
+        "properties": {
+          "state": {
+            "type": "string",
+            "description": "Where it is in its life. Empty is active.",
+            "enum": [
+              "",
+              "provisional",
+              "retired"
+            ]
+          },
+          "enrolled": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the record was made."
+          },
+          "intent": {
+            "type": "string",
+            "description": "An action waiting for its next check-in. Empty is none."
+          },
+          "pin": {
+            "type": "string",
+            "description": "A rollout wave's group this device follows before the rest of its group does."
+          },
+          "groups": {
+            "type": "array",
+            "description": "The groups it is in. Order counts: where two unrelated groups set the same key, the earlier one wins.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "assignedUser": {
+            "type": "string",
+            "description": "Who uses it."
+          },
+          "class": {
+            "type": "string",
+            "description": "The device class, such as laptop."
+          },
+          "hardware": {
+            "type": "string",
+            "description": "The hardware profile its configuration is built for."
+          },
+          "labels": {
+            "type": "object",
+            "description": "Free key-value labels.",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "settings": {
+            "type": "object",
+            "description": "Settings set on this device itself.",
+            "additionalProperties": {}
+          },
+          "enforced": {
+            "type": "array",
+            "description": "Keys among settings that cannot be changed for it elsewhere.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "packages": {
+            "type": "array",
+            "description": "Nix packages for this device itself.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "flatpaks": {
+            "type": "array",
+            "description": "Flatpak apps for this device itself.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "overlays": {
+            "type": "array",
+            "description": "Overlay modules for this device itself.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "accepted": {
+            "type": "object",
+            "description": "Accepted risks: a control's key to why it does not hold here.",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "itam": {
+            "$ref": "#/components/schemas/ITAM"
+          },
+          "spec": {
+            "$ref": "#/components/schemas/HardwareSpec"
+          }
+        },
+        "required": [
+          "hardware"
+        ]
+      },
+      "DeviceStatus": {
+        "type": "object",
+        "description": "What a device last reported about itself.",
+        "properties": {
+          "tag": {
+            "type": "string",
+            "description": "Its tag."
+          },
+          "revision": {
+            "type": "string",
+            "description": "The fleet revision it runs."
+          },
+          "phase": {
+            "type": "string",
+            "description": "Where it is in its installation.",
+            "enum": [
+              "discovered",
+              "installing",
+              "installed",
+              "running"
+            ]
+          },
+          "error": {
+            "type": "string",
+            "description": "What went wrong, when the device said something did."
+          },
+          "lastSeen": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When it last checked in."
+          },
+          "sb": {
+            "type": "string",
+            "description": "Secure Boot, as the device sees it. Empty when it did not say."
+          },
+          "tpm2": {
+            "type": "string",
+            "description": "The TPM2, as the device sees it. Empty when it did not say."
+          },
+          "ack": {
+            "type": "string",
+            "description": "The last action the device confirmed carrying out."
+          },
+          "usage": {
+            "$ref": "#/components/schemas/Usage"
+          },
+          "health": {
+            "$ref": "#/components/schemas/Health"
+          },
+          "integrations": {
+            "type": "object",
+            "description": "Each integration turned on for it, by name, as it last saw it.",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/IntegrationState"
+            }
+          },
+          "online": {
+            "type": "boolean",
+            "description": "It checked in recently enough to count as there."
+          }
+        },
+        "required": [
+          "tag",
+          "lastSeen",
+          "online"
+        ]
+      },
+      "DeviceWithCredential": {
+        "type": "object",
+        "description": "A device that may check in again, with the credential to do it.",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "What happened."
+          },
+          "tag": {
+            "type": "string",
+            "description": "The device's tag."
+          },
+          "credential": {
+            "type": "string",
+            "description": "The secret the device checks in with. Shown once; store it before leaving this answer."
+          },
+          "notice": {
+            "type": "string",
+            "description": "A reminder that the credential is not shown again."
+          },
+          "credentialError": {
+            "type": "string",
+            "description": "Present when no credential could be made: make one with POST /api/v1/devices/{tag}/credential before the device checks in."
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "DirectoryGroup": {
+        "type": "object",
+        "description": "A group in the identity provider's directory.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Its id in the directory."
+          },
+          "name": {
+            "type": "string",
+            "description": "Its name."
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
+      },
       "Error": {
         "type": "object",
         "required": [
@@ -352,6 +721,112 @@
             "description": "Human-readable reason. Safe to show an operator: it never carries internals - a 500 is always the literal string \"internal error\", with the detail in the server log."
           }
         }
+      },
+      "Evidence": {
+        "type": "object",
+        "description": "What an auditor asks for over a period: the controls in force, and every commit, change request and rollout in it.",
+        "properties": {
+          "from": {
+            "type": "string",
+            "format": "date-time",
+            "description": "The start of the period, included."
+          },
+          "to": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Its end, not included."
+          },
+          "generatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When this was made."
+          },
+          "controls": {
+            "$ref": "#/components/schemas/EvidenceControls"
+          },
+          "commits": {
+            "type": "array",
+            "description": "Every commit to the fleet repository in the period, newest first.",
+            "items": {
+              "$ref": "#/components/schemas/AuditEntry"
+            }
+          },
+          "changes": {
+            "type": "array",
+            "description": "Every change request touched in the period.",
+            "items": {
+              "$ref": "#/components/schemas/ChangeRequest"
+            }
+          },
+          "rollouts": {
+            "type": "array",
+            "description": "Every promotion of a rollout wave in the period.",
+            "items": {
+              "$ref": "#/components/schemas/EvidenceRollout"
+            }
+          }
+        },
+        "required": [
+          "from",
+          "to",
+          "generatedAt",
+          "controls",
+          "commits",
+          "changes",
+          "rollouts"
+        ]
+      },
+      "EvidenceControls": {
+        "type": "object",
+        "description": "The audit controls in force when the evidence was made.",
+        "properties": {
+          "requireFourEyes": {
+            "type": "boolean",
+            "description": "A change cannot be merged by the person who made it."
+          },
+          "requireChangeRequest": {
+            "type": "boolean",
+            "description": "Settings change only through a change request."
+          },
+          "requireTestWave": {
+            "type": "boolean",
+            "description": "A rollout needs a first wave that waits for approval."
+          },
+          "manualRolloutOnly": {
+            "type": "boolean",
+            "description": "Merging starts no rollout."
+          }
+        },
+        "required": [
+          "requireFourEyes",
+          "requireChangeRequest",
+          "requireTestWave",
+          "manualRolloutOnly"
+        ]
+      },
+      "EvidenceRollout": {
+        "type": "object",
+        "description": "One rollout step.",
+        "properties": {
+          "when": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When."
+          },
+          "subject": {
+            "type": "string",
+            "description": "The commit that moved the wave."
+          },
+          "hash": {
+            "type": "string",
+            "description": "Its hash."
+          }
+        },
+        "required": [
+          "when",
+          "subject",
+          "hash"
+        ]
       },
       "Filter": {
         "type": "object",
@@ -416,6 +891,10 @@
           "op"
         ]
       },
+      "Fleet": {
+        "type": "object",
+        "description": "The fleet document as the fleet repository holds it in fleet.json, with only what the caller may see."
+      },
       "GroupPatch": {
         "type": "object",
         "description": "The group fields to change; at least one. A field left out stays as it is.",
@@ -427,6 +906,61 @@
           "idpGroup": {
             "type": "string",
             "description": "The identity provider group whose members belong to it."
+          }
+        }
+      },
+      "HardwareSpec": {
+        "type": "object",
+        "description": "The hardware an installation station found when it enrolled the device.",
+        "properties": {
+          "vendor": {
+            "type": "string",
+            "description": "The maker."
+          },
+          "model": {
+            "type": "string",
+            "description": "The model."
+          },
+          "serial": {
+            "type": "string",
+            "description": "The serial number."
+          },
+          "cpu": {
+            "type": "string",
+            "description": "The processor."
+          },
+          "cores": {
+            "type": "integer",
+            "description": "Processor cores."
+          },
+          "memGB": {
+            "type": "integer",
+            "description": "Memory, in GB."
+          },
+          "diskGB": {
+            "type": "integer",
+            "description": "Disk, in GB."
+          },
+          "firmware": {
+            "type": "string",
+            "description": "The firmware version."
+          }
+        }
+      },
+      "Health": {
+        "type": "object",
+        "description": "systemd's last verdict on the machine.",
+        "properties": {
+          "state": {
+            "type": "string",
+            "description": "systemd's own word, such as \"running\" or \"degraded\"."
+          },
+          "failedUnits": {
+            "type": "array",
+            "description": "The units that failed.",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -473,6 +1007,38 @@
           }
         }
       },
+      "IntegrationState": {
+        "type": "object",
+        "description": "One integration as the device last saw it.",
+        "properties": {
+          "state": {
+            "type": "string",
+            "description": "\"up\" or \"down\"; empty when nobody measured, which is not the same as down."
+          },
+          "detail": {
+            "type": "string",
+            "description": "What the device saw, such as the address it reached."
+          }
+        }
+      },
+      "IntentArmed": {
+        "type": "object",
+        "description": "An action armed for a device.",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "What happened."
+          },
+          "intent": {
+            "type": "string",
+            "description": "The action."
+          }
+        },
+        "required": [
+          "status",
+          "intent"
+        ]
+      },
       "IssuedCredential": {
         "type": "object",
         "description": "A device credential, shown this once.",
@@ -500,10 +1066,12 @@
             "description": "Identifier from the identity provider."
           },
           "name": {
-            "type": "string"
+            "type": "string",
+            "description": "Display name from the identity provider."
           },
           "email": {
-            "type": "string"
+            "type": "string",
+            "description": "E-mail address from the identity provider."
           },
           "groups": {
             "type": "array",
@@ -676,6 +1244,28 @@
           "name"
         ]
       },
+      "NewTokenAnswer": {
+        "type": "object",
+        "description": "A token, with its secret shown this once.",
+        "properties": {
+          "token": {
+            "$ref": "#/components/schemas/Token"
+          },
+          "secret": {
+            "type": "string",
+            "description": "The bearer secret. Shown once; the console keeps only its hash."
+          },
+          "notice": {
+            "type": "string",
+            "description": "A reminder that the secret is not shown again."
+          }
+        },
+        "required": [
+          "token",
+          "secret",
+          "notice"
+        ]
+      },
       "Policy": {
         "type": "object",
         "description": "A named set of settings and conditions, applied where it is assigned.",
@@ -740,6 +1330,75 @@
             ]
           }
         }
+      },
+      "ResolvedSetting": {
+        "type": "object",
+        "description": "One setting as it applies to a device, and where it comes from.",
+        "properties": {
+          "key": {
+            "type": "string",
+            "description": "The setting's catalog key."
+          },
+          "value": {
+            "description": "Its value."
+          },
+          "source": {
+            "$ref": "#/components/schemas/SettingSource"
+          },
+          "enforced": {
+            "type": "boolean",
+            "description": "A narrower scope cannot change it."
+          }
+        },
+        "required": [
+          "key",
+          "value",
+          "source",
+          "enforced"
+        ]
+      },
+      "RingProgress": {
+        "type": "object",
+        "description": "How far one wave of the active run is. The field names start with a capital, unlike the rest of the API.",
+        "properties": {
+          "Total": {
+            "type": "integer",
+            "description": "Devices in the wave so far."
+          },
+          "OnTarget": {
+            "type": "integer",
+            "description": "Of those that are there, how many run the target."
+          },
+          "Healthy": {
+            "type": "integer",
+            "description": "Of those on target, how many are healthy."
+          },
+          "Broken": {
+            "type": "integer",
+            "description": "Of those on target, how many report an error or are stuck."
+          },
+          "Absent": {
+            "type": "integer",
+            "description": "Devices not seen for a while; they do not count against the wave."
+          },
+          "Released": {
+            "type": "integer",
+            "description": "How many of the group have been given the target so far."
+          },
+          "GroupTotal": {
+            "type": "integer",
+            "description": "How many devices the group has."
+          }
+        },
+        "required": [
+          "Total",
+          "OnTarget",
+          "Healthy",
+          "Broken",
+          "Absent",
+          "Released",
+          "GroupTotal"
+        ]
       },
       "RolloutPlan": {
         "type": "object",
@@ -829,6 +1488,108 @@
           "target"
         ]
       },
+      "RolloutState": {
+        "type": "object",
+        "description": "A rollout run.",
+        "properties": {
+          "target": {
+            "type": "string",
+            "description": "The revision every wave moves to."
+          },
+          "rings": {
+            "type": "array",
+            "description": "The run's own waves, fixed when it started.",
+            "items": {
+              "$ref": "#/components/schemas/RolloutRing"
+            }
+          },
+          "changeId": {
+            "type": "string",
+            "description": "The change request the run delivers, when it delivers one."
+          },
+          "changeTitle": {
+            "type": "string",
+            "description": "That change request's title."
+          },
+          "ring": {
+            "type": "integer",
+            "description": "The wave it is on, counted from 0."
+          },
+          "promotedAt": {
+            "type": "object",
+            "description": "Per wave, by number: when it was given the target.",
+            "additionalProperties": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          "convergedAt": {
+            "type": "object",
+            "description": "Per wave: when all its devices first ran the target.",
+            "additionalProperties": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          "approvedAt": {
+            "type": "object",
+            "description": "Per wave: when somebody approved it.",
+            "additionalProperties": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          "buildRequestedAt": {
+            "type": "object",
+            "description": "Per wave: when its build was asked for.",
+            "additionalProperties": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          "status": {
+            "type": "string",
+            "description": "Where the run is.",
+            "enum": [
+              "active",
+              "paused",
+              "halted",
+              "completed",
+              "cancelled"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "description": "Why it halted."
+          },
+          "waiting": {
+            "type": "string",
+            "description": "What it waits for, in words; empty once it has ended."
+          },
+          "waitingSince": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Since when it has waited for that."
+          },
+          "started": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When it started."
+          },
+          "updated": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When it last changed."
+          }
+        },
+        "required": [
+          "target",
+          "ring",
+          "status",
+          "started",
+          "updated"
+        ]
+      },
       "RolloutTick": {
         "type": "object",
         "description": "What one step of the rollout engine did.",
@@ -865,6 +1626,29 @@
           }
         }
       },
+      "RolloutView": {
+        "type": "object",
+        "description": "The rollout as it stands.",
+        "properties": {
+          "active": {
+            "type": "boolean",
+            "description": "A run is going."
+          },
+          "state": {
+            "$ref": "#/components/schemas/RolloutState"
+          },
+          "rings": {
+            "type": "array",
+            "description": "Progress per wave of the run.",
+            "items": {
+              "$ref": "#/components/schemas/RingProgress"
+            }
+          }
+        },
+        "required": [
+          "active"
+        ]
+      },
       "SecretRef": {
         "type": "object",
         "required": [
@@ -876,7 +1660,8 @@
             "description": "The reference a setting uses. Never a value."
           },
           "description": {
-            "type": "string"
+            "type": "string",
+            "description": "What the secret is for."
           }
         }
       },
@@ -924,6 +1709,23 @@
           "key"
         ]
       },
+      "SettingSource": {
+        "type": "object",
+        "description": "Where a setting comes from.",
+        "properties": {
+          "scope": {
+            "type": "string",
+            "description": "The scope that sets it: \"org\", \"group:<name>\" or \"device:<tag>\"."
+          },
+          "policy": {
+            "type": "string",
+            "description": "The policy that sets it there, when a policy does."
+          }
+        },
+        "required": [
+          "scope"
+        ]
+      },
       "Status": {
         "type": "object",
         "description": "The answer to a write that has nothing to return but its own success.",
@@ -934,6 +1736,94 @@
           "status": {
             "type": "string",
             "description": "What happened, e.g. \"enrolled\", \"removed\", \"applied\"."
+          }
+        }
+      },
+      "Token": {
+        "type": "object",
+        "description": "An API token, without its secret.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Its id."
+          },
+          "name": {
+            "type": "string",
+            "description": "Its label."
+          },
+          "kind": {
+            "type": "string",
+            "description": "What it is.",
+            "enum": [
+              "personal",
+              "service",
+              "device",
+              "station"
+            ]
+          },
+          "subject": {
+            "type": "string",
+            "description": "Who it acts as."
+          },
+          "groups": {
+            "type": "array",
+            "description": "The groups it carries.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "ceiling": {
+            "type": "string",
+            "description": "The highest role it may use. Empty is no limit beyond its holder's."
+          },
+          "created": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When it was made."
+          },
+          "expires": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When it stops working."
+          },
+          "lastUsed": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When it was last used."
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "kind",
+          "subject",
+          "created",
+          "expires"
+        ]
+      },
+      "Usage": {
+        "type": "object",
+        "description": "What the device last measured of its own load.",
+        "properties": {
+          "cpuPct": {
+            "type": "integer",
+            "description": "Processor use, in percent."
+          },
+          "memUsedMB": {
+            "type": "integer",
+            "description": "Memory in use, in MB."
+          },
+          "memTotalMB": {
+            "type": "integer",
+            "description": "Memory, in MB."
+          },
+          "diskUsedGB": {
+            "type": "integer",
+            "description": "Disk in use, in GB."
+          },
+          "diskTotalGB": {
+            "type": "integer",
+            "description": "Disk, in GB."
           }
         }
       }
@@ -1835,7 +2725,17 @@
         "summary": "List change requests",
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ChangeRequest"
+                  }
+                }
+              }
+            }
           },
           "401": {
             "description": "No credential, or one that does not verify.",
@@ -1897,7 +2797,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Status"
+                  "$ref": "#/components/schemas/ChangeRequest"
                 }
               }
             }
@@ -1995,7 +2895,14 @@
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChangeRequest"
+                }
+              }
+            }
           },
           "401": {
             "description": "No credential, or one that does not verify.",
@@ -2054,7 +2961,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Status"
+                  "$ref": "#/components/schemas/ChangeRequest"
                 }
               }
             }
@@ -2152,7 +3059,14 @@
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "The change as a unified diff of fleet.json.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "401": {
             "description": "No credential, or one that does not verify.",
@@ -2323,7 +3237,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Status"
+                  "$ref": "#/components/schemas/ChangeRequest"
                 }
               }
             }
@@ -2425,7 +3339,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Status"
+                  "$ref": "#/components/schemas/ChangeRequest"
                 }
               }
             }
@@ -2603,26 +3517,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": {
-                      "type": "string"
-                    },
-                    "tag": {
-                      "type": "string"
-                    },
-                    "credential": {
-                      "type": "string",
-                      "description": "One-time device credential. Shown once and never again; store it before leaving this response."
-                    },
-                    "notice": {
-                      "type": "string"
-                    },
-                    "credentialError": {
-                      "type": "string",
-                      "description": "Present when the device was enrolled but its credential could not be issued - re-issue before it checks in."
-                    }
-                  }
+                  "$ref": "#/components/schemas/DeviceWithCredential"
                 }
               }
             }
@@ -2820,7 +3715,14 @@
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceDetail"
+                }
+              }
+            }
           },
           "401": {
             "description": "No credential, or one that does not verify.",
@@ -3104,7 +4006,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Status"
+                  "$ref": "#/components/schemas/IntentArmed"
                 }
               }
             }
@@ -3307,7 +4209,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Status"
+                  "$ref": "#/components/schemas/DeviceWithCredential"
                 }
               }
             }
@@ -3518,6 +4420,16 @@
               "X-Total-Count": {
                 "$ref": "#/components/headers/XTotalCount"
               }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DirectoryGroup"
+                  }
+                }
+              }
             }
           },
           "401": {
@@ -3569,7 +4481,14 @@
         "description": "Self-contained JSON bundle for a period (?from=&to=, RFC 3339; default last 30 days): configuration commits, change requests with authorship, rollout promotions, and the controls in force. Org-wide viewer.",
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Evidence"
+                }
+              }
+            }
           },
           "401": {
             "description": "No credential, or one that does not verify.",
@@ -3624,7 +4543,14 @@
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceFacts"
+                }
+              }
+            }
           },
           "401": {
             "description": "No credential, or one that does not verify.",
@@ -3886,7 +4812,14 @@
         "summary": "Full fleet document",
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Fleet"
+                }
+              }
+            }
           },
           "401": {
             "description": "No credential, or one that does not verify.",
@@ -4756,7 +5689,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Status"
+                  "$ref": "#/components/schemas/RolloutState"
                 }
               }
             }
@@ -4847,7 +5780,14 @@
         "summary": "Rollout state and ring convergence",
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RolloutView"
+                }
+              }
+            }
           },
           "401": {
             "description": "No credential, or one that does not verify.",
@@ -4909,7 +5849,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Status"
+                  "$ref": "#/components/schemas/RolloutState"
                 }
               }
             }
@@ -5275,7 +6215,23 @@
         },
         "responses": {
           "201": {
-            "description": "Created"
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "name"
+                  ],
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "description": "The name that was registered."
+                    }
+                  }
+                }
+              }
+            }
           },
           "400": {
             "description": "The request could not be used: malformed body, unknown key, wrong-typed value, or a reference that resolves to nothing.",
@@ -5688,7 +6644,17 @@
         "summary": "Observed status of every device",
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DeviceStatus"
+                  }
+                }
+              }
+            }
           },
           "401": {
             "description": "No credential, or one that does not verify.",
@@ -5743,7 +6709,14 @@
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceStatus"
+                }
+              }
+            }
           },
           "401": {
             "description": "No credential, or one that does not verify.",
@@ -5793,7 +6766,17 @@
         "summary": "List your API tokens",
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Token"
+                  }
+                }
+              }
+            }
           },
           "401": {
             "description": "No credential, or one that does not verify.",
@@ -5851,7 +6834,14 @@
         },
         "responses": {
           "201": {
-            "description": "Created"
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NewTokenAnswer"
+                }
+              }
+            }
           },
           "400": {
             "description": "The request could not be used: malformed body, unknown key, wrong-typed value, or a reference that resolves to nothing.",

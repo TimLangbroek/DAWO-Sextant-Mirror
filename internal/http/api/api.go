@@ -269,6 +269,9 @@ func settingErr(err error) error {
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
+	if answeredWith != nil {
+		answeredWith(status, v)
+	}
 	w.Header().Set("Content-Type", "application/json")
 	// Several API responses carry one-shot secrets (tokens, device
 	// credentials) that must never be cached - mirrors web.render.
@@ -310,6 +313,11 @@ func emptyList(v any) any {
 	}
 	return v
 }
+
+// answeredWith, when a test sets it, is told what each answer is made of,
+// so the contract test can hold the documented answers to the values the
+// handlers write. Nil in a running console.
+var answeredWith func(status int, v any)
 
 // decodedInto, when a test sets it, is told what each request body is read
 // into, so the contract test can hold the spec's request bodies to the
