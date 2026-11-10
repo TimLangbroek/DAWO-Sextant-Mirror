@@ -448,6 +448,13 @@ func (s *ChangeService) finishSubmit(ctx context.Context, id string, gateErr err
 	return cr, s.store.Put(ctx, cr)
 }
 
+// ErrChangeOutdated is a ready change that no longer merges: a change that
+// landed after it was made edits the same lines. Merging again conflicts
+// again, and a ready change does not go back through the gate, so the way
+// forward is a new change made on the current settings (#75).
+var ErrChangeOutdated = errors.New("this change edits the same lines as a change that merged after it was made, " +
+	"so it can no longer merge: abandon it and make the edit again on the current settings")
+
 // Merge lands a ready change on main with a merge commit (audit trail),
 // removes its worktree and branch, and refreshes the config snapshot.
 // Merged is reachable ONLY here: a status update can never fake a merge.
@@ -489,6 +496,9 @@ func (s *ChangeService) Merge(ctx context.Context, id string, a ports.Author) (c
 			return fmt.Errorf("read pre-merge head: %w", err)
 		}
 		if err := s.repo.MergeNoFF(ctx, cr.Branch, fmt.Sprintf("merge change %s: %s", cr.ID, cr.Title), a); err != nil {
+			if errors.Is(err, ports.ErrConflict) {
+				return fmt.Errorf("%w (%w)", ErrChangeOutdated, err)
+			}
 			return err
 		}
 		if err := s.validate(ctx, s.repo.Dir(), s.gateRef(cr), gateScope(s.repo, cr.GateHosts())); err != nil {

@@ -670,3 +670,38 @@ func TestAnEmptySubmitNotifiesItsRealReason(t *testing.T) {
 		t.Errorf("the bell does not say what to do: %q", failed.Body)
 	}
 }
+
+// #75: two changes edit the same line and the first merges. The second used
+// to answer "Another change landed first. Reload and try again", which
+// cannot work: merging again conflicts again, and a ready change cannot go
+// back through the gate. The refusal now says what does work.
+func TestAChangeThatConflictsSaysToMakeItAgain(t *testing.T) {
+	cs, _, _ := newChangeStack(t, nil)
+	ctx := context.Background()
+	for id, on := range map[string]bool{"first": true, "second": false} {
+		if _, err := cs.Open(ctx, id, id, ports.Author{Name: "ada", Subject: "s"}); err != nil {
+			t.Fatal(err)
+		}
+		if err := cs.Edit(ctx, id, fleet.SetScopeSetting("group:pilot", "apps.office", on),
+			"edit", ports.Author{}); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := cs.Submit(ctx, id); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := cs.Merge(ctx, "first", ports.Author{Name: "bob", Subject: "s2"}); err != nil {
+		t.Fatal(err)
+	}
+	_, err := cs.Merge(ctx, "second", ports.Author{Name: "bob", Subject: "s2"})
+	if !errors.Is(err, ErrChangeOutdated) {
+		t.Fatalf("merging a change that conflicts: %v, want ErrChangeOutdated", err)
+	}
+	// Still a conflict for whoever only knows that one (the API's 409).
+	if !errors.Is(err, ports.ErrConflict) {
+		t.Fatalf("no longer a conflict: %v", err)
+	}
+	if !strings.Contains(err.Error(), "abandon it and make the edit again") {
+		t.Fatalf("the refusal does not say what works: %v", err)
+	}
+}

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"testing"
 
+	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/app"
 	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/ports"
 )
 
@@ -87,6 +88,10 @@ func TestClassifyActionError(t *testing.T) {
 			http.StatusUnprocessableEntity, "bad option 'foo'", gate.Detail},
 		{"write race", fmt.Errorf("wrap: %w", ports.ErrConflict),
 			http.StatusConflict, "Another change landed first. Reload and try again.", ""},
+		{"outdated change", fmt.Errorf("%w (%w)", app.ErrChangeOutdated, ports.ErrConflict),
+			http.StatusConflict, "This change edits the same lines as a change that merged after it was made, " +
+				"so it can no longer merge. Abandon it and make the edit again.",
+			app.ErrChangeOutdated.Error() + " (" + ports.ErrConflict.Error() + ")"},
 		{"dependency down", fmt.Errorf("wrap: %w", ports.ErrUnavailable),
 			http.StatusServiceUnavailable, "A dependency is temporarily unavailable. Try again shortly.", ""},
 		{"plain validation", errors.New("name already taken"),

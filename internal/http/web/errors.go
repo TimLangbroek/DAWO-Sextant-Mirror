@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/app"
 	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/domain/identity"
 	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/ports"
 )
@@ -89,6 +90,11 @@ func classifyActionError(err error) (status int, msg, detail string) {
 		// The gate dumps a multi-line nix trace; show the actionable line and
 		// keep the full trace behind a "technical detail" fold.
 		return http.StatusUnprocessableEntity, ports.DistillGateError(verr.Detail), verr.Detail
+	case errors.Is(err, app.ErrChangeOutdated):
+		// Before the generic race below, whose "try again" cannot work here
+		// (#75): the git detail goes behind the fold.
+		return http.StatusConflict, "This change edits the same lines as a change that merged after it was made, " +
+			"so it can no longer merge. Abandon it and make the edit again.", err.Error()
 	case errors.Is(err, ports.ErrConflict):
 		return http.StatusConflict, "Another change landed first. Reload and try again.", ""
 	case errors.Is(err, ports.ErrUnavailable):
