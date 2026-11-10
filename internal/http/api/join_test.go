@@ -27,12 +27,28 @@ func (f *fakeJoiner) Join(_ context.Context, req app.JoinRequest) (app.Joined, e
 	return f.out, f.err
 }
 
-func joinServer(f *fakeJoiner) http.Handler {
+func joinServer(f *fakeJoiner) http.Handler { return joinServerWrite(f, true) }
+
+func joinServerWrite(f *fakeJoiner, write bool) http.Handler {
 	mux := http.NewServeMux()
 	NewJoin(f, func() (string, string) { return "https://console.example.test", "stable" },
-		func(*http.Request) string { return "192.0.2.7" },
+		func(*http.Request) string { return "192.0.2.7" }, write,
 		slog.New(slog.NewTextHandler(&f.logs, nil))).Routes(mux)
 	return mux
+}
+
+// A join commits a device, so a read-only console refuses it in words, and
+// before the code is spent.
+func TestJoinOnAReadOnlyConsole(t *testing.T) {
+	f := &fakeJoiner{out: app.Joined{Tag: "laptop-3abcde", Credential: "sxt_x"}}
+	code, out := postJoin(t, joinServerWrite(f, false), `{"code":"K7QM4XWD","serial":"PF3ABCDE"}`)
+	msg, _ := out["error"].(string)
+	if code != http.StatusConflict || !strings.Contains(msg, "read-only") || !strings.Contains(msg, "not used") {
+		t.Fatalf("%d %q", code, msg)
+	}
+	if f.got != (app.JoinRequest{}) {
+		t.Fatal("a read-only console asked the service to spend the code")
+	}
 }
 
 func postJoin(t *testing.T, h http.Handler, body string) (int, map[string]any) {

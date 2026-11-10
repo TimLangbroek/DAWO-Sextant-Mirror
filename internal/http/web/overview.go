@@ -189,7 +189,7 @@ func (s *Server) gettingStarted(v view) []startStep {
 	}
 	f := s.svc.Config.Fleet()
 	laptop := ""
-	if s.svc.Joins != nil {
+	if s.svc.Joins != nil && s.write {
 		laptop = "/devices/add"
 	}
 	steps := []startStep{

@@ -127,7 +127,8 @@ has sign-in's rate limit (2 per second per address) and logs every refused
 code with its address. What a code buys is a NEW provisional device in the
 code's group: a laptop whose serial belongs to a working device is refused,
 because a serial is not a secret, and only a code made for one device
-(Re-enrol) rotates that device's credential.
+(Re-enrol) rotates that device's credential. A read-only console refuses
+the exchange before it looks at the code, like every other write.
 
 **R2 - CLOSED 2026-08-07, and it was worse than this said.** The shared
 bridge token was accepted for *any* tag, including tags that already held a

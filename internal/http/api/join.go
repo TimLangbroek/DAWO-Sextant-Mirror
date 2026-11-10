@@ -33,16 +33,19 @@ type JoinAPI struct {
 	joins   Joiner
 	console func() (url, branch string)
 	addr    func(*http.Request) string
+	write   bool
 	log     *slog.Logger
 }
 
 // NewJoin serves the exchange. console says where the laptop goes next: the
-// console's public address and the branch devices follow.
-func NewJoin(joins Joiner, console func() (url, branch string), addr func(*http.Request) string, log *slog.Logger) *JoinAPI {
+// console's public address and the branch devices follow. write is the
+// console's write mode: a join commits a device, so a read-only console
+// refuses it like every other change.
+func NewJoin(joins Joiner, console func() (url, branch string), addr func(*http.Request) string, write bool, log *slog.Logger) *JoinAPI {
 	if log == nil {
 		log = slog.Default()
 	}
-	return &JoinAPI{joins: joins, console: console, addr: addr, log: log}
+	return &JoinAPI{joins: joins, console: console, addr: addr, write: write, log: log}
 }
 
 // Routes mounts the one route.
@@ -68,6 +71,15 @@ func (a *JoinAPI) join(w http.ResponseWriter, r *http.Request) {
 	// the server's usual write deadline would cut it off. The agent waits as
 	// long (agent/src/join.rs).
 	_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(JoinWait))
+	// Before the code is looked at, so it keeps its use. The web forms and
+	// /api/v1 already refused every change on a read-only console; this
+	// route did not, and a code made before the switch still added a device
+	// for a day.
+	if !a.write {
+		writeJSON(w, http.StatusConflict, map[string]string{"error": "this console is read-only, so it adds no laptops now. " +
+			"Your code was not used; ask whoever runs the console."})
+		return
+	}
 	var in joinBody
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 16<<10)).Decode(&in); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "the console could not read the request: " + err.Error()})

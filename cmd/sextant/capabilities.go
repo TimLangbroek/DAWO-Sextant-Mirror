@@ -673,7 +673,7 @@ func (d *deps) joinCapability() capability.Capability {
 		RoutesFn: func(mux *http.ServeMux) {
 			inner := http.NewServeMux()
 			api.NewJoin(d.joins, d.joinConsole,
-				func(r *http.Request) string { return mw.ClientIP(r, d.cfg.TrustProxy) }, d.log).Routes(inner)
+				func(r *http.Request) string { return mw.ClientIP(r, d.cfg.TrustProxy) }, d.cfg.Write, d.log).Routes(inner)
 			mux.Handle("POST /api/join", mw.RateLimit(rate.Limit(2), 10, d.cfg.TrustProxy)(inner))
 		},
 	}

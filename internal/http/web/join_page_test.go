@@ -91,6 +91,11 @@ func joinConsole(t *testing.T, withJoins bool) (*httptest.Server, *app.JoinServi
 
 func joinConsoleAs(t *testing.T, withJoins bool, seed string, sessions web.Sessions) (*httptest.Server, *app.JoinService, *memCodes, *app.ConfigService) {
 	t.Helper()
+	return joinConsoleWrite(t, withJoins, seed, sessions, true)
+}
+
+func joinConsoleWrite(t *testing.T, withJoins bool, seed string, sessions web.Sessions, write bool) (*httptest.Server, *app.JoinService, *memCodes, *app.ConfigService) {
+	t.Helper()
 	dir := t.TempDir()
 	run := func(args ...string) {
 		if out, err := exec.Command("git", append([]string{"-C", dir}, args...)...).CombinedOutput(); err != nil {
@@ -124,7 +129,7 @@ func joinConsoleAs(t *testing.T, withJoins bool, seed string, sessions web.Sessi
 		svc.DevCreds, svc.Joins = creds, joins
 		svc.JoinConsole = func() (string, string) { return "https://console.example.test", "main" }
 	}
-	srv, err := web.New(svc, sessions, true, nil, nil, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	srv, err := web.New(svc, sessions, write, nil, nil, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -390,6 +395,14 @@ func TestAddALaptopIsOfferedToWhoeverCanUseIt(t *testing.T) {
 	ts, _, _, _ = joinConsoleAs(t, true, joinScopedSeed, scopedSessions{alpha})
 	if !strings.Contains(get(ts, "/devices"), offer) {
 		t.Error("alpha's editor is not offered Add a laptop")
+	}
+
+	// A read-only console adds no laptops, so it does not offer to.
+	ts, _, _, _ = joinConsoleWrite(t, true, `{"version": 3, "groups": {"pilot": {}}, "devices": {}}`, web.DevSessions{}, false)
+	for _, path := range []string{"/", "/devices"} {
+		if strings.Contains(get(ts, path), offer) {
+			t.Errorf("%s offers Add a laptop on a read-only console", path)
+		}
 	}
 
 	ts, _, _, _ = joinConsoleAs(t, true, `{"version": 3, "groups": {"pilot": {}}, "devices": {}}`, web.DevSessions{})
