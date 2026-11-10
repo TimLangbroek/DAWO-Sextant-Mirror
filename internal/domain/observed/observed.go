@@ -184,6 +184,11 @@ const (
 	// Diagnostics collection outcomes (design 0010).
 	AckDiagnostics       = "diagnostics"        // bundle collected; upload follows
 	AckDiagnosticsFailed = "diagnostics-failed" // collection failed on the device
+
+	// Local administrator password outcomes (design 0017). Rotated means
+	// the new password is set on the device and waiting to be escrowed.
+	AckAdminRotated      = "admin-rotated"
+	AckAdminRotateFailed = "admin-rotate-failed"
 )
 
 // Validate rejects malformed check-ins before they reach storage.
@@ -203,7 +208,7 @@ func (c CheckIn) Validate() error {
 	switch c.Ack {
 	case "", AckLock, AckWipe, AckWipeRefused, AckWipeFailed, AckRebooted,
 		AckSBEnrolled, AckSBEnrollFailed, AckTPM2Enrolled, AckTPM2EnrollFailed,
-		AckDiagnostics, AckDiagnosticsFailed:
+		AckDiagnostics, AckDiagnosticsFailed, AckAdminRotated, AckAdminRotateFailed:
 	default:
 		return fmt.Errorf("unknown ack %q", c.Ack)
 	}

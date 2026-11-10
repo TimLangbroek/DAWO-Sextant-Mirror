@@ -82,11 +82,11 @@ func newSecretConsole(t *testing.T, dev bool) (*httptest.Server, *memDevSecrets)
 		t.Fatal(err)
 	}
 	_ = dev
-	return newSecretConsoleWith(t, secrets), store
+	return newSecretConsoleWith(t, secrets, seedStationFleet), store
 }
 
-// newSecretConsoleWith is the station-fleet console over a given secrets service.
-func newSecretConsoleWith(t *testing.T, secrets *app.DeviceSecretsService) *httptest.Server {
+// newSecretConsoleWith is a console over the given fleet and secrets service.
+func newSecretConsoleWith(t *testing.T, secrets *app.DeviceSecretsService, fleetDoc string) *httptest.Server {
 	t.Helper()
 	dir := t.TempDir()
 	run := func(args ...string) {
@@ -95,7 +95,7 @@ func newSecretConsoleWith(t *testing.T, secrets *app.DeviceSecretsService) *http
 		}
 	}
 	run("init", "-q", "-b", "main")
-	_ = os.WriteFile(filepath.Join(dir, "fleet.json"), []byte(seedStationFleet), 0o644)
+	_ = os.WriteFile(filepath.Join(dir, "fleet.json"), []byte(fleetDoc), 0o644)
 	run("add", ".")
 	run("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "seed")
 	repo, err := git.Open(dir, "")

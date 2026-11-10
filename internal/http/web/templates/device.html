@@ -345,6 +345,14 @@
               <input type="hidden" name="csrf" value="{{$.CSRF}}">
               <button type="submit" class="quiet !py-1 !px-2 shrink-0"><span class="material-symbols-outlined msz-16">visibility</span>{{$.L.T "device.secret_reveal"}}</button>
             </form>
+            {{if eq (printf "%s" .Kind) "admin"}}
+            <!-- Design 0017: the device draws a new password and escrows it;
+                 the old one stops working when the new one is set. -->
+            <form method="post" action="/devices/{{$.Tag}}/intent" class="!m-0 inline" data-confirm="{{$.L.T "device.admin_rotate_confirm"}}">
+              <input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="intent" value="rotate-admin">
+              <button type="submit" class="quiet !py-1 !px-2 shrink-0" data-rotate-admin><span class="material-symbols-outlined msz-16">autorenew</span>{{$.L.T "device.admin_rotate"}}</button>
+            </form>
+            {{end}}
           </div>
           {{end}}
         </div>

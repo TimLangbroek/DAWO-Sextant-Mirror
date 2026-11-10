@@ -204,6 +204,10 @@ type checkinBody struct {
 	// device-secret store and confirms with the X-Recovery-Key-Stored
 	// response header; only then does the device delete its copy.
 	RecoveryKey string `json:"recoveryKey,omitempty"`
+	// AdminPassword is a one-shot local administrator password the device
+	// drew for itself (design 0017). Same contract as RecoveryKey, confirmed
+	// with X-Admin-Password-Stored.
+	AdminPassword string `json:"adminPassword,omitempty"`
 }
 
 // isWipeAck reports whether an ack reports a wipe outcome (executed, refused
@@ -280,23 +284,18 @@ func (c *CheckinAPI) handleCheckin(w http.ResponseWriter, r *http.Request) {
 	// failing store means retry-next-beat, never silent loss. The key is
 	// never logged. An oversized value cannot be a systemd-cryptenroll
 	// recovery phrase and is refused outright.
-	if in.RecoveryKey != "" {
-		const maxRecoveryKey = 256
-		switch {
-		case len(in.RecoveryKey) > maxRecoveryKey:
-			http.Error(w, "recovery key exceeds the expected size", http.StatusBadRequest)
-			return
-		case c.secrets == nil || !c.secrets.Enabled():
-			c.logger().Warn("device reported a recovery key but no secret store is configured; device keeps it and retries", "tag", in.Tag)
-		default:
-			if err := c.secrets.Store(r.Context(), in.Tag, domsecret.LUKS, in.RecoveryKey, "device:"+in.Tag); err != nil {
-				c.logger().Error("failed to seal device recovery key", "tag", in.Tag, "err", err)
-			} else {
-				w.Header().Set("X-Recovery-Key-Stored", "1")
-				c.logger().Info("sealed device recovery key", "tag", in.Tag)
-			}
-		}
+	// The administrator password (design 0017) takes the same path.
+	const maxEscrowed = 256
+	if len(in.RecoveryKey) > maxEscrowed {
+		http.Error(w, "recovery key exceeds the expected size", http.StatusBadRequest)
+		return
 	}
+	if len(in.AdminPassword) > maxEscrowed {
+		http.Error(w, "administrator password exceeds the expected size", http.StatusBadRequest)
+		return
+	}
+	c.escrow(w, r, in.Tag, domsecret.LUKS, in.RecoveryKey, "X-Recovery-Key-Stored", "recovery key")
+	c.escrow(w, r, in.Tag, domsecret.Admin, in.AdminPassword, "X-Admin-Password-Stored", "administrator password")
 
 	// Advance the provisioning wizard from what this beat reported (posture,
 	// executor ack). Best-effort by design: the device's report is already
@@ -375,4 +374,24 @@ func (c *CheckinAPI) noteBridgeUse(tag string) {
 	c.bridge.warn(c.logger(), c.now, "check-in accepted on the shared bridge token", "tag", tag,
 		"this device has no credential of its own; the token can speak for any such device",
 		"issue a device credential, then remove the shared token")
+}
+
+// escrow seals one device-reported secret and confirms it with header. The
+// device deletes its copy only on that header, so a missing or failing store
+// means it tries again next beat, never that the secret is lost. The value is
+// never logged.
+func (c *CheckinAPI) escrow(w http.ResponseWriter, r *http.Request, tag string, kind domsecret.Kind, value, header, what string) {
+	if value == "" {
+		return
+	}
+	if c.secrets == nil || !c.secrets.Enabled() {
+		c.logger().Warn("device reported a "+what+" but no secret store is configured; device keeps it and retries", "tag", tag)
+		return
+	}
+	if err := c.secrets.Store(r.Context(), tag, kind, value, "device:"+tag); err != nil {
+		c.logger().Error("failed to seal device "+what, "tag", tag, "err", err)
+		return
+	}
+	w.Header().Set(header, "1")
+	c.logger().Info("sealed device "+what, "tag", tag)
 }

@@ -199,6 +199,10 @@ const (
 	// power-cycle it. Non-destructive; the agent reboots once and the intent
 	// clears (the next beat carries none).
 	IntentReboot = "reboot"
+	// IntentRotateAdmin: draw a new local administrator password on the
+	// device and escrow it (design 0017). The old one stops working when
+	// the new one is set, so the console then holds the only valid copy.
+	IntentRotateAdmin = "rotate-admin"
 )
 
 // Device is one managed machine, keyed by its asset tag.

@@ -586,31 +586,10 @@ func (d *deps) observedCapability() capability.Capability {
 					return d.imaging.WizardIntent(ctx, tag)
 				}).
 				WithProvision(func(ctx context.Context, c observed.CheckIn) error {
-					// A confirmed reboot retires its own intent: the executor's
-					// boot-id guard prevents a loop within one boot, but the
-					// standing intent would re-trigger on the next one. The
-					// clear is structural (intent is runtime data, not build
-					// input) and rides the check-in that carried the ack.
-					if c.Ack == observed.AckRebooted &&
-						d.svc.Fleet().Devices[c.Tag].Intent == fleet.IntentReboot {
-						if err := d.svc.ApplyStructural(ctx,
-							fleet.ClearDeviceIntent(c.Tag),
-							"intent: reboot completed on "+c.Tag,
-							ports.Author{Name: "sextant-agent", Email: "agent@sextant"}); err != nil {
-							d.log.Warn("could not clear completed reboot intent", "tag", c.Tag, "err", err)
-						}
-					}
-					// Same structural clear for a completed (or failed)
-					// diagnostics collection: the outcome is acked, the
-					// standing intent must not re-trigger it next beat.
-					if (c.Ack == observed.AckDiagnostics || c.Ack == observed.AckDiagnosticsFailed) &&
-						d.svc.Fleet().Devices[c.Tag].Intent == fleet.IntentDiagnostics {
-						if err := d.svc.ApplyStructural(ctx,
-							fleet.ClearDeviceIntent(c.Tag),
-							"intent: diagnostics completed on "+c.Tag,
-							ports.Author{Name: "sextant-agent", Email: "agent@sextant"}); err != nil {
-							d.log.Warn("could not clear completed diagnostics intent", "tag", c.Tag, "err", err)
-						}
+					// A one-shot intent the device reports done retires itself,
+					// or it would run again next beat (see ClearCompletedIntent).
+					if err := d.svc.ClearCompletedIntent(ctx, c); err != nil {
+						d.log.Warn("could not clear a completed intent", "tag", c.Tag, "ack", c.Ack, "err", err)
 					}
 					if d.imaging == nil {
 						return nil

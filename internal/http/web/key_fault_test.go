@@ -38,13 +38,13 @@ func TestEveryPageSaysTheKeyDoesNotOpenTheSecrets(t *testing.T) {
 
 	right := app.NewDeviceSecretsService(store, sealer(1), clockNow{}, "")
 	right.RunKeyCheck(ctx, quiet)
-	if _, page := getPage(t, newSecretConsoleWith(t, right), "/devices"); strings.Contains(page, "data-key-fault") {
+	if _, page := getPage(t, newSecretConsoleWith(t, right, seedStationFleet), "/devices"); strings.Contains(page, "data-key-fault") {
 		t.Error("a console whose key opens its secrets says it does not")
 	}
 
 	wrong := app.NewDeviceSecretsService(store, sealer(2), clockNow{}, "")
 	wrong.RunKeyCheck(ctx, quiet)
-	_, page := getPage(t, newSecretConsoleWith(t, wrong), "/devices")
+	_, page := getPage(t, newSecretConsoleWith(t, wrong, seedStationFleet), "/devices")
 	for _, want := range []string{"data-key-fault", "cannot open: 1 / 1.", sealer(1).PrimaryKeyID()} {
 		if !strings.Contains(page, want) {
 			t.Errorf("a console whose key does not open its secrets does not show %q", want)
