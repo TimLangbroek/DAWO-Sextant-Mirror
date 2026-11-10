@@ -226,3 +226,20 @@ func stationRowHTML(t *testing.T, body, tag string) string {
 	}
 	return body[start : i+end]
 }
+
+// The organisation page offers Stations only when the page can open: without
+// the database it answers 503, after the click.
+func TestTheStationsTileNeedsTheDatabase(t *testing.T) {
+	resp, err := client().Get(consoleWithWrite(t, true).URL + "/org")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if strings.Contains(string(body), `href="/station"`) {
+		t.Error("the organisation page offers Stations on a console without a database")
+	}
+	if !strings.Contains(getBody(t, newStationListConsole(t, &memDisc{sets: map[string][]discovery.Discovered{}}, nil).URL+"/org"), `href="/station"`) {
+		t.Error("the organisation page does not offer Stations when it works")
+	}
+}
