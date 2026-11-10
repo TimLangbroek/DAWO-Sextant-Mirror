@@ -110,7 +110,7 @@ impl Config {
 /// credential to a remote host in cleartext. The host is the substring after
 /// "http://" up to the next '/' or ':' (bracketed for IPv6), and must be
 /// exactly "localhost", "127.0.0.1" or "[::1]" - not merely start with one.
-fn is_loopback_http(url: &str) -> bool {
+pub(crate) fn is_loopback_http(url: &str) -> bool {
     let Some(rest) = url.strip_prefix("http://") else {
         return false;
     };

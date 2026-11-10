@@ -6,11 +6,16 @@
 //!
 //! Exit codes: 0 ok/once, 2 config error, 3 retired (permanent - the
 //! systemd unit must not restart on this).
+//!
+//! One subcommand, `join <console-url> <code>`, run once as root to get the
+//! credential in the first place (design 0015, join.rs). It is the only
+//! thing this binary writes outside its own state.
 
 mod action;
 mod client;
 mod collect;
 mod config;
+mod join;
 mod posture;
 
 use client::{CheckIn, Client, Outcome};
@@ -18,7 +23,11 @@ use std::process::ExitCode;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 fn main() -> ExitCode {
-    let once = std::env::args().any(|a| a == "--once");
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    if args.first().map(String::as_str) == Some("join") {
+        return join::run(&args[1..]);
+    }
+    let once = args.iter().any(|a| a == "--once");
     let cfg = match config::Config::from_env() {
         Ok(c) => c,
         Err(e) => {
