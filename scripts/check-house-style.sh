@@ -103,9 +103,11 @@ if bad=$(printf '%s\n' "$added" | grep -n "[$dashes]" || true); [ -n "$bad" ]; t
 fi
 
 # Exclamation marks outside code. "!=" , "!" as Nix/Go negation and shell
-# history are not punctuation, so this looks for one after a word or a space,
-# which is how it appears in prose.
-if bad=$(printf '%s\n' "$added" | grep -nE '[[:alnum:]] ?!(\s|$)' || true); [ -n "$bad" ]; then
+# history are not punctuation, so this looks for one straight after a word,
+# which is how it appears in prose. Not after a space: that is shell negation
+# (`if ! grep`), which every shell script embedded in a Nix module carries,
+# and it refused copying a working module into the tree.
+if bad=$(printf '%s\n' "$added" | grep -nE '[[:alnum:]]!(\s|$)' || true); [ -n "$bad" ]; then
   report "exclamation mark in prose; the sentence has to carry it alone" \
     "$(printf '%s\n' "$bad" | head -5)"
 fi
