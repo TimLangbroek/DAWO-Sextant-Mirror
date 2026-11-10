@@ -6,6 +6,21 @@
   </div>
 </div>
 
+{{with .Start}}
+<section class="mb-4 rounded-lg border border-border-hairline bg-canvas p-5 shadow-sm" aria-labelledby="start-title" data-getting-started>
+  <h2 id="start-title" class="mb-1 text-headline-sm text-ink">{{$.L.T "start.title"}}</h2>
+  <p class="mb-3 text-body-md text-text-tertiary">{{$.L.T "start.subtitle"}}</p>
+  <ol class="m-0 flex list-none flex-col gap-2 p-0">
+    {{range .}}
+    <li class="flex items-start gap-2 text-body-md">
+      {{if .Done}}<span class="material-symbols-outlined msz-18 text-mint-deep" aria-hidden="true">check_circle</span><span class="text-text-tertiary" data-step-done="{{.Label}}">{{$.L.T .Label}}</span>
+      {{else}}<span class="material-symbols-outlined msz-18 text-text-tertiary" aria-hidden="true">radio_button_unchecked</span><span class="text-ink" data-step-open="{{.Label}}">{{if .Href}}<a href="{{.Href}}">{{$.L.T .Label}}</a>{{else}}{{$.L.T .Label}}{{end}}<span class="block text-body-sm text-text-tertiary">{{$.L.T .How}}</span></span>{{end}}
+    </li>
+    {{end}}
+  </ol>
+</section>
+{{end}}
+
 <!-- Quick actions -->
 <div class="mb-4 flex flex-wrap gap-3 border-b border-border-hairline pb-4">
   {{if .CanAddLaptop}}<a href="/devices/add" class="inline-flex items-center gap-2 rounded-md bg-ink px-4 py-2 text-label-md text-canvas transition-opacity hover:opacity-90"><span class="material-symbols-outlined msz-18">add_circle</span>{{.L.T "layout.add_laptop"}}</a>

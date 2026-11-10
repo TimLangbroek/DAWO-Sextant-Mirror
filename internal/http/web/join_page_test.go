@@ -393,8 +393,10 @@ func TestAddALaptopIsOfferedToWhoeverCanUseIt(t *testing.T) {
 	}
 
 	ts, _, _, _ = joinConsoleAs(t, true, `{"version": 3, "groups": {"pilot": {}}, "devices": {}}`, web.DevSessions{})
-	if n := strings.Count(get(ts, "/"), offer); n != 2 {
-		t.Errorf("the overview offers Add a laptop %d times, want the sidebar and the quick action", n)
+	// An empty fleet: the sidebar, the quick action and the getting-started
+	// step that is still open.
+	if n := strings.Count(get(ts, "/"), offer); n != 3 {
+		t.Errorf("the overview offers Add a laptop %d times, want the sidebar, the quick action and the open step", n)
 	}
 	if n := strings.Count(get(ts, "/devices"), offer); n != 2 {
 		t.Errorf("an empty device list offers Add a laptop %d times, want the sidebar and the empty row", n)

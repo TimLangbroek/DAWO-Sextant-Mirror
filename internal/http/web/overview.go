@@ -167,7 +167,44 @@ func (s *Server) overview(w http.ResponseWriter, r *http.Request, v view) {
 		"Status":      status,
 		"ConfigState": configState,
 		"CanEnroll":   v.roleAt("org").Meets(identity.Editor),
+		"Start":       s.gettingStarted(v),
 	}, v)
+}
+
+// startStep is one line of the getting-started list.
+type startStep struct {
+	Label, How string // catalog keys, whole: the key test looks for literals
+	Done       bool
+	Href       string // where to do it, when the console can
+}
+
+// gettingStarted is what a new console still needs before it manages
+// laptops, from facts it already has. A fresh install used to open on an
+// overview of zeros and "No device activity yet." with no way forward.
+// The list is for whoever can do the steps, and it is gone once they are
+// all done: it is a start, not a dashboard.
+func (s *Server) gettingStarted(v view) []startStep {
+	if !v.roleAt("org").Meets(identity.Editor) {
+		return nil
+	}
+	f := s.svc.Config.Fleet()
+	laptop := ""
+	if s.svc.Joins != nil {
+		laptop = "/devices/add"
+	}
+	steps := []startStep{
+		{Label: "start.signin", Done: true},
+		{Label: "start.changes", How: "start.changes_how", Done: s.write},
+		{Label: "start.database", How: "start.database_how", Done: s.svc.Joins != nil},
+		{Label: "start.group", How: "start.group_how", Done: len(f.Groups) > 0, Href: "/groups"},
+		{Label: "start.laptop", How: "start.laptop_how", Done: len(f.Devices) > 0, Href: laptop},
+	}
+	for _, st := range steps {
+		if !st.Done {
+			return steps
+		}
+	}
+	return nil
 }
 
 // scopeFilter compiles a scope ref into a device-tag membership test: every
