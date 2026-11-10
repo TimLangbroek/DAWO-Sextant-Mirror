@@ -116,6 +116,22 @@ let
   };
   crossHierarchyBLeafFirst = resolver.resolve (crossHierarchyFleet [ "b-leaf" "a-root" ]) "d";
   crossHierarchyARootFirst = resolver.resolve (crossHierarchyFleet [ "a-root" "b-leaf" ]) "d";
+
+  # Design 0014: the console block names the branch a device outside every
+  # ring follows, and where the console is. evalWith builds lt-1 from a fleet
+  # with extra modules - consoleOptions stands in for the sextant.console.*
+  # that sextant.nixosModules.device declares.
+  consoleOptions = {
+    options.sextant.console = {
+      url = lib.mkOption { type = lib.types.str; default = ""; };
+      overlayRepoUrl = lib.mkOption { type = lib.types.str; default = ""; };
+    };
+  };
+  evalWith = extra: f: (lib.evalModules {
+    modules = [ core site ] ++ extra ++ generator.mkModules { fleet = f; tag = "lt-1"; };
+    specialArgs = { pkgs = fakePkgs; };
+  }).config;
+  withConsole = fleet // { console = { url = "https://console.example.org/"; branch = "stable"; }; };
 in
 {
   # Enforced (group, mkForce) beats the site module's normal set.
@@ -172,6 +188,36 @@ in
     ev.config.sextant.cominBranch == "rings/stad";
   # ...and a device outside every ring stays on main.
   cominBranchDefaultsToMain = cfg.sextant.cominBranch == "main";
+
+  # Design 0014: the console block (helpers in the let above).
+  cominBranchFollowsConsoleBranch =
+    (evalWith [ ] withConsole).sextant.cominBranch == "stable";
+  # A ring still wins: the console branch is only the base.
+  ringBeatsConsoleBranch =
+    (evalWith [ ] (withConsole // { rollout.rings = [{ group = "stad"; }]; })).sextant.cominBranch
+    == "rings/stad";
+  # An empty branch is no branch.
+  emptyConsoleBranchIsMain =
+    (evalWith [ ] (fleet // { console.branch = ""; })).sextant.cominBranch == "main";
+  # The device module gets the address, without the trailing slash, and the
+  # fleet repository at the console (it serves it).
+  consoleBlockWired =
+    let c = (evalWith [ consoleOptions ] withConsole).sextant.console; in
+    c.url == "https://console.example.org"
+    && c.overlayRepoUrl == "https://console.example.org/fleet.git";
+  # Defaults only: an overlay that pins its own address keeps it.
+  consoleBlockYieldsToOverlay =
+    (evalWith [ consoleOptions { sextant.console.url = "https://pinned.example.org"; } ] withConsole)
+      .sextant.console.url == "https://pinned.example.org";
+  # An overlay without the device module has no sextant.console, and a
+  # console block in its fleet must not break its evaluation.
+  consoleBlockWithoutDeviceModule =
+    (evalWith [ ] withConsole).sextant.deviceTag == "lt-1";
+  # No console block, nothing set: the device module's own assertion then
+  # names what is missing, instead of comin following "/fleet.git".
+  noConsoleBlockSetsNothing =
+    let c = (evalWith [ consoleOptions ] fleet).sextant.console; in
+    c.url == "" && c.overlayRepoUrl == "";
 
   # Cohort pinning (ADR 0013): in a COUNT-CAPPED wave an unreleased device
   # (no pin) stays on main even though its group is the ring - it has not been

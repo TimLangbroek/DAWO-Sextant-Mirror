@@ -125,7 +125,27 @@ let
         (r: ((r.maxDevices or 0) == 0) || ((dev.pin or "") == r.group))
         matching;
     in
-    if released == [ ] then "main" else "rings/${(lib.head released).group}";
+    if released == [ ] then baseBranch fleet else "rings/${(lib.head released).group}";
+
+  # baseBranch: what a device outside every ring follows - the console
+  # block's branch (design 0014), main when the fleet names none.
+  baseBranch = fleet:
+    let b = (fleet.console or { }).branch or ""; in
+    if b == "" then "main" else b;
+
+  # consoleConfig: the console block for sextant.nixosModules.device, as
+  # defaults an overlay can still override. Only where that module is
+  # imported (it declares sextant.console); an overlay without it is left
+  # alone. Devices pull the fleet repository from the console itself, so
+  # one address serves both the agent and comin.
+  consoleConfig = options: fleet:
+    let url = lib.removeSuffix "/" ((fleet.console or { }).url or ""); in
+    lib.optionalAttrs (url != "" && options.sextant ? console) {
+      sextant.console = {
+        url = lib.mkDefault url;
+        overlayRepoUrl = lib.mkDefault "${url}/fleet.git";
+      };
+    };
 
   # mkModules: the pure module list for one device - testable with
   # lib.evalModules, no nixosSystem required.
@@ -159,17 +179,21 @@ let
     [
       bridgeModule
       ({ pkgs, options, ... }: {
-        config = lib.recursiveUpdate (settingsModule { inherit options catalogKeys; } fleet tag) {
-          sextant.deviceTag = tag;
-          sextant.cominBranch = ringBranchFor fleet tag;
-          sextant.flatpaks = apps.flatpaks;
-          environment.systemPackages = map
-            (name:
-              lib.attrByPath (splitKey name)
-                (throw "device ${tag}: package '${name}' does not exist in nixpkgs")
-                pkgs)
-            apps.packages;
-        };
+        config = lib.foldl' lib.recursiveUpdate { } [
+          (settingsModule { inherit options catalogKeys; } fleet tag)
+          (consoleConfig options fleet)
+          {
+            sextant.deviceTag = tag;
+            sextant.cominBranch = ringBranchFor fleet tag;
+            sextant.flatpaks = apps.flatpaks;
+            environment.systemPackages = map
+              (name:
+                lib.attrByPath (splitKey name)
+                  (throw "device ${tag}: package '${name}' does not exist in nixpkgs")
+                  pkgs)
+              apps.packages;
+          }
+        ];
       })
     ] ++ overlayModules;
 

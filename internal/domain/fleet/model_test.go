@@ -39,3 +39,28 @@ func TestRolloutHasTestGate(t *testing.T) {
 		t.Fatal("plan with an approval ring should have a test gate")
 	}
 }
+
+// The console block is how a device finds its console (design 0014). The
+// console rewrites fleet.json on every saved change, so a field it does not
+// know would vanish on the first edit and leave devices without an address.
+func TestConsoleBlockSurvivesARewrite(t *testing.T) {
+	in := []byte(`{"version":3,"console":{"url":"https://console.example.org","branch":"stable"}}`)
+	f, err := Decode(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.Console == nil || f.Console.URL != "https://console.example.org" || f.Console.Branch != "stable" {
+		t.Fatalf("console block decoded as %+v", f.Console)
+	}
+	out, err := f.Encode()
+	if err != nil {
+		t.Fatal(err)
+	}
+	again, err := Decode(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if again.Console == nil || *again.Console != *f.Console {
+		t.Fatalf("console block lost in a rewrite:\n%s", out)
+	}
+}

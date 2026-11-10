@@ -44,13 +44,19 @@ organisations is data in `fleet.json`, so the flake, lock and catalog are
 identical everywhere and can be made once, in CI. The new top-level block:
 
 ```json
-"console": { "url": "https://console.example.org", "repo": "https://…/fleet.git", "branch": "main" }
+"console": { "url": "https://console.example.org", "branch": "main" }
 ```
 
-`prepare-repo` writes `repo` and `branch` when it fills a repository; the
-console writes `url` from its public address. The generator hands the block
-to the device module with `mkDefault`, and ring branches derive from
-`branch` instead of a hard-coded `main`.
+`prepare-repo` writes both when it fills a repository: `branch` from its
+own flag, `url` from the console's public address. The generator hands the
+block to the device module with `mkDefault`, and a device outside every
+ring follows `branch` instead of a hard-coded `main`.
+
+There is no `repo` field. Devices pull the fleet repository from the
+console (below), at `<url>/fleet.git`, so the forge's address is the
+console's business and never a device's. The first draft had one; the
+private-repository decision made it a second copy of a value only the
+console reads.
 
 **One device module.** The plumbing every overlay repeats - comin wired to
 the fleet repository, the agent, the integrations the console's cards

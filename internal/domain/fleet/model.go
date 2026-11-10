@@ -51,6 +51,20 @@ type Fleet struct {
 
 	// Assurance holds the organisation's control settings (ADR 0007).
 	Assurance *Assurance `json:"assurance,omitempty"`
+
+	// Console tells devices where their console is (design 0014). The
+	// generator hands it to sextant.nixosModules.device, so an overlay
+	// carries no address in Nix.
+	Console *Console `json:"console,omitempty"`
+}
+
+// Console is the console as devices see it. URL is where the agent reports
+// and where comin pulls the fleet repository from (the console serves it,
+// design 0014); Branch is what a device outside a rollout ring follows,
+// "main" when empty.
+type Console struct {
+	URL    string `json:"url,omitempty"`
+	Branch string `json:"branch,omitempty"`
 }
 
 // Station is a registered imaging station. The map key is its tag (the
