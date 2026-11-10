@@ -503,8 +503,14 @@ func (d *deps) buildConfigPlane() error {
 	// branches and stage duplicate CRs. With Postgres present they run under a
 	// database advisory-lock leader election, so the app scales to N replicas;
 	// without it (single-node dev) they run directly.
+	// A revealed administrator password is rotated some hours later (design
+	// 0017). The sweep commits an intent, so it is a worker like the others.
+	rotation := app.NewAdminRotation(d.deviceSecrets, svc, log)
 	workers := func(wctx context.Context) {
 		go d.rollouts.Run(wctx, 30*time.Second)
+		if rotation != nil {
+			go rotation.Run(wctx, 5*time.Minute)
+		}
 		if up != nil {
 			up.Run(wctx, 30*time.Minute)
 			return

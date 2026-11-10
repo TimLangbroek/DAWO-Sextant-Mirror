@@ -73,6 +73,11 @@ is supposed to remain.
 
 ## Local administrator
 
+A local administrator is **discouraged**, and off unless you turn it on. The
+console, the recovery key and the remote actions are the way into a device
+that will not let anybody in. Keep a local administrator only if you need a
+way in that works with the console unreachable too.
+
 `localAdmin.enable` creates an administrator who can sign in when the directory
 or the network is unreachable. `localAdmin.username` is the login name - pick
 one per organisation rather than inheriting a default - and
@@ -99,6 +104,13 @@ stops working the moment the device sets the new one, and the console has the
 new one on the beat after. The device keeps its copy until the console confirms
 holding it, so a console that cannot store secrets yet (no
 `SEXTANT_SECRET_KEY`) costs nothing but a delay.
+
+A revealed password does not stay the password. Eight hours after the first
+reveal the console asks the device for a new one by itself, so a password that
+was read, typed and perhaps written down stops working without anybody
+remembering to press **Rotate**. Revealing it again within those hours does not
+move the rotation. If the device could not rotate, the console does not ask
+again for the same reveal: press **Rotate** once the cause is fixed.
 
 Managed passwords need the root executor on the device
 (`services.sextant-actd.enable`, in your overlay); the build refuses

@@ -152,6 +152,30 @@ func TestSecretRevealShowsOnceAndAudits(t *testing.T) {
 	}
 }
 
+// An administrator password says it will be replaced (design 0017); a
+// recovery key does not, because nothing rotates it.
+func TestSecretRevealSaysWhenAnAdminPasswordRotates(t *testing.T) {
+	store := newMemDevSecrets()
+	secrets := app.NewDeviceSecretsService(store, webSealer(t), clockNow{}, "")
+	ctx := context.Background()
+	if err := secrets.Store(ctx, "lt-1", secret.LUKS, "z7Xq-9pLm-R2wK", "svc:station"); err != nil {
+		t.Fatal(err)
+	}
+	if err := secrets.Store(ctx, "lt-1", secret.Admin, "abcde-fghij-klmno-pqrst", "device:lt-1"); err != nil {
+		t.Fatal(err)
+	}
+	ts := newSecretConsoleWith(t, secrets, seedStationFleet)
+	for kind, want := range map[string]bool{"admin": true, "luks": false} {
+		resp, _ := client().PostForm(ts.URL+"/devices/lt-1/secret/"+kind+"/reveal",
+			url.Values{"csrf": {"dev-csrf"}})
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if got := strings.Contains(string(body), "eight hours after the first reveal"); got != want {
+			t.Errorf("%s reveal mentions the rotation: %v, want %v", kind, got, want)
+		}
+	}
+}
+
 func TestSecretRevealUnknownIs404(t *testing.T) {
 	ts, _ := newSecretConsole(t, true)
 	resp, _ := client().PostForm(ts.URL+"/devices/lt-1/secret/admin/reveal",
