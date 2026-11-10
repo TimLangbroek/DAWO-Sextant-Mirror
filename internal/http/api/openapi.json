@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Sextant API",
-    "version": "1.0.0-beta",
+    "version": "1",
     "description": "Machine contract of the Sextant fleet control-plane.\n\nAUTHENTICATION. A Bearer token (personal or service), or a browser session with X-CSRF-Token on mutations. Both resolve through the same wrapper; no endpoint authenticates its own way.\n\nERRORS. Every failure answers application/json with the Error schema - including the refusals raised before a handler runs and a path matching no route. A 500 always carries the literal string \"internal error\"; the detail is in the server log, deliberately, so an error response can never leak internals.\n\nEMPTY LISTS. A list endpoint answers [] and never null, whether or not the fleet is empty.\n\nVERSIONING, from the 1.0 freeze:\n\n* ADDITIVE ONLY within /api/v1. New endpoints, new optional request fields and new response fields may appear at any time. A client MUST ignore response fields it does not know - that is the whole basis of the promise.\n* NEVER within /api/v1: removing or renaming an endpoint, a field or an enum value; narrowing a type; making an optional request field required; or changing the status code an operation answers for the same condition.\n* If something genuinely must break, it happens under /api/v2 and the two run side by side. /api/v1 then enters a DEPRECATION WINDOW of at least twelve months from the day v2 ships, announced in the release notes and carried on every deprecated operation as `deprecated: true` in this document.\n* A security fix may break the rules above. That is the one exception, it is announced as such, and the reason is published.\n\nThis spec is verified against the running server: CI fails if a route exists without a spec entry, if a spec entry has no route, if an operation does not document its errors, or if a documented response shape is not what the server writes."
   },
   "servers": [
@@ -134,6 +134,64 @@
           "ceiling": {
             "type": "string",
             "description": "Present only for a scoped token: the highest role it may reach regardless of the underlying grant."
+          }
+        }
+      },
+      "AccessBinding": {
+        "type": "object",
+        "required": [
+          "group",
+          "role",
+          "scope"
+        ],
+        "properties": {
+          "group": {
+            "type": "string",
+            "description": "The directory group the binding grants to."
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "viewer",
+              "editor",
+              "owner"
+            ]
+          },
+          "scope": {
+            "type": "string",
+            "description": "Where the role holds: \"org\", or a group's scope such as \"group:pilot\"."
+          }
+        }
+      },
+      "HostKey": {
+        "type": "object",
+        "required": [
+          "tag",
+          "hostKey"
+        ],
+        "properties": {
+          "tag": {
+            "type": "string",
+            "description": "The device's tag."
+          },
+          "hostKey": {
+            "type": "string",
+            "description": "The device's SSH host public key, as recorded at enrolment."
+          }
+        }
+      },
+      "SecretRef": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "The reference a setting uses. Never a value."
+          },
+          "description": {
+            "type": "string"
           }
         }
       }
@@ -282,7 +340,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "type": "object"
+                    "$ref": "#/components/schemas/AccessBinding"
                   }
                 }
               }
@@ -3159,7 +3217,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "type": "object"
+                    "$ref": "#/components/schemas/HostKey"
                   }
                 }
               }
@@ -4052,7 +4110,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "type": "object"
+                    "$ref": "#/components/schemas/SecretRef"
                   }
                 }
               }

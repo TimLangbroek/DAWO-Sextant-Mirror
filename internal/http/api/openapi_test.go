@@ -222,7 +222,17 @@ func TestTheServerWritesTheDocumentedErrorShape(t *testing.T) {
 // were derived by calling these endpoints rather than by reading the
 // handlers, and this keeps them that way.
 func TestDocumentedSuccessShapesMatchTheServer(t *testing.T) {
-	srv := newTestAPI(t, true)
+	// Every list below has rows, so the row shapes are checked and not
+	// waved through on an empty answer.
+	srv := newTestAPIFrom(t, true, `{
+  "version": 3,
+  "org": {"settings": {"desktop": "plasma"}},
+  "groups": {"pilot": {}},
+  "devices": {"lt-1": {"groups": ["pilot"], "hardware": "hp-g4", "class": "laptop",
+    "itam": {"hostKeyId": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExampleOnly"}}},
+  "access": [{"group": "it-admins", "role": "owner", "scope": "org"}],
+  "secretRefs": {"wifi-psk": {"description": "the office network"}}
+}`)
 
 	var spec struct {
 		Paths map[string]map[string]struct {
@@ -286,8 +296,28 @@ func TestDocumentedSuccessShapesMatchTheServer(t *testing.T) {
 			}
 			switch c.kind {
 			case "array":
-				if _, ok := actual.([]any); !ok {
-					t.Errorf("the spec documents an array; the server answered %T", actual)
+				rows, ok := actual.([]any)
+				if !ok {
+					t.Fatalf("the spec documents an array; the server answered %T", actual)
+				}
+				// The rows carry the documented required properties too. An
+				// empty answer proves nothing about them, so it fails rather
+				// than passes: every list here has rows in the fixture.
+				items, _ := documented["items"].(map[string]any)
+				req, _ := schemaFor(items)["required"].([]any)
+				if len(req) > 0 && len(rows) == 0 {
+					t.Fatal("the fixture gives no rows, so the documented row shape is not checked")
+				}
+				for i, row := range rows {
+					m, ok := row.(map[string]any)
+					if !ok {
+						t.Fatalf("row %d is %T, not an object", i, row)
+					}
+					for _, k := range req {
+						if _, ok := m[k.(string)]; !ok {
+							t.Errorf("row %d: the spec requires %q and the server did not send it", i, k)
+						}
+					}
 				}
 			case "object":
 				m, ok := actual.(map[string]any)

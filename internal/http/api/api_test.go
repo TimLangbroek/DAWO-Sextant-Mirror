@@ -39,9 +39,12 @@ const seedCatalog = `[
 ]`
 
 // writeSeed writes fleet.json + catalog.json into a repo dir for the API tests.
-func writeSeed(t *testing.T, dir string) {
+func writeSeed(t *testing.T, dir string) { t.Helper(); writeFleet(t, dir, seed) }
+
+// writeFleet writes a fleet document and the test catalog into dir.
+func writeFleet(t *testing.T, dir, fleetJSON string) {
 	t.Helper()
-	for name, body := range map[string]string{"fleet.json": seed, "catalog.json": seedCatalog} {
+	for name, body := range map[string]string{"fleet.json": fleetJSON, "catalog.json": seedCatalog} {
 		if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0o644); err != nil {
 			t.Fatal(err)
 		}
@@ -51,6 +54,12 @@ func writeSeed(t *testing.T, dir string) {
 // newTestAPI serves the API over a seeded temp repo with an allow-all gate.
 func newTestAPI(t *testing.T, write bool) *httptest.Server {
 	t.Helper()
+	return newTestAPIFrom(t, write, seed)
+}
+
+// newTestAPIFrom is newTestAPI over a fleet document of the test's own.
+func newTestAPIFrom(t *testing.T, write bool, fleetJSON string) *httptest.Server {
+	t.Helper()
 	dir := t.TempDir()
 	run := func(args ...string) {
 		out, err := exec.Command("git", append([]string{"-C", dir}, args...)...).CombinedOutput()
@@ -59,7 +68,7 @@ func newTestAPI(t *testing.T, write bool) *httptest.Server {
 		}
 	}
 	run("init", "-q", "-b", "main")
-	writeSeed(t, dir)
+	writeFleet(t, dir, fleetJSON)
 	run("add", ".")
 	run("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "seed")
 
