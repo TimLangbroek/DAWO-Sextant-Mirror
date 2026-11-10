@@ -4,7 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
-	"net/http/cgi"
+	"net/http/cgi" // #nosec G504 - httpoxy is Go < 1.6.3, and git http-backend makes no outbound request
 	"os/exec"
 )
 
