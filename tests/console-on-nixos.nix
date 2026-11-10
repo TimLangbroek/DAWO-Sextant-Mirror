@@ -9,7 +9,7 @@ pkgs.testers.runNixOSTest {
   name = "sextant-console-on-nixos";
 
   nodes.machine = { config, pkgs, ... }: {
-    imports = [ self.nixosModules.default ];
+    imports = [ self.nixosModules.default self.nixosModules.agent ];
 
     services.sextant = {
       enable = true;
@@ -66,6 +66,14 @@ pkgs.testers.runNixOSTest {
     # A serial number, so a join can be told apart from a second one
     # (design 0015). QEMU leaves it empty unless asked.
     virtualisation.qemu.options = [ "-smbios type=1,serial=VMJOIN01" ];
+
+    # The agent as a laptop gets it before it has joined: no tag, no console
+    # address. Both come from the code. No facter: hardware facts are not
+    # what this test is about, and a scan is slow in a VM.
+    services.sextant-agent = {
+      enable = true;
+      facter = null;
+    };
   };
 
   testScript = ''
@@ -137,28 +145,33 @@ pkgs.testers.runNixOSTest {
         assert m, "no code on the page"
         return m.group(1)
 
+    # Before the join the agent has nothing to run with, and waits for it
+    # rather than failing.
+    machine.succeed("systemctl is-active sextant-agent.path")
+    machine.fail("systemctl is-active sextant-agent.service")
+    machine.fail("systemctl is-failed sextant-agent.service")
+
     code = make_code("--data-urlencode group=pilot")
-    out = machine.succeed(f"sextant-agent join http://127.0.0.1:8080 {code} --state-dir /tmp/agent 2>&1")
+    out = machine.succeed(f"sextant-agent join http://127.0.0.1:8080 {code} 2>&1")
     assert "Joined as laptop-join01" in out, out
     dev = machine.succeed(
         "runuser -u sextant -- git --git-dir=/srv/fleet.git show main:fleet.json "
         "| jq -c '.devices[\"laptop-join01\"] | [.groups, .itam.serial, .hardware, .state]'"
     ).strip()
     assert dev == '[["pilot"],"VMJOIN01","demo-vm","provisional"]', dev
-    machine.succeed("test \"$(stat -c %a /tmp/agent/credential)\" = 600")
-    machine.succeed("jq -e '.tag == \"laptop-join01\"' /tmp/agent/joined.json")
+    machine.succeed("test \"$(stat -L -c %a /var/lib/sextant-agent/credential)\" = 600")
+    machine.succeed("jq -e '.tag == \"laptop-join01\"' /var/lib/sextant-agent/joined.json")
 
     # The credential is the device's own: it pulls the fleet repository the
-    # console serves (design 0014), and the agent checks in with it, which
-    # makes the device active.
+    # console serves (design 0014).
     machine.succeed(
         "git -c credential.helper= ls-remote "
-        "\"http://laptop-join01:$(cat /tmp/agent/credential)@127.0.0.1:8080/fleet.git\" main"
+        "\"http://laptop-join01:$(cat /var/lib/sextant-agent/credential)@127.0.0.1:8080/fleet.git\" main"
     )
-    machine.succeed(
-        "SEXTANT_URL=http://127.0.0.1:8080 SEXTANT_TAG=laptop-join01 "
-        "SEXTANT_CREDENTIAL_FILE=/tmp/agent/credential sextant-agent --once"
-    )
+    # And nobody told the agent anything: it started when the join landed,
+    # read its console and tag from joined.json, and its check-in makes the
+    # device active.
+    machine.wait_for_unit("sextant-agent.service")
     machine.wait_until_succeeds(
         "runuser -u sextant -- git -C /srv/sextant/overlay show HEAD:fleet.json "
         "| jq -e '.devices[\"laptop-join01\"].state == null'",

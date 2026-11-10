@@ -1,10 +1,19 @@
 //! Agent configuration: environment plus the systemd credential file.
 //! The credential (per-device, ADR 0008) never sits in the nix store or
 //! the environment; systemd's LoadCredential hands us a file path.
+//!
+//! A laptop that joined with a code (design 0015) is not told its console or
+//! its tag: `sextant-agent join` wrote both to joined.json in the state
+//! directory, next to the credential, and the agent reads them from there.
+//! What the environment sets still wins, so a device built from the fleet
+//! repository behaves as before.
 
+use serde::Deserialize;
 use std::env;
 use std::fmt;
 use std::fs;
+use std::io::ErrorKind;
+use std::path::Path;
 use std::time::Duration;
 
 /// Configuration resolved at startup.
@@ -59,31 +68,53 @@ fn err(msg: impl Into<String>) -> ConfigError {
 impl Config {
     /// Load from the environment. Required: SEXTANT_URL, SEXTANT_TAG and a
     /// credential (SEXTANT_CREDENTIAL_FILE, or CREDENTIALS_DIRECTORY/credential
-    /// when running under systemd LoadCredential).
+    /// when running under systemd LoadCredential). After a join, all three
+    /// default to what join left in the state directory.
     pub fn from_env() -> Result<Config, ConfigError> {
-        let get = |k: &str| env::var(k).unwrap_or_default();
+        Self::from_lookup(|k| env::var(k).unwrap_or_default())
+    }
 
-        let url = get("SEXTANT_URL");
+    fn from_lookup(get: impl Fn(&str) -> String) -> Result<Config, ConfigError> {
+        // systemd sets STATE_DIRECTORY for StateDirectory=; by hand, after
+        // a join as root, it is join's own default.
+        let state = match get("STATE_DIRECTORY") {
+            d if !d.is_empty() => d.split(':').next().unwrap_or_default().to_string(),
+            _ => crate::join::STATE_DIR.to_string(),
+        };
+
+        let mut url = get("SEXTANT_URL");
+        let mut tag = get("SEXTANT_TAG");
+        if url.is_empty() || tag.is_empty() {
+            let joined = read_joined(Path::new(&state))?;
+            if url.is_empty() {
+                url = joined.url;
+            }
+            if tag.is_empty() {
+                tag = joined.tag;
+            }
+        }
+
         if url.is_empty() {
-            return Err(err("SEXTANT_URL is required"));
+            return Err(err(
+                "SEXTANT_URL is required, or run `sextant-agent join` first",
+            ));
         }
         let url = url.trim_end_matches('/').to_string();
         if !url.starts_with("https://") && !is_loopback_http(&url) {
             return Err(err("SEXTANT_URL must be https (or localhost for tests)"));
         }
 
-        let tag = get("SEXTANT_TAG");
         if tag.is_empty() || tag.len() > 63 {
-            return Err(err("SEXTANT_TAG is required (max 63 chars)"));
+            return Err(err(
+                "SEXTANT_TAG is required (max 63 chars), or run `sextant-agent join` first",
+            ));
         }
 
         let cred_path = match get("SEXTANT_CREDENTIAL_FILE") {
             p if !p.is_empty() => p,
             _ => match get("CREDENTIALS_DIRECTORY") {
                 d if !d.is_empty() => format!("{d}/credential"),
-                _ => return Err(err(
-                    "no credential: set SEXTANT_CREDENTIAL_FILE or run under systemd LoadCredential",
-                )),
+                _ => format!("{state}/credential"),
             },
         };
         let credential = fs::read_to_string(&cred_path)
@@ -102,6 +133,26 @@ impl Config {
             facter: get("SEXTANT_FACTER"),
             facts_interval: parse_seconds(&get("SEXTANT_FACTS_INTERVAL"), 24 * 3600)?,
         })
+    }
+}
+
+/// What `sextant-agent join` remembers besides the credential.
+#[derive(Debug, Default, Deserialize)]
+struct Joined {
+    #[serde(default)]
+    tag: String,
+    #[serde(default)]
+    url: String,
+}
+
+/// read_joined reads joined.json from the state directory. A laptop that
+/// never joined has none, and then the environment has to say everything.
+fn read_joined(dir: &Path) -> Result<Joined, ConfigError> {
+    let path = dir.join("joined.json");
+    match fs::read(&path) {
+        Ok(b) => serde_json::from_slice(&b).map_err(|e| err(format!("{}: {e}", path.display()))),
+        Err(e) if e.kind() == ErrorKind::NotFound => Ok(Joined::default()),
+        Err(e) => Err(err(format!("{}: {e}", path.display()))),
     }
 }
 
@@ -147,6 +198,106 @@ fn parse_seconds(s: &str, default: u64) -> Result<Duration, ConfigError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashMap;
+
+    fn scratch(name: &str) -> std::path::PathBuf {
+        let d = std::env::temp_dir().join(format!("sx-cfg-{name}-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&d);
+        fs::create_dir_all(&d).unwrap();
+        d
+    }
+
+    fn load(env: &[(&str, &str)]) -> Result<Config, ConfigError> {
+        let m: HashMap<String, String> = env
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect();
+        Config::from_lookup(|k| m.get(k).cloned().unwrap_or_default())
+    }
+
+    #[test]
+    fn a_joined_laptop_needs_no_settings() {
+        let d = scratch("joined");
+        fs::write(
+            d.join("joined.json"),
+            r#"{"tag":"laptop-3abcde","url":"https://console.example/","branch":"main"}"#,
+        )
+        .unwrap();
+        fs::write(d.join("credential"), "sxt_secret").unwrap();
+        let dir = d.to_str().unwrap();
+
+        let c = load(&[("STATE_DIRECTORY", dir)]).unwrap();
+        assert_eq!(
+            (c.url.as_str(), c.tag.as_str(), c.credential.as_str()),
+            ("https://console.example", "laptop-3abcde", "sxt_secret")
+        );
+
+        // What the deployment sets wins over what join remembered.
+        let c = load(&[
+            ("STATE_DIRECTORY", dir),
+            ("SEXTANT_URL", "https://other.example"),
+            ("SEXTANT_TAG", "lt-1"),
+        ])
+        .unwrap();
+        assert_eq!(
+            (c.url.as_str(), c.tag.as_str()),
+            ("https://other.example", "lt-1")
+        );
+
+        // systemd's credential copy wins over the file in the state directory.
+        let creds = scratch("creds");
+        fs::write(creds.join("credential"), "sxt_from_systemd").unwrap();
+        let c = load(&[
+            ("STATE_DIRECTORY", dir),
+            ("CREDENTIALS_DIRECTORY", creds.to_str().unwrap()),
+        ])
+        .unwrap();
+        assert_eq!(c.credential, "sxt_from_systemd");
+
+        // A joined.json from a console without https is refused like the
+        // environment would be.
+        fs::write(
+            d.join("joined.json"),
+            r#"{"tag":"t","url":"http://evil.example"}"#,
+        )
+        .unwrap();
+        let e = load(&[("STATE_DIRECTORY", dir)]).unwrap_err().to_string();
+        fs::remove_dir_all(&d).unwrap();
+        fs::remove_dir_all(&creds).unwrap();
+        assert!(e.contains("must be https"), "{e}");
+    }
+
+    #[test]
+    fn without_a_join_the_environment_says_everything() {
+        let d = scratch("empty");
+        let dir = d.to_str().unwrap();
+        let e = load(&[("STATE_DIRECTORY", dir)]).unwrap_err().to_string();
+        assert!(
+            e.contains("SEXTANT_URL is required, or run `sextant-agent join`"),
+            "{e}"
+        );
+        let e = load(&[
+            ("STATE_DIRECTORY", dir),
+            ("SEXTANT_URL", "https://c.example"),
+        ])
+        .unwrap_err()
+        .to_string();
+        assert!(e.contains("SEXTANT_TAG is required"), "{e}");
+        let e = load(&[
+            ("STATE_DIRECTORY", dir),
+            ("SEXTANT_URL", "https://c.example"),
+            ("SEXTANT_TAG", "lt-1"),
+        ])
+        .unwrap_err()
+        .to_string();
+        assert!(e.contains(&format!("{dir}/credential")), "{e}");
+
+        // A joined.json that is not JSON is named, not skipped.
+        fs::write(d.join("joined.json"), "{").unwrap();
+        let e = load(&[("STATE_DIRECTORY", dir)]).unwrap_err().to_string();
+        fs::remove_dir_all(&d).unwrap();
+        assert!(e.contains("joined.json"), "{e}");
+    }
 
     #[test]
     fn parse_seconds_defaults_and_rejects() {

@@ -10,6 +10,17 @@
 #
 # The per-device credential is runtime state (never in the nix store):
 # write it to credentialFile once at provisioning (shown at enrollment).
+#
+# Or leave tag and url out, and let the laptop join with a code
+# (design 0015):
+#
+#   services.sextant-agent.enable = true;
+#
+#   $ sudo sextant-agent join https://console.example.com K7QM-4XWD
+#
+# join writes the credential and joined.json to /var/lib/sextant-agent, and
+# the agent starts as soon as joined.json is there: it reads its console and
+# tag from it.
 { self }:
 { config, lib, pkgs, ... }:
 let
@@ -24,12 +35,17 @@ in
       description = "Agent package to run.";
     };
     url = lib.mkOption {
-      type = lib.types.str;
-      description = "Sextant console base URL.";
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      description = "Sextant console base URL. null: the one the laptop joined.";
     };
     tag = lib.mkOption {
-      type = lib.types.str;
-      description = "Device asset tag as enrolled in the fleet.";
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      description = ''
+        Device asset tag as enrolled in the fleet. null: the tag the console
+        gave at `sextant-agent join`, and the agent waits until there is one.
+      '';
     };
     credentialFile = lib.mkOption {
       type = lib.types.str;
@@ -60,16 +76,34 @@ in
       lib.optionalString (config.system.configurationRevision != null)
         config.system.configurationRevision;
 
+    # A laptop that has not joined yet has nothing to run with. Rather than
+    # failing every ten seconds until somebody types a code, the agent is
+    # skipped at boot until join's answer is there, and started the moment
+    # it lands. joined.json is written after the credential, so both are.
+    #
+    # PathChanged, not PathExists: PathExists starts the unit again every
+    # time it stops while the file is there, and a retired laptop's agent
+    # stops on purpose (exit 3). It would be started, refused and started
+    # again until systemd's trigger limit gives up.
+    systemd.paths.sextant-agent = lib.mkIf (cfg.tag == null) {
+      description = "Start the Sextant agent when this laptop joins";
+      wantedBy = [ "multi-user.target" ];
+      pathConfig.PathChanged = "/var/lib/sextant-agent/joined.json";
+    };
+
     systemd.services.sextant-agent = {
       description = "Sextant device agent";
+      unitConfig = lib.mkIf (cfg.tag == null) {
+        ConditionPathExists = "/var/lib/sextant-agent/joined.json";
+      };
       wantedBy = [ "multi-user.target" ];
       after = [ "network-online.target" ];
       wants = [ "network-online.target" ];
       serviceConfig = {
         ExecStart = lib.getExe cfg.package;
-        Environment = [
-          "SEXTANT_URL=${cfg.url}"
-          "SEXTANT_TAG=${cfg.tag}"
+        Environment = lib.optional (cfg.url != null) "SEXTANT_URL=${cfg.url}"
+          ++ lib.optional (cfg.tag != null) "SEXTANT_TAG=${cfg.tag}"
+          ++ [
           "SEXTANT_INTERVAL=${toString cfg.interval}"
           "SEXTANT_REVISION_FILE=/etc/sextant/configuration-revision"
         ] ++ lib.optional (cfg.facter != null)

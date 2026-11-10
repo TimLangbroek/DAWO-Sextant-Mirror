@@ -6,7 +6,9 @@
 //! and writes what comes back where the agent and comin read it:
 //!
 //!   <state>/credential    the device credential, 0600, no trailing newline
-//!   <state>/joined.json   tag, console address and branch
+//!                         (the agent, and comin to pull the fleet repository)
+//!   <state>/joined.json   tag, console address and branch (the agent, when
+//!                         its unit does not set them; config.rs)
 //!
 //! The console decides everything else (design 0015): which device this
 //! is, its group and its hardware profile. Every refusal arrives in words
