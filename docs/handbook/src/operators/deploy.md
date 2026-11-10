@@ -91,6 +91,26 @@ Every flag has an environment equivalent under the same prefix
 (`SEXTANT_SECURE_COOKIES`, `SEXTANT_TRUST_PROXY`, `SEXTANT_SHUTDOWN_GRACE`,
 and so on); `sextant --help` lists the flags.
 
+## Keep the secret key apart
+
+`SEXTANT_SECRET_KEY` seals the LUKS recovery keys the console holds. The
+database backup carries the sealed keys and never the key that opens them,
+so a backup without the key restores ciphertext nobody can read. Keep a copy
+of the key somewhere the console's own failure cannot take with it: a
+password manager or a safe, not a Secret in the same cluster. The setup page
+offers the key it makes as a file for exactly that.
+
+At start the console tries the key on every recovery key it holds. If it
+cannot open some, every page says how many and names the key that sealed
+them; the log says the same. Put that key back, after the current one:
+
+```text
+SEXTANT_SECRET_KEY=<current key>,<the key that sealed them>
+```
+
+The first key seals; every key listed opens. That is also how to rotate:
+put the new key first and keep the old one after it.
+
 ## First deploy, end to end
 
 1. Create a repository on your forge (GitHub, Codeberg, GitLab, Forgejo). Under

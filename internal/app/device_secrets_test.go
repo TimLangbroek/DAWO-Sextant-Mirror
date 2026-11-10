@@ -191,3 +191,11 @@ func TestDeviceSecretsDisabledWithoutKey(t *testing.T) {
 		t.Fatalf("store without a key = %v, want ErrSealerDisabled", err)
 	}
 }
+
+func (s *memSecretStore) Sealed(context.Context, string) ([]ports.SealedSecret, error) {
+	out := make([]ports.SealedSecret, 0, len(s.ciph))
+	for _, m := range s.meta {
+		out = append(out, ports.SealedSecret{Tag: m.Tag, Kind: m.Kind, Ciphertext: s.ciph[skey(m.Tag, m.Kind)]})
+	}
+	return out, nil
+}

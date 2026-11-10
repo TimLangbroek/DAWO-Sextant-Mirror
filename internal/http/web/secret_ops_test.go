@@ -76,6 +76,18 @@ func webSealer(t *testing.T) ports.Sealer {
 // LUKS key for one device, so reveal and the wizard reveal-control can be tested.
 func newSecretConsole(t *testing.T, dev bool) (*httptest.Server, *memDevSecrets) {
 	t.Helper()
+	store := newMemDevSecrets()
+	secrets := app.NewDeviceSecretsService(store, webSealer(t), clockNow{}, "")
+	if err := secrets.Store(context.Background(), "lt-1", secret.LUKS, "z7Xq-9pLm-R2wK", "svc:station"); err != nil {
+		t.Fatal(err)
+	}
+	_ = dev
+	return newSecretConsoleWith(t, secrets), store
+}
+
+// newSecretConsoleWith is the station-fleet console over a given secrets service.
+func newSecretConsoleWith(t *testing.T, secrets *app.DeviceSecretsService) *httptest.Server {
+	t.Helper()
 	dir := t.TempDir()
 	run := func(args ...string) {
 		if out, err := exec.Command("git", append([]string{"-C", dir}, args...)...).CombinedOutput(); err != nil {
@@ -96,12 +108,6 @@ func newSecretConsole(t *testing.T, dev bool) (*httptest.Server, *memDevSecrets)
 		t.Fatal(err)
 	}
 
-	store := newMemDevSecrets()
-	secrets := app.NewDeviceSecretsService(store, webSealer(t), clockNow{}, "")
-	if err := secrets.Store(context.Background(), "lt-1", secret.LUKS, "z7Xq-9pLm-R2wK", "svc:station"); err != nil {
-		t.Fatal(err)
-	}
-
 	srv, err := web.New(web.Services{Config: cfg, DeviceSecrets: secrets},
 		web.DevSessions{}, true, nil, nil, nil,
 		slog.New(slog.NewTextHandler(io.Discard, nil)))
@@ -112,8 +118,7 @@ func newSecretConsole(t *testing.T, dev bool) (*httptest.Server, *memDevSecrets)
 	srv.Routes(mux)
 	ts := httptest.NewServer(mux)
 	t.Cleanup(ts.Close)
-	_ = dev
-	return ts, store
+	return ts
 }
 
 func TestSecretRevealShowsOnceAndAudits(t *testing.T) {
@@ -144,4 +149,12 @@ func TestSecretRevealUnknownIs404(t *testing.T) {
 	if resp.StatusCode != http.StatusNotFound {
 		t.Fatalf("reveal of missing secret = %d, want 404", resp.StatusCode)
 	}
+}
+
+func (s *memDevSecrets) Sealed(context.Context, string) ([]ports.SealedSecret, error) {
+	out := make([]ports.SealedSecret, 0, len(s.ciph))
+	for _, m := range s.meta {
+		out = append(out, ports.SealedSecret{Tag: m.Tag, Kind: m.Kind, Ciphertext: s.ciph[dk(m.Tag, m.Kind)]})
+	}
+	return out, nil
 }

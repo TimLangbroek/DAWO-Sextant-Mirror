@@ -191,4 +191,15 @@ type DeviceSecretStore interface {
 	List(ctx context.Context, tenant, tag string) ([]secret.Meta, error)
 	// MarkRevealed stamps who read a secret and when, for the audit trail.
 	MarkRevealed(ctx context.Context, tenant, tag string, kind secret.Kind, revealedBy string, now time.Time) error
+	// Sealed returns every stored secret's ciphertext, so the console can
+	// prove at start that its key still opens them. Nothing is revealed and
+	// nothing is stamped.
+	Sealed(ctx context.Context, tenant string) ([]SealedSecret, error)
+}
+
+// SealedSecret is one stored secret as the store holds it.
+type SealedSecret struct {
+	Tag        string
+	Kind       secret.Kind
+	Ciphertext []byte
 }

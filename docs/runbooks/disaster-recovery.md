@@ -43,6 +43,9 @@ Rebuilding one needs four things, and only three of them are backed up:
 3. **`SEXTANT_SECRET_KEY`.** Not in the backup and never will be. Without it
    the restored rows are ciphertext nobody can open, including every LUKS
    recovery key. **This is the single item with no owner and no escrow.**
+   A console restored under the wrong key, or none, now says so at start
+   on every page and names the key that sealed the rows; before, the first
+   sign was a reveal that failed.
 4. **The forge credential**, so the new console can write. Re-mint it; it is
    not recovered.
 

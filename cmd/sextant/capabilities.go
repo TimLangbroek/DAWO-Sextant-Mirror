@@ -272,6 +272,9 @@ func (d *deps) buildConfigPlane() error {
 		d.imaging = app.NewImagingService(pg.ImageJobs(), clock, app.DefaultTenant)
 		d.staCreds = app.NewStationCredentials(pg.Tokens(), clock)
 		d.deviceSecrets = app.NewDeviceSecretsService(pg.DeviceSecrets(), sealer, clock, app.DefaultTenant)
+		// A restore brings the sealed recovery keys back and never the key
+		// that opens them (#7): find out now, not when somebody needs one.
+		d.background(func() { d.deviceSecrets.RunKeyCheck(d.ctx, log) })
 		// Diagnostics bundles (design 0010) share the secretbox and Postgres;
 		// the deployment kill switch leaves the service unwired entirely.
 		if !cfg.DisableDiagnostics {

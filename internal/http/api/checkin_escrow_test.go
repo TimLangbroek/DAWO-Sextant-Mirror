@@ -338,3 +338,11 @@ func TestDiagnosticsUploadIsNotAckedWhenTheStoreFails(t *testing.T) {
 		t.Errorf("the store holds %d bundles after a failed Put", len(store.ciph))
 	}
 }
+
+func (s *escrowStore) Sealed(context.Context, string) ([]ports.SealedSecret, error) {
+	out := make([]ports.SealedSecret, 0, len(s.ciph))
+	for _, m := range s.meta {
+		out = append(out, ports.SealedSecret{Tag: m.Tag, Kind: m.Kind, Ciphertext: s.ciph[ekey(m.Tag, m.Kind)]})
+	}
+	return out, nil
+}

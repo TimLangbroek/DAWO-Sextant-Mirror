@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/domain/secret"
+	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/ports"
 )
 
 // device_secrets.go: per-device secrets sealed at rest. The store holds only
@@ -92,6 +93,29 @@ func (d *DeviceSecretStore) MarkRevealed(ctx context.Context, tenant, tag string
 		WHERE tenant=$1 AND tag=$2 AND kind=$3`,
 		tenant, tag, string(kind), now, revealedBy)
 	return err
+}
+
+// Sealed returns every stored secret's ciphertext for one tenant.
+func (d *DeviceSecretStore) Sealed(ctx context.Context, tenant string) ([]ports.SealedSecret, error) {
+	rows, err := d.s.pool.Query(ctx, `
+		SELECT tag, kind, ciphertext FROM device_secrets WHERE tenant=$1 ORDER BY tag, kind`, tenant)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []ports.SealedSecret
+	for rows.Next() {
+		var (
+			r    ports.SealedSecret
+			kind string
+		)
+		if err := rows.Scan(&r.Tag, &kind, &r.Ciphertext); err != nil {
+			return nil, err
+		}
+		r.Kind = secret.Kind(kind)
+		out = append(out, r)
+	}
+	return out, rows.Err()
 }
 
 // metaOf assembles the non-secret record, formatting times as RFC3339 (empty

@@ -3,6 +3,8 @@ package app
 import (
 	"context"
 	"fmt"
+	"log/slog"
+	"sync/atomic"
 
 	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/domain/secret"
 	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/ports"
@@ -20,6 +22,9 @@ type DeviceSecretsService struct {
 	sealer ports.Sealer
 	clock  ports.Clock
 	tenant string
+	// fault holds what the start-up key check found, when it found secrets
+	// the key does not open; nil otherwise.
+	fault atomic.Pointer[KeyCheck]
 }
 
 // NewDeviceSecretsService wires the per-device secret store for one tenant.
@@ -82,4 +87,68 @@ func (s *DeviceSecretsService) Reveal(ctx context.Context, tag string, kind secr
 // created them, whether they have been revealed) - never any plaintext.
 func (s *DeviceSecretsService) List(ctx context.Context, tag string) ([]secret.Meta, error) {
 	return s.store.List(ctx, s.tenant, tag)
+}
+
+// KeyCheck is what the console found when it tried its secret key on every
+// device secret it holds (#7). A backup holds the sealed secrets and never the
+// key, so a restore under the wrong key, or with none, looks complete until
+// somebody needs a recovery key and cannot open it. The check finds that at
+// start instead.
+type KeyCheck struct {
+	Total    int // device secrets stored
+	Unopened int // of those, how many the configured key does not open
+	// Reason is the first refusal. The sealer names the key that sealed a
+	// value it cannot open, so this says which key to put back. It names a
+	// key id, which identifies a key and reveals nothing of it.
+	Reason string
+}
+
+// CheckKey tries the configured key on every stored device secret, without
+// revealing any or stamping a reveal.
+func (s *DeviceSecretsService) CheckKey(ctx context.Context) (KeyCheck, error) {
+	rows, err := s.store.Sealed(ctx, s.tenant)
+	if err != nil {
+		return KeyCheck{}, err
+	}
+	kc := KeyCheck{Total: len(rows)}
+	for _, r := range rows {
+		if !s.sealer.Enabled() {
+			kc.Unopened, kc.Reason = len(rows), "no secret key is configured (SEXTANT_SECRET_KEY is empty)"
+			break
+		}
+		if _, err := s.sealer.Open(r.Ciphertext); err != nil {
+			kc.Unopened++
+			if kc.Reason == "" {
+				kc.Reason = err.Error()
+			}
+		}
+	}
+	return kc, nil
+}
+
+// RunKeyCheck runs CheckKey once and keeps the result for KeyFault. Once is
+// enough: the key only changes with a restart, and everything sealed after
+// start is sealed with the key in use.
+func (s *DeviceSecretsService) RunKeyCheck(ctx context.Context, log *slog.Logger) {
+	kc, err := s.CheckKey(ctx)
+	switch {
+	case err != nil:
+		log.Error("secret key check: cannot read the stored device secrets", "err", err)
+	case kc.Unopened > 0:
+		s.fault.Store(&kc)
+		log.Error("the secret key does not open every stored device secret; they cannot be revealed until it does",
+			"unopened", kc.Unopened, "stored", kc.Total, "first", kc.Reason,
+			"remedy", "set SEXTANT_SECRET_KEY to the key that sealed them, or add it after the current one")
+	default:
+		log.Info("secret key opens every stored device secret", "stored", kc.Total)
+	}
+}
+
+// KeyFault reports the start-up key check when it found secrets the key does
+// not open, and nil otherwise.
+func (s *DeviceSecretsService) KeyFault() *KeyCheck {
+	if s == nil {
+		return nil
+	}
+	return s.fault.Load()
 }

@@ -105,3 +105,23 @@ func TestDeviceSecretsTenantIsolation(t *testing.T) {
 		t.Fatalf("owning tenant get = %v %v", ok, err)
 	}
 }
+
+// Sealed hands the start-up key check every ciphertext of one tenant, as
+// stored, and nothing of another tenant's.
+func TestDeviceSecretsSealedListsOneTenantsCiphertext(t *testing.T) {
+	s := openStore(t).DeviceSecrets()
+	ctx := context.Background()
+	for _, r := range []struct{ tenant, tag string }{{"t1", "lt-2"}, {"t1", "lt-1"}, {"t2", "lt-9"}} {
+		if err := s.Put(ctx, r.tenant, r.tag, secret.LUKS, []byte("sealed-"+r.tag), "a@example.com", t0); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got, err := s.Sealed(ctx, "t1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 || got[0].Tag != "lt-1" || got[1].Tag != "lt-2" ||
+		string(got[0].Ciphertext) != "sealed-lt-1" || got[0].Kind != secret.LUKS {
+		t.Fatalf("sealed = %+v", got)
+	}
+}

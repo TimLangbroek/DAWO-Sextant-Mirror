@@ -181,6 +181,8 @@ func (s *Server) render(w http.ResponseWriter, name string, data map[string]any,
 	// A console that stopped following its repository still serves the last
 	// copy it read; every page says so, or a stale fleet reads as current.
 	data["SyncFault"] = s.svc.Config.SyncFault()
+	// Stored recovery keys the secret key does not open, found at start.
+	data["KeyFault"] = s.svc.DeviceSecrets.KeyFault()
 	// The primary button on every page, and only for whoever it works for:
 	// it makes a code for a group, so a viewer who clicked it would land on
 	// a refusal, and so would anyone on a read-only console.
