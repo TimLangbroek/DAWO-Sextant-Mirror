@@ -36,7 +36,7 @@ var knownIntegrations = []integration{
 	{"osquery", "Fleet inventory (osquery)", "inventory_2",
 		"Reports this device to a Fleet server so one console covers the whole estate, whatever it runs. The device enrols itself and answers queries; nothing is pushed back at it, and configuration stays here. Note that osquery cannot see the Nix store, so software inventory is empty for now.", "osquery."},
 	{"localAdmin", "Local admin account", "admin_panel_settings",
-		"An administrator who can sign in when the directory or the network is unreachable. Choose the name; the password is delivered as a secret reference, so no credential is shared between fleets. Off locks the account on every device.", "localAdmin."},
+		"An administrator who can sign in when the directory or the network is unreachable. Choose the name. The password is either drawn by each device and held here, one per device, or delivered as a secret reference; either way no credential is shared between fleets. Off locks the account on every device.", "localAdmin."},
 }
 
 // isIntegrationSetting reports whether a catalog key belongs to an

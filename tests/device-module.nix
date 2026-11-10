@@ -97,6 +97,20 @@ let
     (baseFleet // { console = { url = "https://console.example.org/"; branch = "stable"; }; })
     { };
   vc = viaConsole.config;
+  # A local administrator whose password the device draws (design 0017):
+  # no secret needed, the account reads the hash the device writes, and the
+  # executor gets the name. Without the executor nothing would ever draw it.
+  adminWith = extra: host {
+    imports = [ extra ];
+    sextant.console.url = "https://console.example.org";
+    sextant.console.overlayRepoUrl = "https://forge.example.org/acme/fleet.git";
+    dawo.localAdmin = { enable = true; username = "beheer"; };
+  };
+  managedAdmin = adminWith {
+    dawo.localAdmin.managed = true;
+    services.sextant-actd.enable = true;
+  };
+  ma = managedAdmin.config;
   credPath = name: h: h.config.systemd.paths.${name}.pathConfig.PathChanged or "";
   c = wired.config;
 in
@@ -135,6 +149,13 @@ pkgs.runCommand "sextant-device-module-check"
   gcAllLong = gcWarning { automatic = true; options = "--max-freed 1G --delete-old"; };
   gcZero = gcWarning { automatic = true; options = "--delete-older-than 0d"; };
   gcOff = gcWarning { automatic = false; options = "-d"; };
+  maFailed = builtins.concatStringsSep "|" (failed managedAdmin);
+  maHashFile = ma.users.users.beheer.hashedPasswordFile;
+  maExecutor = ma.services.sextant-actd.managedAdmin;
+  maUnit = builtins.toJSON (ma.systemd.services.sextant-admin-password.wantedBy or null);
+  maNoActdFailed = builtins.concatStringsSep "|" (failed (adminWith { dawo.localAdmin.managed = true; }));
+  unmanagedFailed = builtins.concatStringsSep "|" (failed (adminWith { }));
+  unmanagedExecutor = (adminWith { dawo.localAdmin.passwordSecret = "admin-hash"; services.sextant-actd.enable = true; }).config.services.sextant-actd.managedAdmin;
 } ''
   fail() { echo "FAIL: $1" >&2; exit 1; }
 
@@ -191,6 +212,20 @@ pkgs.runCommand "sextant-device-module-check"
     esac
   done
   [ -z "$gcOff" ] || fail "a store cleanup that never runs was warned about: $gcOff"
+
+  [ -z "$maFailed" ] || fail "a managed administrator without a password secret was refused: $maFailed"
+  [ "$maHashFile" = /var/lib/sextant-actd/admin.hash ] || fail "the managed account reads its hash from '$maHashFile'"
+  [ "$maExecutor" = beheer ] || fail "the executor draws a password for '$maExecutor'"
+  [ "$maUnit" = '["multi-user.target"]' ] || fail "nothing draws the password at boot: $maUnit"
+  case "$maNoActdFailed" in
+    *"enable services.sextant-actd"*) ;;
+    *) fail "a managed administrator without the executor was accepted: '$maNoActdFailed'" ;;
+  esac
+  case "$unmanagedFailed" in
+    *"passwordSecret (secret-ref) is required unless managed"*) ;;
+    *) fail "an unmanaged administrator without a password was accepted: '$unmanagedFailed'" ;;
+  esac
+  [ -z "$unmanagedExecutor" ] || fail "an unmanaged administrator got a drawn password: '$unmanagedExecutor'"
 
   touch $out
 ''

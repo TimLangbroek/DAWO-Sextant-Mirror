@@ -3,12 +3,17 @@
 # The unprivileged agent (services.sextant-agent) can only DROP a validated
 # intent file into a spool directory; it never holds the privilege to lock a
 # session or destroy a disk. This root oneshot consumes that spool and carries
-# out the action. Two intents are handled:
+# out the action:
 #
-#   lock   - lock all logind sessions. Reversible (the operator clears the
-#            intent; the agent stops re-spooling).
-#   wipe   - cryptographically erase the device by destroying every LUKS
-#            key slot (cryptsetup luksErase). IRREVERSIBLE.
+#   lock         - lock all logind sessions. Reversible (the operator clears
+#                  the intent; the agent stops re-spooling).
+#   reboot       - restart once, to reach the firmware during provisioning.
+#   provision    - the next Secure Boot / TPM2 step the machine is ready for.
+#   diagnostics  - a bounded support bundle (design 0010).
+#   rotate-admin - a new password for the managed local administrator
+#                  (design 0017), drawn by its own unit, see managedAdmin.
+#   wipe         - cryptographically erase the device by destroying every LUKS
+#                  key slot (cryptsetup luksErase). IRREVERSIBLE.
 #
 # Wipe is gated deliberately, in layers, because it is destructive:
 #   1. armWipe (default FALSE). A spooled wipe is REFUSED and logged loudly
@@ -30,6 +35,62 @@ let
   # Spool + lock-flag paths must match the agent (agent/src/action.rs).
   spoolDir = "/run/sextant-intent";
   lockFlag = "/var/lib/sextant-agent/locked";
+
+  # adminPassword makes the managed administrator's password (design 0017):
+  # at boot when the device holds none, and again when the executor asks for
+  # a rotation. Its own unit rather than a branch of actd, because chpasswd
+  # needs /etc writable and the executor that can erase disks should not get
+  # that too.
+  adminHash = "/var/lib/sextant-actd/admin.hash";
+  adminRotate = "/var/lib/sextant-actd/admin.rotate";
+  adminPassword = pkgs.writeShellApplication {
+    name = "sextant-admin-password";
+    runtimeInputs = [ pkgs.coreutils pkgs.mkpasswd pkgs.shadow ];
+    text = ''
+      set -euo pipefail
+      umask 077
+      user=${lib.escapeShellArg cfg.managedAdmin}
+      hashFile="${adminHash}"
+      rotate="${adminRotate}"
+      # Must match the agent's ADMIN_FILE (agent/src/action.rs).
+      keyFile="/var/lib/sextant-agent/admin.key"
+
+      # The device holds a password and nobody asked for another: done.
+      if [ -s "$hashFile" ] && [ ! -e "$rotate" ]; then
+        exit 0
+      fi
+
+      # Twenty characters from thirty-two that cannot be mistaken for one
+      # another (no I, O, 0 or 1), in groups of five: 100 bits, readable
+      # over the phone. tr keeps only those bytes, so each kept character
+      # is uniform over the set; 4096 bytes leave about 500 of them.
+      raw="$(head -c 4096 /dev/urandom | LC_ALL=C tr -dc 'A-HJ-NP-Z2-9')"
+      if [ "''${#raw}" -lt 20 ]; then
+        echo "sextant-admin-password: not enough randomness drawn; nothing changed" >&2
+        exit 1
+      fi
+      password="''${raw:0:5}-''${raw:5:5}-''${raw:10:5}-''${raw:15:5}"
+      hash="$(printf '%s' "$password" | mkpasswd --method=yescrypt --stdin)"
+
+      # Both files are written first and renamed into place only after
+      # chpasswd succeeded, so a failure at any step leaves the old
+      # password, its hash and the agent's copy as they were.
+      printf '%s\n' "$hash" > "$hashFile.new"
+      # Readable for the agent: the agent's 0700 state directory is the
+      # boundary, as for the LUKS recovery key it escrows the same way.
+      printf '%s' "$password" > "$keyFile.new"
+      chmod 0644 "$keyFile.new"
+      if ! printf '%s:%s\n' "$user" "$hash" | chpasswd --encrypted; then
+        rm -f "$hashFile.new" "$keyFile.new"
+        echo "sextant-admin-password: chpasswd failed for $user; the old password stands" >&2
+        exit 1
+      fi
+      mv -f "$hashFile.new" "$hashFile"
+      mv -f "$keyFile.new" "$keyFile"
+      rm -f "$rotate"
+      echo "sextant-admin-password: new password for $user, waiting for the agent to hand it to the console"
+    '';
+  };
 
   actd = pkgs.writeShellApplication {
     name = "sextant-actd";
@@ -262,6 +323,29 @@ let
         rm -f "$diagTmp" || true
       fi
 
+      # rotate-admin: a new password for the managed local administrator
+      # (design 0017). The unit that draws it needs /etc writable, which this
+      # executor does not get; it asks for the rotation and starts that unit,
+      # whose exit status is the outcome. A device whose administrator is not
+      # managed says so instead of pretending.
+      if [ -e "$spool/rotate-admin.intent" ]; then
+        rm -f "$spool/rotate-admin.intent" || true
+      ${if cfg.managedAdmin == "" then ''
+        echo "sextant-actd: rotate-admin intent, but no local administrator on this device is managed (dawo.localAdmin.managed); refusing" >&2
+        writeAck admin-rotate-failed
+      '' else ''
+        echo "sextant-actd: rotate-admin intent - drawing a new password for "${lib.escapeShellArg cfg.managedAdmin}
+        touch "${adminRotate}"
+        if systemctl start sextant-admin-password.service && [ ! -e "${adminRotate}" ]; then
+          writeAck admin-rotated
+        else
+          echo "sextant-actd: the password rotation failed; the old password stands" >&2
+          rm -f "${adminRotate}" || true
+          writeAck admin-rotate-failed
+        fi
+      ''}
+      fi
+
       # wipe: destructive, heavily gated.
       if [ -e "$spool/wipe.intent" ]; then
       ${if !cfg.armWipe then ''
@@ -338,9 +422,32 @@ in
       default = true;
       description = "Power the machine off after a successful wipe.";
     };
+
+    managedAdmin = lib.mkOption {
+      type = lib.types.str;
+      default = "";
+      example = "beheer";
+      description = ''
+        Login name of a local administrator whose password this device draws
+        and the console holds (design 0017). Set by dawo.localAdmin.managed;
+        empty leaves passwords alone. The account itself, and its
+        hashedPasswordFile pointing at adminHashFile, are the caller's.
+      '';
+    };
+
+    adminHashFile = lib.mkOption {
+      type = lib.types.str;
+      default = adminHash;
+      readOnly = true;
+      description = ''
+        Where the managed administrator's password hash lives, for
+        users.users.<name>.hashedPasswordFile: the next activation then keeps
+        the password the device drew instead of locking the account.
+      '';
+    };
   };
 
-  config = lib.mkIf cfg.enable {
+  config = lib.mkIf cfg.enable (lib.mkMerge [ {
     # A path unit triggers the executor whenever an intent file appears; the
     # oneshot runs as root (unlike the sandboxed agent).
     systemd.paths.sextant-actd = {
@@ -400,5 +507,36 @@ in
         SystemCallArchitectures = "native";
       };
     };
-  };
+  }
+
+  # The managed administrator's password: drawn at boot when the device holds
+  # none, and again when actd asks for a rotation. After the agent, whose
+  # state directory receives the copy for the console.
+  (lib.mkIf (cfg.managedAdmin != "") {
+    systemd.services.sextant-admin-password = {
+      description = "Sextant: draw the managed local administrator's password";
+      wantedBy = [ "multi-user.target" ];
+      after = [ "sextant-agent.service" ];
+      serviceConfig = {
+        Type = "oneshot";
+        ExecStart = lib.getExe adminPassword;
+        ProtectSystem = "strict";
+        StateDirectory = "sextant-actd";
+        # /etc for chpasswd; the agent's directory only if it exists, so a
+        # device without the agent fails the write instead of the namespace.
+        ReadWritePaths = [ "/etc" "-/var/lib/sextant-agent" ];
+        ProtectHome = true;
+        PrivateTmp = true;
+        PrivateNetwork = true;
+        ProtectKernelTunables = true;
+        ProtectKernelModules = true;
+        ProtectControlGroups = true;
+        RestrictSUIDSGID = true;
+        LockPersonality = true;
+        RestrictAddressFamilies = [ "AF_UNIX" ];
+        SystemCallArchitectures = "native";
+      };
+    };
+  })
+  ]);
 }

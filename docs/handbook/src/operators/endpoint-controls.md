@@ -84,6 +84,24 @@ This is also high risk class, in both directions. Off locks the account on every
 device it applies to; on, it creates a way in that does not depend on your
 directory being up.
 
+### A password the console holds
+
+With `localAdmin.managed` on, there is no password to keep anywhere else. Each
+device draws its own (twenty characters in groups of five, about 100 bits) at
+first boot and hands it to the console on its next check-in, the way it hands
+over its LUKS recovery key. The device page then shows it to an owner, once
+per reveal, and records who revealed it. `passwordSecret` is ignored.
+
+**Rotate** next to the password asks the device for a new one. The old one
+stops working the moment the device sets the new one, and the console has the
+new one on the beat after. The device keeps its copy until the console confirms
+holding it, so a console that cannot store secrets yet (no
+`SEXTANT_SECRET_KEY`) costs nothing but a delay.
+
+Managed passwords need the root executor on the device
+(`services.sextant-actd.enable`, in your overlay); the build refuses
+`managed` without it. Wipe stays refused unless you arm it separately.
+
 Related: [Manage secrets](./secrets.md) for registering the password reference,
 and [Approve a request for privilege](./elevation.md) for the path a user takes
 when they hit something none of these rights cover.

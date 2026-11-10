@@ -191,8 +191,13 @@ in
     passwordSecret = lib.mkOption {
       type = lib.types.str;
       default = "";
-      description = "Secret-ref name of a file holding the password HASH (the output of `mkpasswd -m yescrypt`), not the password itself. Turning this integration off locks the account on every device, but does not delete it or its home directory.";
+      description = "Secret-ref name of a file holding the password HASH (the output of `mkpasswd -m yescrypt`), not the password itself. Ignored when the console holds the password. Turning this integration off locks the account on every device, but does not delete it or its home directory.";
     } // { secret = true; label = "Password (hash)"; };
+    managed = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = "Let each device draw its own password and hand it to the console, which shows it to an owner on the device page and can replace it there (design 0017). One password per device instead of one per scope, and none to keep anywhere else.";
+    } // { label = "Password held by the console"; };
   };
 
   ###########################################################################
@@ -216,8 +221,12 @@ in
       assertions = [
         { assertion = la.username != "";
           message = "dawo.localAdmin: username is required when the account is enabled."; }
-        { assertion = la.passwordSecret != "";
-          message = "dawo.localAdmin: passwordSecret (secret-ref) is required - an admin account nobody can authenticate to is not an account, and one with an empty password is worse."; }
+        # Not switched on here: the executor also carries lock and wipe, and
+        # whether a device takes remote actions is the overlay's decision.
+        { assertion = !la.managed || config.services.sextant-actd.enable;
+          message = "dawo.localAdmin.managed: the device draws the password with the root executor; enable services.sextant-actd on these devices (wipe stays refused unless armed)."; }
+        { assertion = la.managed || la.passwordSecret != "";
+          message = "dawo.localAdmin: passwordSecret (secret-ref) is required unless managed is on - an admin account nobody can authenticate to is not an account, and one with an empty password is worse."; }
       ];
       users.users.${la.username} = {
         isNormalUser = true;
@@ -225,9 +234,14 @@ in
         extraGroups = [ "wheel" ];
         # hashedPasswordFile, never hashedPassword: a hash written into the
         # module would land in the world-readable nix store. The file arrives
-        # through agenix, decryptable only by this device's host key.
-        hashedPasswordFile = secretPath la.passwordSecret;
+        # through agenix, decryptable only by this device's host key - or,
+        # when managed, is the one the device wrote when it drew the password.
+        hashedPasswordFile =
+          if la.managed then config.services.sextant-actd.adminHashFile
+          else secretPath la.passwordSecret;
       };
+      # The executor draws the password at first boot and on a rotate intent.
+      services.sextant-actd.managedAdmin = lib.mkIf la.managed la.username;
       # No NOPASSWD rule. This account HAS a password, so sudo can ask for it -
       # which is the whole difference between this and the shared bootstrap
       # account it replaces.

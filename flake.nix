@@ -157,6 +157,9 @@
         # Deep: first start with nothing configured, through the setup
         # pages to a signed-in owner (design 0013).
         setup-on-nixos = import ./tests/setup-on-nixos.nix { inherit self pkgs; };
+        # Deep: a managed local administrator's password is drawn, logs in,
+        # is rotated and survives a reboot (design 0017).
+        admin-password-on-nixos = import ./tests/admin-password-on-nixos.nix { inherit self pkgs; };
       });
 
       devShells = forAll (pkgs: {
