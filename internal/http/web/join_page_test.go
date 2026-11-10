@@ -361,3 +361,42 @@ func TestAddALaptopIsScopedToTheGroupsYouEdit(t *testing.T) {
 		t.Fatalf("a viewer may open Add a laptop: %d", resp.StatusCode)
 	}
 }
+
+// Add a laptop is the primary button on every page, and a button that ends
+// in a refusal is worse than none: whoever cannot make a code does not see
+// it, whoever can sees it on the overview and on an empty device list too.
+func TestAddALaptopIsOfferedToWhoeverCanUseIt(t *testing.T) {
+	get := func(ts *httptest.Server, path string) string {
+		t.Helper()
+		resp, err := client().Get(ts.URL + path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+		body, _ := io.ReadAll(resp.Body)
+		return string(body)
+	}
+	const offer = `href="/devices/add"`
+
+	viewer := identity.User{Subject: "v", Groups: []string{"beta-view"}}
+	ts, _, _, _ := joinConsoleAs(t, true, joinScopedSeed, scopedSessions{viewer})
+	for _, path := range []string{"/", "/devices"} {
+		if strings.Contains(get(ts, path), offer) {
+			t.Errorf("%s offers Add a laptop to someone who only views beta", path)
+		}
+	}
+
+	alpha := identity.User{Subject: "a", Groups: []string{"alpha-eds"}}
+	ts, _, _, _ = joinConsoleAs(t, true, joinScopedSeed, scopedSessions{alpha})
+	if !strings.Contains(get(ts, "/devices"), offer) {
+		t.Error("alpha's editor is not offered Add a laptop")
+	}
+
+	ts, _, _, _ = joinConsoleAs(t, true, `{"version": 3, "groups": {"pilot": {}}, "devices": {}}`, web.DevSessions{})
+	if n := strings.Count(get(ts, "/"), offer); n != 2 {
+		t.Errorf("the overview offers Add a laptop %d times, want the sidebar and the quick action", n)
+	}
+	if n := strings.Count(get(ts, "/devices"), offer); n != 2 {
+		t.Errorf("an empty device list offers Add a laptop %d times, want the sidebar and the empty row", n)
+	}
+}

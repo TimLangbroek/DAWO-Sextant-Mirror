@@ -44,11 +44,11 @@
          Gated with the nav entry below it: without the observed plane the
          page it opens cannot work, and a dead primary action is worse than a
          missing one. -->
-    {{if .HasJoin}}
+    {{if .CanAddLaptop}}
     <div class="px-4 py-3">
       <a href="/devices/add" class="flex w-full items-center justify-center gap-2 rounded-full bg-ink px-4 py-2 text-label-md text-canvas transition-opacity hover:opacity-90"><span class="material-symbols-outlined msz-18">add</span>{{.L.T "layout.add_laptop"}}</a>
     </div>
-    {{else if .HasEnrolment}}
+    {{else if and .HasEnrolment (not .HasJoin)}}
     <div class="px-4 py-3">
       <a href="/enroll" class="flex w-full items-center justify-center gap-2 rounded-full bg-ink px-4 py-2 text-label-md text-canvas transition-opacity hover:opacity-90"><span class="material-symbols-outlined msz-18">add</span>{{.L.T "layout.enroll_device"}}</a>
     </div>

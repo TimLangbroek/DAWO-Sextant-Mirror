@@ -170,6 +170,11 @@ func (s *Server) render(w http.ResponseWriter, name string, data map[string]any,
 	data["HasElevation"] = s.svc.Elevation != nil
 	data["HasEnrolment"] = s.svc.Discovery != nil
 	data["HasJoin"] = s.svc.Joins != nil
+	// The primary button on every page, and only for whoever it works for:
+	// it makes a code for a group, so a viewer who clicked it would land on
+	// a refusal.
+	data["CanAddLaptop"] = s.svc.Joins != nil &&
+		(v.roleAt("org").Meets(identity.Editor) || len(s.editableGroups(v)) > 0)
 	// CanOrgOwn gates owner-only nav entries (service accounts); pages that
 	// already set their own CanOrgOwn keep theirs.
 	if _, ok := data["CanOrgOwn"]; !ok {

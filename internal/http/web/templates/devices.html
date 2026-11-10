@@ -89,7 +89,7 @@
         {{if $.CanEdit}}<td class="text-right !px-4"><form method="post" action="/devices/{{.Tag}}/remove" class="!m-0 inline" data-confirm="{{$.L.T "devices.remove_confirm"}} {{.Tag}}?"><input type="hidden" name="csrf" value="{{$.CSRF}}"><button type="submit" title="{{$.L.T "common.remove"}}" aria-label="{{$.L.T "common.remove"}}" class="!rounded-full !border-0 !bg-transparent !p-1.5 text-text-tertiary opacity-0 transition hover:!text-status-error group-hover:opacity-100"><span class="material-symbols-outlined msz-18">delete</span></button></form></td>{{end}}
       </tr>
       {{else}}
-      <tr><td colspan="10" class="muted">{{$.L.T "devices.no_devices"}}</td></tr>
+      <tr><td colspan="10" class="muted">{{$.L.T "devices.no_devices"}}{{if $.CanAddLaptop}} <a href="/devices/add">{{$.L.T "layout.add_laptop"}}</a>{{end}}</td></tr>
       {{end}}
     </table>
   </div>
