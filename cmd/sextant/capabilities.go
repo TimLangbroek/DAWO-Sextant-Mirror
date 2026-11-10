@@ -732,36 +732,39 @@ func (d *deps) authCapability() capability.Capability {
 				})
 				return
 			}
-			authn, err := oidc.New(d.ctx, oidc.Config{
-				Issuer:       d.cfg.OIDCIssuer,
-				ClientID:     d.cfg.OIDCClientID,
-				ClientSecret: d.cfg.OIDCClientSecret,
-				RedirectURL:  d.cfg.OIDCRedirectURL,
-				GroupsClaim:  d.cfg.OIDCGroupsClaim,
-				Scopes:       d.cfg.OIDCScopes,
-				SessionKey:   d.cfg.SessionKey,
-				Secure:       d.cfg.SecureCookies,
-				Authorize: func(u identity.User) bool {
-					rv := d.svc.Fleet().IdentityResolver(d.cfg.ViewerGroups, d.cfg.EditorGroups, d.cfg.OwnerGroups)
-					rv.OwnerSubjects = d.cfg.OwnerSubjects
-					return rv.CanViewAnything(u)
-				},
-			})
-			if err != nil {
-				// Fail loudly: readiness carries the failure so the pod
-				// never reports healthy without its login flow.
-				d.log.Error("oidc discovery failed; session auth NOT mounted", "err", err)
-				d.checks.Register("oidc", func(context.Context) error { return err })
-				return
+			connect := func(ctx context.Context) (*oidc.Authenticator, error) {
+				return oidc.New(ctx, oidc.Config{
+					Issuer:       d.cfg.OIDCIssuer,
+					ClientID:     d.cfg.OIDCClientID,
+					ClientSecret: d.cfg.OIDCClientSecret,
+					RedirectURL:  d.cfg.OIDCRedirectURL,
+					GroupsClaim:  d.cfg.OIDCGroupsClaim,
+					Scopes:       d.cfg.OIDCScopes,
+					SessionKey:   d.cfg.SessionKey,
+					Secure:       d.cfg.SecureCookies,
+					Authorize: func(u identity.User) bool {
+						rv := d.svc.Fleet().IdentityResolver(d.cfg.ViewerGroups, d.cfg.EditorGroups, d.cfg.OwnerGroups)
+						rv.OwnerSubjects = d.cfg.OwnerSubjects
+						return rv.CanViewAnything(u)
+					},
+				})
 			}
-			inner := http.NewServeMux()
-			authn.Routes(inner)
-			limited := mw.RateLimit(rate.Limit(2), 10, d.cfg.TrustProxy)(inner)
+			routes := func(a *oidc.Authenticator) http.Handler {
+				inner := http.NewServeMux()
+				a.Routes(inner)
+				return inner
+			}
+			// Readiness carries a provider that has not answered, so the
+			// pod never reports healthy without its login flow; the console
+			// mounts anyway and sign-in follows once the provider answers.
+			s := &signin{issuer: d.cfg.OIDCIssuer}
+			d.checks.Register("oidc", s.check)
+			s.start(d.ctx, connect, routes, d.log)
+			limited := mw.RateLimit(rate.Limit(2), 10, d.cfg.TrustProxy)(s)
 			mux.Handle("GET /login/start", limited)
 			mux.Handle("GET /callback", limited)
 			mux.Handle("POST /logout", limited)
-			d.authz.Sessions = authn
-			d.log.Info("oidc session auth mounted", "issuer", d.cfg.OIDCIssuer)
+			d.authz.Sessions = s
 		},
 	}
 }
@@ -773,7 +776,7 @@ func (d *deps) consoleCapability() capability.Capability {
 		EnabledFn: func() bool { return d.cfg.OIDCIssuer != "" || d.cfg.DevAuth },
 		RoutesFn: func(mux *http.ServeMux) {
 			if d.authz.Sessions == nil {
-				d.log.Error("console skipped: no session source (oidc failed?)")
+				d.log.Error("console skipped: no session source")
 				return
 			}
 			console, err := web.New(

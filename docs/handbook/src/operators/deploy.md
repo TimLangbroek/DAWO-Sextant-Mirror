@@ -177,6 +177,15 @@ console reached only at a plain-http loopback address
 (`--public-url http://localhost:8080`, a container with its port published
 on the host's loopback) needs neither.
 
+**Sign-in says the identity provider has not answered.**
+The console asked the provider's discovery address (`<issuer>/.well-known/openid-configuration`)
+at start and got no answer. It keeps asking every 30 seconds and signs
+people in as soon as the provider answers, without a restart; until then
+`/readyz` reports not ready and the log has the provider's error. A
+provider that starts after the console, as after a cluster restart, needs
+nothing from you. If it lasts, check the issuer address from the console's
+own host.
+
 **Every write is refused with `gateMode: remote`.**
 The gate is fail-closed: no reachable gate-runner means no writes, by
 design. On a first install the runner waits for the repository the console
