@@ -66,6 +66,15 @@ let
     sextant.console.overlayRepoUrl = "https://forge.example.org/acme/fleet.git";
     sextant.releaseCache.url = "https://cache.example.org/cache";
   };
+  # Store cleanup against the boot-health rollback (#11): a window leaves
+  # the previous generation, deleting every older one does not, and only
+  # the second is worth a warning. Off is the overlay's choice, not one.
+  gcWarning = gc: builtins.concatStringsSep "|"
+    (lib.filter (lib.hasInfix "nothing to roll back to") (host {
+      sextant.console.url = "https://console.example.org";
+      sextant.console.overlayRepoUrl = "https://forge.example.org/acme/fleet.git";
+      nix.gc = gc;
+    }).config.warnings);
   # Design 0014 end to end: only a console block in fleet.json, and the
   # device reports to the console, pulls the fleet repository from it with
   # its own credential, and follows the block's branch.
@@ -102,6 +111,11 @@ pkgs.runCommand "sextant-device-module-check"
   # Both presentation rules, on the bundle's own option tree. A throw fails
   # the evaluation of this derivation, which is the failure we want.
   catalogSize = toString (builtins.length (self.lib.exportCatalogFromOptions wired.options));
+  gcCore = gcWarning { automatic = true; options = "--delete-older-than 7d"; };
+  gcAll = gcWarning { automatic = true; options = "-d"; };
+  gcAllLong = gcWarning { automatic = true; options = "--max-freed 1G --delete-old"; };
+  gcZero = gcWarning { automatic = true; options = "--delete-older-than 0d"; };
+  gcOff = gcWarning { automatic = false; options = "-d"; };
 } ''
   fail() { echo "FAIL: $1" >&2; exit 1; }
 
@@ -144,6 +158,15 @@ pkgs.runCommand "sextant-device-module-check"
   [ -z "$privateRestart" ] || fail "an agenix token got the device-credential watch"
 
   [ "$catalogSize" -gt 0 ] || fail "the bundle exports no settings"
+
+  [ -z "$gcCore" ] || fail "DAWO-Core's 7-day window was warned about: $gcCore"
+  for w in "$gcAll" "$gcAllLong" "$gcZero"; do
+    case "$w" in
+      *"nothing to roll back to"*) ;;
+      *) fail "store cleanup that keeps no older generation went unremarked" ;;
+    esac
+  done
+  [ -z "$gcOff" ] || fail "a store cleanup that never runs was warned about: $gcOff"
 
   touch $out
 ''

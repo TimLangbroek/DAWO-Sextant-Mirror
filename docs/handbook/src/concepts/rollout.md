@@ -60,6 +60,28 @@ the store label, which can never equal a git-hash pin - so every pinned
 device reads as falsely *behind*. A flake with uncommitted changes has no
 `self.rev`; commit before building, or the revision is unavailable.
 
+## A device's own safety net
+
+Under the waves, every device checks itself. A few minutes after it switches
+to a new release, it confirms three things: the switch completed, it has a
+network route, and the Sextant agent runs. If any of those fails, the device
+goes back to the release it ran before and keeps reporting that one. The wave
+then sees a device that did not converge and stops, which is the point.
+
+That only works while the release before is still on the device, and that is
+decided by store cleanup. DAWO-Core removes old releases daily, keeping
+everything from the last seven days plus the release that was running seven
+days ago. So the release before a switch always survives until the check has
+spoken. Cleanup that keeps nothing older, `nix-collect-garbage -d` or a
+zero-day window, leaves a bad switch with nowhere to go. The device module
+warns when an overlay sets it.
+
+How much a device keeps belongs to the device's configuration in the overlay
+(`nix.gc` in NixOS), not to a console setting. A longer window costs disk and
+buys nothing for this safety net. Going back further than the release before
+is not done on the device: revert the change in the fleet repository and roll
+that out like any other.
+
 ## Troubleshooting
 
 **A wave is stuck on Building.**

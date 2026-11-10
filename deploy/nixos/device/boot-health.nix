@@ -19,6 +19,18 @@
 # must.
 { config, lib, pkgs, ... }:
 let
+  # Store cleanup decides whether the rollback below has anything to roll
+  # back to (#11). DAWO-Core collects daily with --delete-older-than 7d,
+  # which keeps every generation of the last week plus the one that was
+  # running at the cutoff, so the generation before a switch always
+  # survives until this check has spoken. -d, or a zero-day window, keeps
+  # only the running generation: a bad switch then has nowhere to go.
+  gcOptions = config.nix.gc.options;
+  gcKeepsNoWindow =
+    builtins.elem "-d" (lib.splitString " " gcOptions)
+    || lib.hasInfix "--delete-old " "${gcOptions} "
+    || builtins.match ".*--delete-older-than[ =]+0+d.*" gcOptions != null;
+
   healthCheck = pkgs.writeShellApplication {
     name = "dawo-boot-health";
     runtimeInputs = [ pkgs.systemd pkgs.iproute2 pkgs.coreutils pkgs.nix pkgs.gnugrep ];
@@ -62,6 +74,11 @@ let
   };
 in
 {
+  warnings = lib.optional (config.nix.gc.automatic && gcKeepsNoWindow)
+    ("nix.gc.options (${gcOptions}) deletes every older generation, so after a "
+      + "bad switch dawo-boot-health has nothing to roll back to. Keep a window "
+      + "instead, such as --delete-older-than 7d, DAWO-Core's default.");
+
   systemd.tmpfiles.rules = [ "d /var/lib/dawo-health 0700 root root -" ];
 
   # Arm on every activation: a switch into a new generation must prove
