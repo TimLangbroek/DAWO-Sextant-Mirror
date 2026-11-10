@@ -137,14 +137,21 @@ let
   #      rename is one orphan plus one unlabelled option - two loud failures
   #      instead of one silent regression.
   #
-  # Rule 2 is scoped to the names this export actually walked, so a layer
-  # covering options an overlay does not install is not an error: an entry is
-  # orphaned only when NOTHING in the export defines it.
-  checked = entries:
+  # Rule 2 is scoped to the namespaces this export walked, so a layer
+  # covering a block an overlay does not install is not an error: the layer
+  # serves every overlay, and one without displaylink must still export. An
+  # entry is orphaned when its namespace (the first path component, which is
+  # one block) is exported and the entry's own option is not - the shape a
+  # rename takes. It used to be checked against every entry in the layer,
+  # whatever the overlay installed, so the comment promised this and the code
+  # refused it.
+  checkedWith = layer: entries:
     let
       unlabelled = lib.filter (e: (e.label or "") == "") entries;
       exported = lib.listToAttrs (map (e: lib.nameValuePair e.name true) entries);
-      orphans = lib.filter (n: !(exported ? ${n})) (lib.attrNames presentation);
+      namespaceOf = n: lib.head (lib.splitString "." n);
+      namespaces = lib.listToAttrs (map (e: lib.nameValuePair (namespaceOf e.name) true) entries);
+      orphans = lib.filter (n: namespaces ? ${namespaceOf n} && !(exported ? ${n})) (lib.attrNames layer);
       names = l: lib.concatStringsSep ", " l;
     in
     if unlabelled != [ ] then
@@ -165,6 +172,7 @@ let
         deleted (ADR 0019).
       ''
     else entries;
+  checked = checkedWith presentation;
 in
 {
   # exportCatalogFromOptions: options -> catalog entries. Takes the option
@@ -221,6 +229,9 @@ in
   # cores, tests). Full NixOS module sets should use
   # exportCatalogFromOptions on an evaluated host instead. specialArgs
   # carries whatever the module files take as arguments.
+  # The two rules against a given layer, for nix/tests.nix.
+  inherit checkedWith;
+
   exportCatalog = { modules, specialArgs ? { } }:
     let
       eval = lib.evalModules {

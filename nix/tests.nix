@@ -282,4 +282,33 @@ in
   crossHierarchyOrderEnforcedFlips =
     crossHierarchyARootFirst.lock.value == "a"
     && crossHierarchyARootFirst.lock.source.scope == "group:a-root";
-}
+  # The presentation layer's two rules (ADR 0019), against a small layer.
+  # ok: the export survives; it throws when the rule refuses.
+} // (let
+  ok = layer: entries: (builtins.tryEval (builtins.deepSeq (catalog.checkedWith layer entries) true)).success;
+  layer = { "desktop.plasma" = { label = "Plasma"; }; "displaylink.enable" = { label = "DisplayLink"; }; };
+  labelled = n: { name = n; label = n; };
+in
+{
+  # Every name in the layer exported: fine.
+  presentationAllExported = ok layer [ (labelled "desktop.plasma") (labelled "displaylink.enable") ];
+  # An overlay without the displaylink block still exports: its entries are
+  # in a namespace this export never walked.
+  presentationSkipsUninstalledBlocks = ok layer [ (labelled "desktop.plasma") ];
+  # A rename inside an installed block is still refused: desktop is
+  # exported, desktop.plasma is not.
+  presentationRefusesRenames = !(ok layer [ (labelled "desktop.kde") ]);
+  # Rule 1: an option without a label is refused.
+  presentationRefusesUnlabelled = !(ok layer [ { name = "desktop.plasma"; label = ""; } ]);
+  # And the real export applies the real layer: an overlay that installs the
+  # desktop block but has none of the layer's desktop options looks exactly
+  # like a rename, and is refused.
+  presentationFileIsApplied = !(builtins.tryEval (builtins.deepSeq
+    (catalog.exportCatalogFromOptions {
+      dawo.desktop.renamedAway = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = "An option the layer does not know.";
+      } // { label = "Renamed"; };
+    }) true)).success;
+})
