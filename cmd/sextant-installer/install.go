@@ -41,6 +41,11 @@ const (
 	// enrolKeyPath is where sextant-actd finds the key that lets it seal
 	// the disk to PCR 7 when the laptop is secured.
 	enrolKeyPath = "/var/lib/sextant-actd/luks-enroll.key"
+	// recoveryFile is where the agent picks up a disk phrase to escrow; it
+	// deletes the file once the console confirms it sealed the phrase
+	// (design 0009). The installer uses that in the live system to know the
+	// console holds the phrase before the laptop restarts.
+	recoveryFile = "/var/lib/sextant-agent/recovery.key"
 	// sbctlDir holds the per-device Secure Boot keys: sbctl creates them in
 	// the live system, lanzaboote signs the installed boot chain with them
 	// and sextant-actd enrols them when the firmware is in Setup Mode.
@@ -321,9 +326,17 @@ func (i *installer) install(ctx context.Context, j joined, d disk, rev string) e
 		return fmt.Errorf("installation failed: %s", tail(r.Out))
 	}
 
+	i.bindTPM2(ctx, d)
+	return i.escrow(ctx, j, phrase)
+}
+
+// bindTPM2 seals the new disk to the TPM2 when there is one. Each way it can
+// not happen leaves a laptop that asks for its phrase, which the console
+// holds by the time it restarts (escrow).
+func (i *installer) bindTPM2(ctx context.Context, d disk) {
 	if !i.hasTPM2() {
-		i.say("This laptop has no TPM2: it asks for its disk phrase at every start.\nThe console holds the phrase; an owner can reveal it.\n")
-		return nil
+		i.say("This laptop has no TPM2: it asks for its disk phrase at every start.\n")
+		return
 	}
 	luks := strings.Fields(i.run(ctx, nil, "blkid", "-t", "TYPE=crypto_LUKS", "-o", "device").Out)
 	var mine []string
@@ -334,7 +347,7 @@ func (i *installer) install(ctx context.Context, j joined, d disk, rev string) e
 	}
 	if len(mine) != 1 {
 		i.say("Found %d encrypted volumes on %s, so the TPM2 is not bound; the laptop asks for its phrase until it is secured.\n", len(mine), d.Path)
-		return nil
+		return
 	}
 	i.step(ctx, "Binding the disk to the TPM2", 90)
 	// Bound to no PCR on purpose (design 0016, decided): the laptop starts
@@ -343,6 +356,40 @@ func (i *installer) install(ctx context.Context, j joined, d disk, rev string) e
 		"--tpm2-device=auto", "--tpm2-pcrs=", mine[0]); r.Code != 0 {
 		i.say("The TPM2 could not be bound (%s); the laptop asks for its phrase until it is secured.\n", tail(r.Out))
 	}
+}
+
+// escrow hands the disk phrase to the console before the restart, with one
+// check-in of the agent from the live system under the new credential. A
+// laptop that asks for its phrase at its first start, because it has no TPM2
+// or the binding failed, would otherwise ask for a phrase nobody knows: the
+// installed agent only escrows once it runs, behind that very prompt.
+//
+// From the USB a person is there, so when the console does not confirm the
+// phrase is shown to write down. From a station nobody is, and a secret on
+// an unattended screen is no answer: the install fails and says why.
+func (i *installer) escrow(ctx context.Context, j joined, phrase string) error {
+	i.step(ctx, "Handing the disk phrase to the console", 95)
+	rec := i.path(recoveryFile)
+	if err := os.MkdirAll(filepath.Dir(rec), 0o700); err != nil {
+		return err
+	}
+	if err := os.WriteFile(rec, []byte(phrase), 0o600); err != nil {
+		return err
+	}
+	env := []string{"SEXTANT_URL=" + j.URL, "SEXTANT_TAG=" + j.Tag,
+		"SEXTANT_CREDENTIAL_FILE=" + i.path(filepath.Join(joinedDir, "credential"))}
+	r := i.run(ctx, env, "sextant-agent", "--once")
+	if _, err := os.Stat(rec); errors.Is(err, os.ErrNotExist) {
+		i.say("The console holds the disk phrase; an owner can reveal it.\n")
+		return nil
+	}
+	_ = os.Remove(rec)
+	if i.station != nil {
+		return fmt.Errorf("the console did not confirm it holds the disk phrase, so the machine was not restarted: %s", tail(r.Out))
+	}
+	i.say("\nThe console did not confirm it holds the disk phrase (%s).\n", tail(r.Out))
+	i.say("Write it down now; the laptop may ask for it:\n\n    %s\n\n", phrase)
+	i.ask("Press Enter when you have written it down. ")
 	return nil
 }
 

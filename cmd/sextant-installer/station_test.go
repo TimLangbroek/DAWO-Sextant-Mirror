@@ -73,7 +73,7 @@ func TestFromAStationTheMachineInstallsWhatTheConsoleApproved(t *testing.T) {
 	if !strings.Contains(out, "This machine becomes laptop-1.") || strings.Contains(out, "Go on?") {
 		t.Errorf("a station install must not wait for a key:\n%s", out)
 	}
-	if r.called("sextant-agent") != "" {
+	if r.called("sextant-agent join") != "" {
 		t.Error("a station install asked for a code")
 	}
 	if c := r.called("git clone"); !strings.Contains(c, "--no-checkout https://console.example.test/fleet.git") {
@@ -94,7 +94,7 @@ func TestFromAStationTheMachineInstallsWhatTheConsoleApproved(t *testing.T) {
 	for _, s := range f.got {
 		steps = append(steps, s.Step+s.Status)
 	}
-	if got := strings.Join(steps, ","); got != "Fetching the fleet configuration,Installing the system,Binding the disk to the TPM2,installed" {
+	if got := strings.Join(steps, ","); got != "Fetching the fleet configuration,Installing the system,Binding the disk to the TPM2,Handing the disk phrase to the console,installed" {
 		t.Errorf("the console saw %s", got)
 	}
 	if r.calls[len(r.calls)-1] != "systemctl reboot" {
@@ -115,6 +115,27 @@ func TestAFailedStationInstallSaysWhyInTheConsole(t *testing.T) {
 	}
 	if r.called("systemctl reboot") != "" {
 		t.Error("restarted after a failure")
+	}
+}
+
+// At a station nobody can write the phrase down, so an unconfirmed phrase
+// fails the install instead of restarting into a prompt nobody can answer,
+// and the phrase never appears on the unattended screen.
+func TestAtAStationAnUnconfirmedPhraseFailsTheInstall(t *testing.T) {
+	f := &fakeStation{answers: []int{http.StatusOK}}
+	r := stationRig(t, f)
+	r.escrowFails = true
+	if err := r.Run(context.Background()); err == nil {
+		t.Fatal("installed without the console holding the phrase")
+	}
+	if last := f.got[len(f.got)-1]; last.Status != "failed" || !strings.Contains(last.Message, "disk phrase") {
+		t.Fatalf("the console saw %+v", last)
+	}
+	if r.escrowed == "" || strings.Contains(r.out.String(), r.escrowed) {
+		t.Error("the phrase was shown on an unattended screen")
+	}
+	if r.called("systemctl reboot") != "" {
+		t.Error("restarted without the phrase escrowed")
 	}
 }
 

@@ -122,12 +122,39 @@ The station's job page says per laptop whether it came out secured.
 
 The USB path keeps 0016's behaviour: unbound until **Secure this laptop**.
 
+### What is made at the machine, and what the console keeps
+
+Decided by Bram on 2026-11-11, for the USB and the station alike.
+
+| Made at install | Kept by the console |
+|---|---|
+| Credential | issued by the console, so it has it |
+| Disk phrase | yes, escrowed before the restart (0016) |
+| TPM2 binding | nothing secret; the enrolled state is reported |
+| Secure Boot keys | **the public certificates only**, not the private keys |
+
+The private Secure Boot keys stay on the machine. The disk unseals on PCR
+7, the Secure Boot state, so whoever holds a machine's private key can sign
+a boot loader the TPM2 still trusts. Kept centrally, a breach of the
+console plus a stolen laptop would be an open disk. What that costs:
+reinstalling a machine with Secure Boot on needs its firmware put in Setup
+Mode first, which a reinstall needs anyway because every install makes new
+keys. The agent reports the certificates' fingerprints, so the console can
+show that a machine boots with its own keys.
+
+At a station nobody can write the phrase down, so when the console does
+not confirm it, the install fails and says why, and the phrase is never
+shown on the unattended screen.
+
 ## What changes
 
 - New: `cmd/sextant-station`, `deploy/nixos/station/`,
   `nixosModules.station`, a netboot output next to `mkInstaller`.
 - `sextant-installer` gets a station mode (`--station <url>`): job by MAC,
   no confirmation key, status to the station, Secure Boot keys created.
+  Both modes escrow the phrase before the restart.
+- The agent reports the fingerprints of the machine's Secure Boot
+  certificates; the device page shows them.
 - Join codes get a kind (`laptop`, `station`). The station API accepts a
   station device's own credential for its own tag.
 - Console: **Add a station** on the Imaging stations page.

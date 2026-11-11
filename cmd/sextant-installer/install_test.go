@@ -27,6 +27,9 @@ type rig struct {
 	tpm         bool
 	online      []bool
 	answer      map[string]runResult
+	// escrowFails makes the console not confirm the phrase on --once.
+	escrowFails bool
+	escrowed    string // the phrase the --once check-in found
 }
 
 func newRig(t *testing.T, input string) *rig {
@@ -64,6 +67,16 @@ func newRig(t *testing.T, input string) *rig {
 		call := strings.Join(append([]string{name}, args...), " ")
 		r.calls = append(r.calls, call)
 		r.envs[name] = env
+		if name == "sextant-agent" && len(args) > 0 && args[0] == "--once" {
+			rec := filepath.Join(root, recoveryFile)
+			b, _ := os.ReadFile(rec)
+			r.escrowed = string(b)
+			if r.escrowFails {
+				return runResult{Out: "sextant-agent: console unreachable", Code: 1}
+			}
+			_ = os.Remove(rec) // what the agent does on X-Recovery-Key-Stored
+			return runResult{}
+		}
 		if name == "sextant-agent" {
 			code := 0
 			if len(r.joinAnswers) > 0 {
@@ -166,8 +179,43 @@ func TestTheStickInstallsTheLaptop(t *testing.T) {
 	if !strings.HasSuffix(enrol, "--tpm2-device=auto --tpm2-pcrs= /dev/nvme0n1p2") {
 		t.Errorf("TPM2 enrol %q, want the new disk's volume bound to no PCR", enrol)
 	}
+	if r.escrowed != phrase {
+		t.Errorf("the check-in before the restart escrowed %q, want the disk's phrase", r.escrowed)
+	}
+	if env := strings.Join(r.envs["sextant-agent"], " "); !strings.Contains(env, "SEXTANT_TAG=laptop-3abcde") ||
+		!strings.Contains(env, "SEXTANT_CREDENTIAL_FILE="+filepath.Join(r.root, joinedDir, "credential")) {
+		t.Errorf("escrow check-in environment %q", env)
+	}
+	if order := strings.Join(r.calls, "|"); strings.Index(order, "sextant-agent --once") < strings.Index(order, "disko-install") {
+		t.Error("the phrase was escrowed before the disk it opens existed")
+	}
+	if strings.Contains(r.out.String(), phrase) {
+		t.Error("the phrase was shown although the console holds it")
+	}
 	if r.calls[len(r.calls)-1] != "systemctl reboot" {
 		t.Errorf("last call %q, want the restart", r.calls[len(r.calls)-1])
+	}
+}
+
+// When the console does not confirm the phrase, the person at the laptop
+// writes it down before it restarts: a laptop without a TPM2 asks for it.
+func TestAnUnconfirmedPhraseIsShownBeforeTheRestart(t *testing.T) {
+	r := newRig(t, "K7QM-4XWD\ny\n\n")
+	r.tpm = false
+	r.escrowFails = true
+	if err := r.Run(context.Background()); err != nil {
+		t.Fatalf("%v\n%s", err, r.out.String())
+	}
+	phrase := r.escrowed
+	out := r.out.String()
+	if phrase == "" || !strings.Contains(out, "Write it down now") || !strings.Contains(out, "    "+phrase+"\n") {
+		t.Fatalf("the phrase was not shown:\n%s", out)
+	}
+	if strings.Contains(out, "The console holds the disk phrase") {
+		t.Error("claimed the console holds a phrase it did not confirm")
+	}
+	if _, err := os.Stat(filepath.Join(r.root, recoveryFile)); !os.IsNotExist(err) {
+		t.Error("the phrase stays in the live system's agent directory")
 	}
 }
 

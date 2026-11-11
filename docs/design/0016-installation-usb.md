@@ -97,10 +97,17 @@ nobody for anything.
   already has.)
 - The same phrase is staged as `luks-enroll.key` for **Secure this
   laptop**, which shreds it once it has sealed to PCR 7.
-- The phrase goes into the agent's state directory as `recovery.key`. The
-  agent's first check-in carries it to the console, which seals it and
-  confirms; the agent then deletes its copy. That is the escrow path of
-  design 0009, unchanged.
+- The phrase is escrowed **before the restart** (Bram, 2026-11-11). The
+  installer puts it where the agent picks up a recovery key and runs one
+  check-in of the agent from the live system with the new credential
+  (`sextant-agent --once`). The console seals it and confirms, and the
+  agent deletes its copy: the escrow path of design 0009, unchanged, only
+  earlier. Without this a laptop that asks for its phrase at first start
+  (no TPM2, or the binding failed) would ask for one nobody knows, since
+  the installed agent only runs behind that prompt. When the console does
+  not confirm, the installer shows the phrase to write down and waits for
+  a key. The installed system also gets it as `recovery.key`; a second
+  escrow of the same phrase changes nothing.
 - A laptop without a TPM2 has no unattended unlock. See question 2.
 
 ### Securing it afterwards
