@@ -21,8 +21,8 @@ workshop, which is where a release is built and where the registry lives. The
 README's "Where this repository lives" table says what each forge is for and
 is the one place that description is maintained.
 
-There was a GitHub mirror. It is being retired rather than left as a third
-address nobody maintains, so do not open anything there.
+A private GitHub repository push-mirrors `git.edano.eu` as a backup. It is
+not public, so issues and pull requests go to Codeberg.
 
 **The two forges are held to different standards, deliberately** (ADR 0024).
 Codeberg is run as a public project: templates, labels, milestones per release,
@@ -34,8 +34,8 @@ and the workshop does not.
 
 A pull request on Codeberg is welcome and will not be turned away for being in
 the wrong place. It travels back like this: a maintainer applies it to
-canonical with your authorship intact, canonical is what releases are cut from,
-and every push goes to both forges. You do not have to do anything for that to happen, and
+canonical with your authorship intact, and every push goes to Codeberg and
+code.overheid.nl; a release is tagged and built on `git.edano.eu`. You do not have to do anything for that to happen, and
 you do not need an account on code.overheid.nl to contribute.
 
 Issues are read on both. Security reports go to neither - see SECURITY.md.

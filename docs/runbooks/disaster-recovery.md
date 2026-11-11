@@ -65,7 +65,8 @@ repository, branch `rings/<group>`, every 300 seconds. There is no second
 remote and no failover unless the overlay names one (below).
 
 **Measured: the overlay repository has one remote and no mirror.** The Sextant
-source lives on three forges; the repository the fleet actually follows lives
+source lives on three forges, plus a private GitHub push-mirror of the
+workshop; the repository the fleet actually follows lives
 on one. `restore-observed-plane.md` says the config plane is out of scope
 because "that is git, it has two remotes and a clone on every device" - that
 sentence is true of the Sextant repository and **not** of the overlay.

@@ -34,8 +34,8 @@ review as code and can be recreated on any Forgejo-family forge.
 branches and force-pushed ring refs belong there.
 
 **Push to Codeberg and to code.overheid.nl.** Those two are kept in step;
-forgejo is the workshop and may lag, except before a tag, because the release
-is built there. Flux reads Codeberg, so a half-push serves the old version and
+`git.edano.eu` is the workshop, where CI also runs; it may lag, except before
+a tag, because the release is built there. Flux reads Codeberg, so a half-push serves the old version and
 says nothing. The README's "Where this repository lives" table is the one
 place that describes all three.
 

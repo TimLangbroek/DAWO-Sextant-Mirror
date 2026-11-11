@@ -13,7 +13,7 @@ than answering them per e-mail.
 | Question | Answer |
 |---|---|
 | Licence | EUPL 1.2, for the whole product. No paid tier holds a feature back. |
-| Where the code lives | `code.overheid.nl/MinBZK/DAWO-Sextant` is canonical; `codeberg.org/DAWO/DAWO-Sextant` is the public project and the place to take part. Every push goes to both, and CI runs on Codeberg. |
+| Where the code lives | `code.overheid.nl/MinBZK/DAWO-Sextant` is canonical; `codeberg.org/DAWO/DAWO-Sextant` is the public project and the place to take part, pushed directly with CI on a runner there. `git.edano.eu/bb-open/DAWO-Sextant` is BB Open's workshop: CI runs there too, and it is the only forge that builds a release. |
 | Who steers it | BB Open is the steward: it keeps the roadmap, reviews contributions and cuts releases. Stewardship is a role, not ownership of what you run. |
 | Who may run it for others | Anyone. The licence permits hosting, supporting and reselling Sextant Fleet without asking us. |
 | Language | English for everything that lands in the repository. |
@@ -95,7 +95,7 @@ in scope and what we consider serious, is in `SECURITY.md`.
 
 ## Releases
 
-Releases are cut from canonical, tagged, and shipped with notes that name what
+Releases are tagged and built on BB Open's forge (`git.edano.eu`), which publishes the images, and shipped with notes that name what
 changed and who reported what. Supported releases get security backports.
 Organisations with a support agreement hear about a security release directly;
 everyone else reads the advisory in the repository.

@@ -49,6 +49,13 @@ retroactively, with the incident named in the commit.
 
 ## Where the code lives, from go-live onward
 
+> **History, superseded by what happened.** This was the plan of 6 August
+> 2026. Since then Codeberg is pushed directly rather than mirrored and runs
+> CI on its own runner, Flux reads Codeberg's `main`, the forge is
+> `git.edano.eu`, and the GitHub repository stayed as a private push-mirror of
+> it (decided 2026-11-11). The README's "Where this repository lives" table
+> describes the arrangement as it is.
+
 **Trigger: go-live.** Decided 6 August 2026.
 
 `forgejo.bb-open.com` stays the repository we actually work in: commits,

@@ -283,7 +283,7 @@ it.
 |---|---|
 | **codeberg.org/DAWO/DAWO-Sextant** | Where to read it, clone it, and take part today. Issues, pull requests and CI, on a runner attached here. Flux reads `main` here for the chart, so a merge reaches the cluster from this forge. Kept up to date. |
 | **code.overheid.nl/MinBZK/DAWO-Sextant** | Canonical, and where it is published as EU open source. No public accounts yet. Kept up to date. |
-| **git.edano.eu/bb-open/DAWO-Sextant** | BB Open's workshop, and today the only forge that builds a release: the tag, the images and the registry production pulls from live here. Not required to be current. |
+| **git.edano.eu/bb-open/DAWO-Sextant** | BB Open's workshop. CI runs here on pull requests and `main`, and it is today the only forge that builds a release: the tag, the images and the registry production pulls from live here. It push-mirrors to a private GitHub repository as a backup, and no longer mirrors to Codeberg. Not required to be current, except before a tag. |
 
 Codeberg and code.overheid.nl are the two that have to be kept up to date. A
 push that reaches one and not the other is silent, and the version served is

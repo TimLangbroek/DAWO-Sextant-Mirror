@@ -29,7 +29,7 @@ version in `metadata.yaml` disagree.
 
 ## What the release needs from an operator, once
 
-A repository secret `MIRROR_TOKEN` on DAWO-Sextant's forgejo mirror, holding a
+A repository secret `MIRROR_TOKEN` on DAWO-Sextant's repository on `git.edano.eu`, holding a
 token that may push to `bb-open/sextant-charts`. Without it a release still
 publishes images and says, in the job log, that the marketplace mirror is now
 a version behind and how to catch it up. It does not fail the release: the

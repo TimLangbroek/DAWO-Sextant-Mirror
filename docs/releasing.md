@@ -13,7 +13,8 @@ a developer laptop.
 
 1. bump `deploy/helm/Chart.yaml` (version AND appVersion) and `agent/Cargo.toml`
    plus its entry in `agent/Cargo.lock` to the same number (the flake refuses
-   to evaluate when they disagree), commit, push both remotes
+   to evaluate when they disagree), commit, push to Codeberg and
+   code.overheid.nl, and to bbopen (`git.edano.eu`) before tagging
 2. `git tag -a v<x.y.z> -m "release <x.y.z>"` and push the tag to bbopen -
    that is what starts the build. Watch it with `scripts/ci-status.sh`.
 3. platform repo `apps/sextant/helmrelease.yaml` tag -> `git push origin main`.
@@ -35,7 +36,7 @@ a developer laptop.
    line; a mirror that has to be corrected by hand is not a backup.
 
    What DOES need checking after a push is forgejo, and for the Sextant
-   repository also Codeberg, which carries the issues and pull requests.
+   repository also Codeberg, which carries the issues, pull requests and CI.
 4. `flux reconcile source git flux-system -n flux-system` then
    `kustomization sextant` then `source git sextant` then
    `helmrelease sextant -n sextant`
@@ -101,7 +102,8 @@ The order, then:
 
 English, ASCII-only, Conventional Commits, no marketing language. Every commit
 carries the trailer naming the assisting model and the human who reviewed and
-integrated it. Mirror to the bbopen remote after each commit.
+integrated it. Push to the bbopen remote (`git.edano.eu`) when a tag or a CI
+run there is near; nothing mirrors to it.
 
 Run `nix develop -c golangci-lint run ./...` before pushing. `go test` does not
 run errorlint, and CI has failed on that twice.
