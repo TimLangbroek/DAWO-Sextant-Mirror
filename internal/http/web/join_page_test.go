@@ -102,6 +102,13 @@ func joinConsoleWrite(t *testing.T, withJoins bool, seed string, sessions web.Se
 // joinConsoleWith also hands the console an installer builder (design 0016).
 func joinConsoleWith(t *testing.T, withJoins bool, seed string, sessions web.Sessions, write bool, installer ports.ArtifactBuilder) (*httptest.Server, *app.JoinService, *memCodes, *app.ConfigService) {
 	t.Helper()
+	return joinConsoleFull(t, withJoins, seed, sessions, write, installer, nil)
+}
+
+// joinConsoleFull lets a test add services, such as the discovery plane the
+// stations page needs (design 0018).
+func joinConsoleFull(t *testing.T, withJoins bool, seed string, sessions web.Sessions, write bool, installer ports.ArtifactBuilder, extra func(*web.Services)) (*httptest.Server, *app.JoinService, *memCodes, *app.ConfigService) {
+	t.Helper()
 	dir := t.TempDir()
 	run := func(args ...string) {
 		if out, err := exec.Command("git", append([]string{"-C", dir}, args...)...).CombinedOutput(); err != nil {
@@ -134,6 +141,9 @@ func joinConsoleWith(t *testing.T, withJoins bool, seed string, sessions web.Ses
 		joins = app.NewJoinService(codes, cfg, creds, clock, app.DefaultTenant, []byte("session key"))
 		svc.DevCreds, svc.Joins = creds, joins
 		svc.JoinConsole = func() (string, string) { return "https://console.example.test", "main" }
+	}
+	if extra != nil {
+		extra(&svc)
 	}
 	srv, err := web.New(svc, sessions, write, nil, nil, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	if err != nil {

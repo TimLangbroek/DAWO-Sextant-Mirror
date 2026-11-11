@@ -34,9 +34,9 @@ func (j *JoinCodeStore) Create(ctx context.Context, tenant string, c joincode.Co
 		return fmt.Errorf("prune join codes: %w", err)
 	}
 	_, err := j.s.pool.Exec(ctx, `
-		INSERT INTO join_codes (tenant, id, hash, grp, tag, uses, created, created_by, expires)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-		tenant, c.ID, c.Hash, c.Group, c.Tag, c.Uses, c.Created, c.CreatedBy, c.Expires)
+		INSERT INTO join_codes (tenant, id, hash, grp, tag, uses, created, created_by, expires, kind)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+		tenant, c.ID, c.Hash, c.Group, c.Tag, c.Uses, c.Created, c.CreatedBy, c.Expires, c.Kind)
 	if err != nil {
 		return fmt.Errorf("create join code %s: %w", c.ID, err)
 	}
@@ -50,7 +50,7 @@ func (j *JoinCodeStore) Spend(ctx context.Context, tenant string, hash []byte, n
 	row := j.s.pool.QueryRow(ctx, `
 		UPDATE join_codes SET uses = uses - 1
 		WHERE tenant=$1 AND hash=$2 AND uses > 0 AND expires > $3
-		RETURNING id, hash, grp, tag, uses + 1, created, created_by, expires`,
+		RETURNING id, hash, grp, tag, uses + 1, created, created_by, expires, kind`,
 		tenant, hash, now)
 	c, err := scanJoinCode(row)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -74,7 +74,7 @@ func (j *JoinCodeStore) Refund(ctx context.Context, tenant, id string) error {
 // Open lists the codes that can still be used at now, newest first.
 func (j *JoinCodeStore) Open(ctx context.Context, tenant string, now time.Time) ([]joincode.Code, error) {
 	rows, err := j.s.pool.Query(ctx, `
-		SELECT id, hash, grp, tag, uses, created, created_by, expires
+		SELECT id, hash, grp, tag, uses, created, created_by, expires, kind
 		FROM join_codes WHERE tenant=$1 AND uses > 0 AND expires > $2
 		ORDER BY created DESC`, tenant, now)
 	if err != nil {
@@ -104,6 +104,6 @@ func (j *JoinCodeStore) Withdraw(ctx context.Context, tenant, id string) error {
 
 func scanJoinCode(row scannable) (joincode.Code, error) {
 	var c joincode.Code
-	err := row.Scan(&c.ID, &c.Hash, &c.Group, &c.Tag, &c.Uses, &c.Created, &c.CreatedBy, &c.Expires)
+	err := row.Scan(&c.ID, &c.Hash, &c.Group, &c.Tag, &c.Uses, &c.Created, &c.CreatedBy, &c.Expires, &c.Kind)
 	return c, err
 }

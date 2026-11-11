@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/app"
 	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/domain/fleet"
 	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/domain/identity"
 	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/domain/imaging"
@@ -117,6 +118,12 @@ func reportURL(r *http.Request, station string) string {
 // (mint a station credential). Org Viewer to look; enroll/mint are gated on
 // their own POST handlers.
 func (s *Server) stationPage(w http.ResponseWriter, r *http.Request, v view) {
+	s.renderStation(w, r, v, nil)
+}
+
+// renderStation draws the stations page; shown is a station code just made
+// by Add a station, which exists only in this one answer.
+func (s *Server) renderStation(w http.ResponseWriter, r *http.Request, v view, shown *shownCode) {
 	if s.svc.Discovery == nil {
 		s.unavailable(w, r, v, v.L.T("degraded.needs_store"))
 		return
@@ -135,6 +142,11 @@ func (s *Server) stationPage(w http.ResponseWriter, r *http.Request, v view) {
 		"Title": "Imaging stations", "Nav": "station",
 		"Rows":   rows,
 		"CanOwn": v.roleAt("org").Meets(identity.Owner),
+		// Add a station needs join codes (design 0018); without them only the
+		// by-hand registration is offered.
+		"CanAdd":      s.svc.Joins != nil,
+		"StationCode": shown,
+		"USBOffered":  s.svc.Installer != nil,
 	}
 
 	// The Stations page is station ADMIN only: register/remove a station, mint
@@ -165,6 +177,25 @@ func (s *Server) stationPage(w http.ResponseWriter, r *http.Request, v view) {
 		}
 	}
 	s.render(w, "station", data, v)
+}
+
+// postStationCode is Add a station (design 0018): a one-use code that makes
+// whichever machine boots the installation USB with it an imaging station.
+// Org Owner, like registering a station by hand.
+func (s *Server) postStationCode(w http.ResponseWriter, r *http.Request, v view) error {
+	if s.svc.Joins == nil {
+		return fmt.Errorf("%s", v.L.T("degraded.needs_store"))
+	}
+	if err := s.requireWeb(v, "org", identity.Owner); err != nil {
+		return err
+	}
+	code, c, err := s.svc.Joins.Create(r.Context(), app.NewCode{Station: true, By: madeBy(v)})
+	if err != nil {
+		return err
+	}
+	s.log.Info("station code made", "id", c.ID, "by", v.User.Subject)
+	s.renderStation(w, r, v, s.shown(code, c))
+	return nil
 }
 
 // postStationRegister registers a new imaging station (config-as-data, an

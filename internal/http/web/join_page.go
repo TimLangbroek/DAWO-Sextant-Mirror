@@ -22,12 +22,13 @@ import (
 
 // joinCodeRow is one open code in the list.
 type joinCodeRow struct {
-	ID     string
-	Group  string
-	Tag    string
-	Uses   int
-	MadeBy string
-	Until  string
+	ID      string
+	Group   string
+	Tag     string
+	Station bool
+	Uses    int
+	MadeBy  string
+	Until   string
 }
 
 // shownCode is the code just made, for the one page that shows it.
@@ -85,7 +86,7 @@ func (s *Server) renderAddLaptop(w http.ResponseWriter, r *http.Request, v view,
 		if !v.canView(scope) {
 			continue
 		}
-		rows = append(rows, joinCodeRow{ID: c.ID, Group: c.Group, Tag: c.Tag, Uses: c.Uses,
+		rows = append(rows, joinCodeRow{ID: c.ID, Group: c.Group, Tag: c.Tag, Station: c.Kind == joincode.KindStation, Uses: c.Uses,
 			MadeBy: c.CreatedBy, Until: c.Expires.Local().Format(joinTimeFormat)})
 	}
 	s.render(w, "add_laptop", map[string]any{
@@ -187,6 +188,9 @@ func (s *Server) postWithdrawJoinCode(w http.ResponseWriter, r *http.Request, v 
 		}
 		var err error
 		switch {
+		case c.Kind == joincode.KindStation:
+			// Made by an owner on the stations page; withdrawn by one too.
+			err = s.requireWeb(v, "org", identity.Owner)
 		case c.Tag != "":
 			err = s.requireDeviceEditor(v, c.Tag)
 		case c.Group != "":

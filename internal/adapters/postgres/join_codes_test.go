@@ -148,3 +148,24 @@ func TestJoinCodeOpenWithdrawAndPrune(t *testing.T) {
 		}
 	}
 }
+
+func TestJoinCodeKeepsItsKind(t *testing.T) {
+	s := openStore(t).JoinCodes()
+	ctx := context.Background()
+	station := newJoinCode("st", 1, t0)
+	station.Kind = joincode.KindStation
+	laptop := newJoinCode("lt", 1, t0.Add(time.Minute))
+	for _, c := range []joincode.Code{station, laptop} {
+		if err := s.Create(ctx, "t1", c); err != nil {
+			t.Fatal(err)
+		}
+	}
+	open, err := s.Open(ctx, "t1", t0.Add(time.Hour))
+	if err != nil || len(open) != 2 || open[0].Kind != "" || open[1].Kind != joincode.KindStation {
+		t.Fatalf("listed as %+v (%v)", open, err)
+	}
+	got, ok, err := s.Spend(ctx, "t1", station.Hash, t0.Add(time.Hour))
+	if err != nil || !ok || got.Kind != joincode.KindStation {
+		t.Fatalf("spent as %+v ok=%v err=%v", got, ok, err)
+	}
+}

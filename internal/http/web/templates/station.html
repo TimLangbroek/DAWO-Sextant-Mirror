@@ -94,11 +94,32 @@
 </div>
 {{end}}
 
+{{with .StationCode}}
+{{/* The code exists only in this answer; the console keeps its HMAC. */}}
+<div class="mt-6 rounded-lg border border-mint-vibrant/40 bg-mint-vibrant/5 p-6 shadow-sm" role="status">
+  <p class="mb-2 text-label-xs-caps uppercase text-text-tertiary">{{$.L.T "station.code_for"}}</p>
+  <p class="mb-3 select-all font-mono text-[2.5rem] font-medium leading-none tracking-widest text-ink" data-join-code>{{.Code}}</p>
+  <p class="mb-4 text-body-md text-text-secondary">{{$.L.T "join.valid_until"}} {{.Until}} · {{$.L.T "join.shown_once"}}</p>
+  <p class="mb-0 text-body-md text-ink">{{$.L.T "station.code_how"}}{{if $.USBOffered}} <a href="/devices/add#usb">{{$.L.T "station.usb_link"}}</a>{{end}}</p>
+</div>
+{{end}}
+
 {{if and .CanOwn (not .Station)}}
-<!-- Register a station (setup wizard) -->
+{{if .CanAdd}}
+<!-- Add a station: the installation USB and one code (design 0018) -->
 <div class="mt-6 rounded-lg border border-border-hairline bg-canvas p-6 shadow-sm">
-  <h2 class="mt-0 flex items-center gap-2 text-headline-sm"><span class="material-symbols-outlined text-mint-vibrant">add_circle</span>{{.L.T "station.register_title"}}</h2>
-  <p class="muted mb-4">{{.L.T "station.register_desc"}}</p>
+  <h2 class="mt-0 flex items-center gap-2 text-headline-sm"><span class="material-symbols-outlined text-mint-vibrant">add_circle</span>{{.L.T "station.add_title"}}</h2>
+  <p class="muted mb-4 max-w-2xl">{{.L.T "station.add_desc"}}</p>
+  <form method="post" action="/stations/code" class="!m-0">
+    <input type="hidden" name="csrf" value="{{.CSRF}}">
+    <button type="submit"><span class="material-symbols-outlined msz-18">password</span>{{.L.T "station.add_button"}}</button>
+  </form>
+</div>
+{{end}}
+<!-- Register a station by hand: stations set up without the USB -->
+<details class="mt-6 rounded-lg border border-border-hairline bg-canvas p-6 shadow-sm" {{if not .CanAdd}}open{{end}}>
+  <summary class="cursor-pointer text-headline-sm">{{.L.T "station.register_title"}}</summary>
+  <p class="muted mb-4 mt-3">{{.L.T "station.register_desc"}}</p>
   <form method="post" action="/stations" class="!items-end">
     <input type="hidden" name="csrf" value="{{.CSRF}}">
     <div class="flex flex-col gap-1"><label>{{.L.T "station.station_tag_label"}}</label><input name="tag" placeholder="{{.L.T "common.eg"}} dawo-inspoelstraat" required pattern="[a-z0-9][a-z0-9-]*" class="font-mono"></div>
@@ -106,6 +127,6 @@
     <div class="flex flex-col gap-1"><label>{{.L.T "station.site_label"}}</label><input name="site" placeholder="{{.L.T "common.optional"}}"></div>
     <button type="submit">{{.L.T "station.register_button"}}</button>
   </form>
-</div>
+</details>
 {{end}}
 {{end}}

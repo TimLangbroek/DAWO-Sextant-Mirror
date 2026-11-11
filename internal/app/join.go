@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/domain/fleet"
 	"code.overheid.nl/MinBZK/DAWO-Sextant/internal/domain/joincode"
@@ -61,17 +62,26 @@ func refuseJoin(format string, args ...any) error {
 
 // NewCode is what "Add a laptop" asks. Group may be empty (the laptop joins
 // at the organisation level); Tag makes a Re-enrol code for one device.
+// Station makes a code for "Add a station" (design 0018): one use, and the
+// machine that joins with it becomes an imaging station.
 type NewCode struct {
-	Group string
-	Uses  int
-	Tag   string
-	By    string
+	Group   string
+	Uses    int
+	Tag     string
+	Station bool
+	By      string
 }
 
 // Create makes a code and returns it as people read it (XXXX-XXXX). This is
 // the only time it exists outside the laptop it is typed into.
 func (s *JoinService) Create(ctx context.Context, req NewCode) (string, joincode.Code, error) {
 	f := s.cfg.Fleet()
+	if req.Station && req.Tag != "" {
+		return "", joincode.Code{}, fmt.Errorf("a station code makes a new station; re-enrol %s from its own page", req.Tag)
+	}
+	if req.Station {
+		req.Uses = 1
+	}
 	if req.Tag != "" {
 		d, ok := f.Devices[req.Tag]
 		if !ok {
@@ -101,9 +111,13 @@ func (s *JoinService) Create(ctx context.Context, req NewCode) (string, joincode
 		return "", joincode.Code{}, fmt.Errorf("draw a code id: %w", err)
 	}
 	now := s.clock.Now()
+	kind := ""
+	if req.Station {
+		kind = joincode.KindStation
+	}
 	c := joincode.Code{
 		ID: hex.EncodeToString(id[:]), Hash: joincode.Hash(s.key, code),
-		Group: req.Group, Tag: req.Tag, Uses: req.Uses,
+		Group: req.Group, Tag: req.Tag, Kind: kind, Uses: req.Uses,
 		Created: now, CreatedBy: req.By, Expires: now.Add(joincode.TTL),
 	}
 	if err := s.codes.Create(ctx, s.tenant, c); err != nil {
@@ -186,8 +200,16 @@ func (s *JoinService) Join(ctx context.Context, req JoinRequest) (out Joined, er
 			d.Groups = []string{c.Group}
 		}
 		msg := fmt.Sprintf("devices: %s joins (%s) with a code from %s", tag, hw, c.CreatedBy)
+		mut := fleet.AddDevice(tag, d, now)
+		if c.Kind == joincode.KindStation {
+			// The device and its station entry land in one commit, so there is
+			// never a station without its machine or the other way round.
+			d.Class = "station"
+			msg = fmt.Sprintf("devices: %s joins (%s) as an imaging station with a code from %s", tag, hw, c.CreatedBy)
+			mut = joinAsStation(tag, d, now)
+		}
 		by := ports.Author{Subject: "join:" + c.ID, Name: "sextant-join", Email: "join@sextant"}
-		if err := s.cfg.Apply(ctx, fleet.AddDevice(tag, d, now), msg, by, tag); err != nil {
+		if err := s.cfg.Apply(ctx, mut, msg, by, tag); err != nil {
 			return Joined{}, err
 		}
 	}
@@ -233,37 +255,61 @@ func (s *JoinService) place(c joincode.Code, req JoinRequest) (tag string, fresh
 			}
 		}
 	}
-	tag, err = s.newTag(f, req.Name, serial)
+	prefix := "laptop-"
+	if c.Kind == joincode.KindStation {
+		prefix = "station-"
+	}
+	tag, err = s.newTag(f, req.Name, serial, prefix)
 	return tag, true, err
+}
+
+// joinAsStation adds the device and registers it as an imaging station.
+func joinAsStation(tag string, d fleet.Device, now time.Time) fleet.Mutation {
+	return func(f *fleet.Fleet) error {
+		if err := fleet.AddDevice(tag, d, now)(f); err != nil {
+			return err
+		}
+		return fleet.AddStation(tag, fleet.Station{})(f)
+	}
 }
 
 // newTag is the name the laptop asked for, or one made from its serial
 // number, or a random one; a taken name made from the serial gets -2, -3.
-func (s *JoinService) newTag(f *fleet.Fleet, name, serial string) (string, error) {
+func (s *JoinService) newTag(f *fleet.Fleet, name, serial, prefix string) (string, error) {
 	if name = strings.ToLower(strings.TrimSpace(name)); name != "" {
 		if !fleet.ValidateSlug(name) {
 			return "", refuseJoin("the name %q cannot be used: lower-case letters, digits and dashes, at most 63", name)
 		}
-		if _, taken := f.Devices[name]; taken {
+		if taken(f, name) {
 			return "", refuseJoin("the name %q is taken; choose another or leave it out", name)
 		}
 		return name, nil
 	}
 	base := joincode.TagFromSerial(serial)
+	if base != "" {
+		base = prefix + strings.TrimPrefix(base, "laptop-")
+	}
 	if base == "" {
 		r, err := joincode.New(s.rand)
 		if err != nil {
 			return "", err
 		}
-		base = "laptop-" + strings.ToLower(r[:6])
+		base = prefix + strings.ToLower(r[:6])
 	}
 	tag := base
 	for i := 2; ; i++ {
-		if _, taken := f.Devices[tag]; !taken {
+		if !taken(f, tag) {
 			return tag, nil
 		}
 		tag = fmt.Sprintf("%s-%d", base, i)
 	}
+}
+
+// taken reports whether a tag names a device or a station already.
+func taken(f *fleet.Fleet, tag string) bool {
+	_, dev := f.Devices[tag]
+	_, sta := f.Stations[tag]
+	return dev || sta
 }
 
 // hardware picks the profile: one that names the model, otherwise the

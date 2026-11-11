@@ -436,3 +436,65 @@ func TestJoinALaptopThatLeftTriesAgain(t *testing.T) {
 		t.Fatal("the second attempt's credential does not work")
 	}
 }
+
+func TestAStationCodeMakesAnImagingStation(t *testing.T) {
+	st := newJoinStack(t)
+	ctx := context.Background()
+
+	if _, _, err := st.svc.Create(ctx, NewCode{Station: true, Tag: "lt-active"}); err == nil {
+		t.Fatal("a station code was made for an existing device")
+	}
+	_, c, err := st.svc.Create(ctx, NewCode{Station: true, Uses: 5, By: "beheerder"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.Kind != joincode.KindStation || c.Uses != 1 {
+		t.Fatalf("station code stored as kind %q with %d uses, want station and 1", c.Kind, c.Uses)
+	}
+	code := st.code(t, NewCode{Station: true, By: "beheerder"})
+
+	got, err := st.svc.Join(ctx, JoinRequest{Code: code, Serial: "NUC12345", Vendor: "Intel", Model: "NUC13", CPU: "GenuineIntel", Virtualisation: "none"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Tag != "station-c12345" {
+		t.Fatalf("tag %q, want station- and the serial", got.Tag)
+	}
+	f := st.cfg.Fleet()
+	if d := f.Devices[got.Tag]; d.Class != "station" {
+		t.Fatalf("device class %q, want station", d.Class)
+	}
+	if _, ok := f.Stations[got.Tag]; !ok {
+		t.Fatal("the station is not registered under stations")
+	}
+	if log := sh(t, st.dir, "log", "-1", "--format=%s"); log != "devices: station-c12345 joins (generic-intel) as an imaging station with a code from beheerder" {
+		t.Fatalf("one commit expected for device and station, got: %s", log)
+	}
+
+	// A laptop code still makes a laptop.
+	lap, err := st.svc.Join(ctx, JoinRequest{Code: st.code(t, NewCode{}), Serial: "PF3ABCDE", CPU: "GenuineIntel", Virtualisation: "none"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d := st.cfg.Fleet().Devices[lap.Tag]; lap.Tag != "laptop-3abcde" || d.Class == "station" {
+		t.Fatalf("laptop joined as %s class %q", lap.Tag, d.Class)
+	}
+	if _, ok := st.cfg.Fleet().Stations[lap.Tag]; ok {
+		t.Fatal("a laptop was registered as a station")
+	}
+}
+
+func TestAStationTagDoesNotTakeARegisteredStationsName(t *testing.T) {
+	st := newJoinStack(t)
+	ctx := context.Background()
+	if err := st.cfg.Apply(ctx, fleet.AddStation("station-c12345", fleet.Station{}), "stations: register by hand", ports.Author{Name: "t", Email: "t@t"}); err != nil {
+		t.Fatal(err)
+	}
+	got, err := st.svc.Join(ctx, JoinRequest{Code: st.code(t, NewCode{Station: true}), Serial: "NUC12345", CPU: "GenuineIntel", Virtualisation: "none"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Tag != "station-c12345-2" {
+		t.Fatalf("tag %q, want the next free one", got.Tag)
+	}
+}

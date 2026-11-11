@@ -303,6 +303,7 @@ func (s *Server) Routes(mux *http.ServeMux) {
 	post("/enroll/{station}/discovered/{mac}/remove", s.postDiscoveredRemove)
 	post("/enroll/{station}/jobs/{mac}/cancel", s.postEnrollJobCancel)
 	post("/stations", s.postStationRegister)
+	post("/stations/code", s.postStationCode)
 	post("/station/{tag}/credential", s.postStationCredential)
 	post("/station/{tag}/remove", s.postStationRemove)
 	post("/secrets", s.postSecretRegister)

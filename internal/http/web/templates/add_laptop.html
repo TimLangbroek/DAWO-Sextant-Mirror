@@ -69,7 +69,7 @@
     <tr><th>{{.L.T "join.for"}}</th><th>{{.L.T "join.uses_left"}}</th><th>{{.L.T "join.valid_until"}}</th><th>{{.L.T "join.made_by"}}</th><th class="text-right !px-4">{{.L.T "common.actions"}}</th></tr>
     {{range .Codes}}
     <tr>
-      <td>{{if .Tag}}<a href="/devices/{{.Tag}}" class="font-mono">{{.Tag}}</a> <span class="tag">{{$.L.T "join.reenrol_tag"}}</span>{{else if .Group}}<span class="tag">{{.Group}}</span>{{else}}{{$.L.T "join.org"}}{{end}}</td>
+      <td>{{if .Station}}<a href="/station">{{$.L.T "join.station_tag"}}</a>{{else if .Tag}}<a href="/devices/{{.Tag}}" class="font-mono">{{.Tag}}</a> <span class="tag">{{$.L.T "join.reenrol_tag"}}</span>{{else if .Group}}<span class="tag">{{.Group}}</span>{{else}}{{$.L.T "join.org"}}{{end}}</td>
       <td>{{.Uses}}</td>
       <td>{{.Until}}</td>
       <td>{{.MadeBy}}</td>

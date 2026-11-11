@@ -39,6 +39,10 @@ const TTL = 24 * time.Hour
 // reasonable; a code that works for anyone, indefinitely, is a password.
 const MaxUses = 100
 
+// KindStation marks a code that makes an imaging station instead of a
+// laptop. The person at the installation USB does not choose; the code does.
+const KindStation = "station"
+
 // alphabet is Crockford's base32: digits, then letters without I, L, O, U.
 const alphabet = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
 
@@ -51,7 +55,10 @@ type Code struct {
 	Group string `json:"group,omitempty"`
 	// Tag binds the code to an existing device: Re-enrol on a device's page.
 	// Using it gives that device a new credential instead of making one.
-	Tag       string    `json:"tag,omitempty"`
+	Tag string `json:"tag,omitempty"`
+	// Kind is what the code makes: "" a laptop, KindStation an imaging
+	// station (design 0018).
+	Kind      string    `json:"kind,omitempty"`
 	Uses      int       `json:"uses"`
 	Created   time.Time `json:"created"`
 	CreatedBy string    `json:"createdBy,omitempty"`
