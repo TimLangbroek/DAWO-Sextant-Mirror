@@ -175,3 +175,37 @@ func TestStationJobLifecycle(t *testing.T) {
 		t.Fatalf("illegal transition = %d, want 409", resp.StatusCode)
 	}
 }
+
+// A station that hands credentials to targets on its network (design 0018)
+// claims only new work: its next claim must not replace a credential it
+// already handed out.
+func TestClaimOnlyPendingLeavesAnImagingJobsCredentialAlone(t *testing.T) {
+	ts, svc, creds := newJobsServer(t)
+	ctx := context.Background()
+	if err := svc.Dispatch(ctx, imaging.Job{Station: "nuc-1", MAC: "aa:bb:cc:dd:ee:01", Tag: "lab-1", Hardware: "hw"}); err != nil {
+		t.Fatal(err)
+	}
+	claim := func(query string) []jobView {
+		t.Helper()
+		resp := req(t, "POST", ts.URL+"/api/station/nuc-1/jobs/claim"+query, "s3cr3t", "")
+		defer resp.Body.Close()
+		var out []jobView
+		if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+			t.Fatal(err)
+		}
+		return out
+	}
+	if got := claim("?only=pending"); len(got) != 1 || got[0].Credential == "" {
+		t.Fatalf("first claim = %+v", got)
+	}
+	if got := claim("?only=pending"); len(got) != 0 {
+		t.Fatalf("the imaging job was claimed again: %+v", got)
+	}
+	if len(creds.issued) != 1 {
+		t.Fatalf("credentials issued for %v, want one", creds.issued)
+	}
+	// Without the query, a station picks its imaging job up again.
+	if got := claim(""); len(got) != 1 || got[0].Tag != "lab-1" {
+		t.Fatalf("plain claim = %+v", got)
+	}
+}

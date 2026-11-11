@@ -187,6 +187,13 @@ func (s *StationAPI) handleJobs(w http.ResponseWriter, r *http.Request) {
 // a freshly minted per-device credential, so the installer can write the
 // agent secret into the image. The secret is delivered exactly once, over the
 // station's authenticated channel - never stored, never shown in the console.
+//
+// Without a query it also returns the jobs already imaging, with a new
+// credential each: a station that runs one install at a time and restarts
+// mid-install picks its job up again that way. ?only=pending returns only the
+// jobs this claim moves, and leaves an imaging job's credential alone. A
+// station that has handed a credential to a target on its network (design
+// 0018) must not see it replaced by its own next claim.
 func (s *StationAPI) handleClaim(w http.ResponseWriter, r *http.Request) {
 	station, ok := s.authStation(w, r)
 	if !ok {
@@ -202,8 +209,12 @@ func (s *StationAPI) handleClaim(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
+	onlyPending := r.URL.Query().Get("only") == "pending"
 	out := make([]jobView, 0, len(jobs))
 	for _, j := range jobs {
+		if onlyPending && j.Status != imaging.Pending {
+			continue
+		}
 		v := jobView{MAC: j.MAC, Tag: j.Tag, Hardware: j.Hardware, Status: string(imaging.Imaging), Rev: j.Rev}
 		if s.devCreds != nil {
 			secret, err := s.devCreds.Issue(r.Context(), j.Tag)
