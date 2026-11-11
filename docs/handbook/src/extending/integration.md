@@ -154,7 +154,7 @@ reads it from there - which is why the example above does
 `cat /run/agenix/${cfg.token}` rather than interpolating a value.
 
 Register the name first on the Secrets page, then point the field at it. See
-[Manage secrets](../operators/secrets.md).
+[Manage secrets](../operators/lifecycle.md#manage-secrets).
 
 ## Marking a dangerous option
 

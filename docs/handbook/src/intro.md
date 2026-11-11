@@ -14,9 +14,12 @@ workplace image, and the two are developed together. Nothing here is specific
 to it: an overlay that publishes `dawo.*` options is what Sextant configures,
 whatever core provides them.
 
-This handbook is for operators running a fleet and for engineers working on
-Sextant itself. It is built with mdBook and served self-hosted; it uses no
-external CDN.
+This handbook has three parts. **For operators** is eleven pages, in the
+order a new console meets them: install it, connect it, add laptops, then
+run the fleet. **For people using a laptop** is one page to hand to the
+people whose laptops Sextant manages. **For maintainers** is for engineers
+working on Sextant itself. It is built with mdBook and served self-hosted;
+it uses no external CDN.
 
 The console starts simple: its sidebar shows the pages the everyday tasks go
 through (Overview, Devices, Groups, Settings, Integrations, Updates, and

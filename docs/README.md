@@ -1,7 +1,7 @@
 # Documentation
 
 A hundred and four files, and until now the only index was the handbook's
-own `SUMMARY.md`, which covers twenty-five of them. This file is the map.
+own `SUMMARY.md`, which covers twenty of them. This file is the map.
 
 Two kinds of document live here and telling them apart is the whole point.
 A **living** document describes how things are and is expected to be wrong
@@ -25,7 +25,7 @@ date, either in the filename or in the table below.
 | Path | Kind | What it is |
 |---|---|---|
 | `adr/` | living | Architecture decisions, numbered. A decision is recorded once and superseded by a later ADR, never edited into a different decision. |
-| `handbook/` | living | The published manual (`docs.sextantfleet.com`). `src/SUMMARY.md` is its table of contents. |
+| `handbook/` | living | The published manual (`docs.sextantfleet.com`), in three parts: eleven pages for operators, one for the people using a managed laptop, and the maintainers' pages. `src/SUMMARY.md` is its table of contents; `book.toml` redirects the addresses of pages that were folded into others. |
 | `runbooks/` | living | What to do when something is broken. Written to be followed under pressure. |
 | `compliance/` | living, all drafts | DPIA, processing register, ISO 27002 mapping, accessibility. None is approved or signed; each says so at the top. |
 | `design/` | mixed | Numbered design notes (0001 and up) plus loose briefs from the reskin. The numbered ones are living; the SHOUTING ones are records of a moment. |

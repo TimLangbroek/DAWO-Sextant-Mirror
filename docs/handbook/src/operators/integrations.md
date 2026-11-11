@@ -25,7 +25,7 @@ device resolves the name to the decrypted material at runtime (agenix); only the
 name travels through the config repo.
 
 Register the secrets first on the **Secrets** page (see
-[Manage secrets](./secrets.md)), then point the integration field at one by
+[Manage secrets](./lifecycle.md#manage-secrets)), then point the integration field at one by
 name.
 
 ## Setting it up
@@ -91,4 +91,4 @@ server (a firewall, or a mesh route that is not up yet).
 
 **A secret field's picker is empty.**
 No secret reference has been registered yet - use the inline shortcut next
-to the field, or register one first on the [Secrets](./secrets.md) page.
+to the field, or register one first on the [Secrets](./lifecycle.md#manage-secrets) page.

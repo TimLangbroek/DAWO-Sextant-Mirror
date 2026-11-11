@@ -61,5 +61,5 @@ removes every volume: the database, the repository and the keys.
 Replace `dex` with your own identity provider (issuer, client id and
 secret, and the group that should be owner), put the console behind TLS
 with `--public-url https://...`, and point the repository at your own git server.
-The [deployment paths](../../docs/handbook/src/operators/deployment-paths.md) cover the NixOS
+The [deployment paths](../../docs/handbook/src/operators/deploy.md) cover the NixOS
 module and the Helm chart.

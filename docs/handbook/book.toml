@@ -20,3 +20,14 @@ enable = true
 
 [preprocessor.mermaid]
 command = "mdbook-mermaid"
+
+# Pages folded into others when the handbook went back to eleven operator
+# pages. The console's refusals and older links still point at these.
+[output.html.redirect]
+"/operators/deployment-paths.html" = "deploy.html"
+"/operators/image-devices.html" = "station-nuc.html#image-devices-from-the-console"
+"/operators/secrets.html" = "lifecycle.html#manage-secrets"
+"/operators/elevation.html" = "endpoint-controls.html#approve-a-request-for-privilege"
+"/operators/hardware.html" = "compliance.html#hardware-models"
+"/concepts/rollout.html" = "../operators/updates.html#how-a-rollout-ships"
+"/concepts/approvals.html" = "../operators/updates.html#approval-flows"

@@ -38,7 +38,7 @@ gate, for tests or a console with no flake).
 
 The gate is a type-and-build check, not a policy check. Governance - who may
 edit, four-eyes review, a required test wave - sits on top of it, in the
-change-request and rollout flows (see [Approval flows](./approvals.md) and
+change-request and rollout flows (see [Approval flows](../operators/updates.md#approval-flows) and
 [Ship an update](../operators/updates.md)).
 
 ## Troubleshooting

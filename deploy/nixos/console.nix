@@ -2,7 +2,7 @@
 #
 # The container path without the container: one host carries the binary, you
 # bring the database and the TLS. See
-# docs/handbook/src/operators/deployment-paths.md for how the three compare.
+# docs/handbook/src/operators/deploy.md for how the four compare.
 #
 # WHAT THIS MODULE LEARNED THE HARD WAY. It used to pass only --addr, so the
 # service could not be given a repository or the write path at all - and

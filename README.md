@@ -197,7 +197,7 @@ afternoon:
 | **A validation gate** | The nix evaluation that proves a change builds before it can be committed. In production this runs out-of-process in a small gate-runner, fail-closed, because the console image deliberately ships no nix. |
 
 There are four ways to run it, and all four are in
-[Four ways to run Sextant](docs/handbook/src/operators/deployment-paths.md): the
+[Install and configure Sextant](./docs/handbook/src/operators/deploy.md): the
 compose stack in `deploy/compose` to try it on your own machine, the NixOS
 module in `deploy/nixos`, a container on any host, or one Helm release plus a
 secret (`deploy/helm`) on Kubernetes. The devices need

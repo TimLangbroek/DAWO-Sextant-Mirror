@@ -412,17 +412,17 @@ func (c *Config) validate() error {
 		if c.Write && !c.AllowUnvalidated {
 			refuse("saving changes is on (--write) but nothing checks them (--gate none), so a broken fleet.json would reach the devices",
 				"run a gate-runner and set --gate remote with --gate-url (deploy/compose shows how); for a throwaway console only, --allow-unvalidated",
-				"deployment-paths.html")
+				"deploy.html#what-differs-between-them")
 		}
 	case "remote":
 		if c.GateURL == "" {
 			refuse("--gate remote is set without an address for the gate-runner",
 				"set --gate-url (SEXTANT_GATE_URL) to the gate-runner, for example http://127.0.0.1:8090",
-				"deployment-paths.html")
+				"deploy.html#what-differs-between-them")
 		}
 	default:
 		refuse(fmt.Sprintf("gate %q is not one this console knows", c.GateMode),
-			"set --gate to remote (with a gate-runner), eval or none", "deployment-paths.html")
+			"set --gate to remote (with a gate-runner), eval or none", "deploy.html#what-differs-between-them")
 	}
 	if c.Write && c.RepoDir == "" {
 		refuse("saving changes is on (--write) but there is no fleet repository (--repo)",

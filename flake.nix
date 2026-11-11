@@ -234,7 +234,7 @@
 
       # The console as a systemd service. One host, your own database and
       # proxy - the container path without the container (see
-      # docs/handbook/src/operators/deployment-paths.md).
+      # docs/handbook/src/operators/deploy.md).
       nixosModules.default = import ./deploy/nixos/console.nix { inherit self; };
 
     };

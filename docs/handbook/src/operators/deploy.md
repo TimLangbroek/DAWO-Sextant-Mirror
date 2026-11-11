@@ -7,6 +7,27 @@ an audited commit pushed to the remote, and the remote is the source of truth.
 So "connecting Sextant to git" means pointing the console at your overlay repo;
 there is nothing else to wire.
 
+One binary, four ways to run it. They differ in what carries the database,
+the secrets and the TLS, not in what the console does. This page helps you
+pick one and get it started, then covers what every path needs after that:
+the fleet repository, sign-in, the validation gate, and the settings that
+bite.
+
+Every command here was run on 2026-08-22 against release 0.91.0, and the traps
+are the ones that actually bit.
+
+## Pick a way to run it
+
+| | What it is | What it is for |
+|---|---|---|
+| `deploy/compose` | console, gate-runner, a test identity provider, a database | trying it, and testing a change, on your own machine |
+| The NixOS module | the console under systemd, PostgreSQL on the same host | a NixOS server, which a NixOS fleet tends to have already |
+| A container | one image, your database, your proxy | a single host that runs podman or docker |
+| The Helm chart | console, gate-runner, CloudNativePG | a cluster, and the only path with HA and backups |
+
+The NixOS module's first start, from nothing configured to a signed-in owner,
+is a VM test (`checks.setup-on-nixos`), so it is walked on every change.
+
 ## What you need
 
 - **An overlay repository** - a git repo that consumes a NixOS core flake and
@@ -32,7 +53,163 @@ there is nothing else to wire.
 
 To see it working before you deploy anything, `deploy/compose` starts a
 console, a database, the validation gate and a test identity provider on
-your own machine; see [the four ways to run Sextant](./deployment-paths.md).
+your own machine; see [`deploy/compose`](#1-deploycompose) below.
+
+## First start: the setup page
+
+A console that starts with no way to sign in - no identity provider and no
+`--dev-auth` - opens its setup page instead of a login nobody can pass
+(design 0013). It writes one line to its log, with a link that works once:
+
+```
+level=WARN msg="setup: open http://127.0.0.1:8080/setup?token=..."
+```
+
+The address is the console's public URL when one is set, otherwise the
+address it listens on (`localhost` when that is all interfaces).
+
+Whoever can read the log can set the console up; everybody else is told to
+wait. On NixOS, `services.sextant.enable = true;` with nothing else is
+enough to get there, and `journalctl -u sextant | grep setup:` shows the
+link. In a container, give it a volume at `/data`, where setup writes its
+answers.
+
+The page asks, in this order:
+
+1. **Keys.** Made for you. The secret key comes as a file to keep somewhere
+   the server's own failure cannot reach: the database holds the disk
+   recovery keys sealed with it, and a restored database cannot be read
+   without it. Setup goes on once you say you stored it.
+2. **Fleet repository.** "Create one for me" starts it in the data
+   directory, or give the address and a token of one you have, with a Test
+   button that checks the console can reach it with that token.
+3. **Sign-in.** The issuer, the client id and the client secret of your
+   identity provider. The page shows the redirect address to register
+   there. **Test sign-in** runs a real login and shows what came back,
+   including the groups it found.
+4. **Done.** The console checks that it will start with these answers,
+   restarts itself, and the person who did the test sign-in is the owner.
+   No group has to be mapped first.
+
+What a deployment sets itself - a NixOS option, a Helm value, an environment
+variable - is not asked again, and the page says it was set by the
+deployment.
+
+The NixOS module starts the console read-only (`write = false`), and every
+page says so. A change goes through a validation gate that builds the
+configuration of the devices it touches from the fleet repository, so set
+`services.sextant.write = true;` once that repository has a flake that
+builds them. The repository setup creates holds only `fleet.json` so far.
+
+## 1. `deploy/compose`
+
+```sh
+git clone https://codeberg.org/DAWO/DAWO-Sextant.git && cd DAWO-Sextant/deploy/compose
+podman-compose up -d
+```
+
+Console on **http://127.0.0.1:8080**. Choose **Sign in with SSO**, then **a
+test user**, and you are owner. Every change you save goes through the
+remote validation gate, as it does in production.
+
+It brings its own identity provider (Dex, with one test person and no
+password), so it is for your own machine only. The
+[compose README](https://codeberg.org/DAWO/DAWO-Sextant/src/branch/main/deploy/compose/README.md)
+says what runs and how to start over.
+
+## 2. The NixOS module
+
+`nixosModules.default` in the flake runs the console under systemd with
+`DynamicUser`, and starts PostgreSQL on the same host
+(`database.createLocally`, on by default). One line is enough to begin:
+
+```nix
+services.sextant.enable = true;
+```
+
+That console has nothing to sign in with, so it opens the setup page above;
+`journalctl -u sextant | grep setup:` gives the link. Whatever you set in
+the module is not asked again. Set it all and setup never appears:
+
+```nix
+services.sextant = {
+  enable = true;
+  gitRemote.url = "https://codeberg.org/acme/fleet.git";
+  # A netrc line for a credential that may push. A string, not a path
+  # literal, so the token never lands in the Nix store.
+  gitRemote.netrcFile = "/run/secrets/sextant-netrc";
+  write = true;
+  gate = "eval"; # this host has nix; the gate runs here
+  publicUrl = "https://console.example.org"; # your TLS proxy in front
+  oidc.issuer = "https://id.example.org"; # secret: SEXTANT_OIDC_CLIENT_SECRET
+  oidc.clientId = "sextant";
+  ownerGroups = [ "it-admins" ];
+  environmentFile = "/run/secrets/sextant.env"; # the keys; PostgreSQL runs on this host
+};
+```
+
+The fleet repository is one setting: give it an empty repository on any
+https forge and it is filled with a starter fleet before the console first
+starts.
+
+## 3. A container, on any host
+
+```sh
+podman run -d --name sextant --network host \
+  -e SEXTANT_PG_DSN="postgres://sextant@127.0.0.1:5432/sextant?sslmode=disable" \
+  -e SEXTANT_CHECKIN_TOKEN="…" \
+  -e SEXTANT_SECRET_KEY="$(head -c 32 /dev/urandom | base64)" \
+  -v /srv/sextant/overlay:/data/overlay:z \
+  git.edano.eu/bb-open/sextant:0.93.0 \
+  --addr 127.0.0.1:8080 --repo /data/overlay --write --gate remote \
+  --gate-url https://gate.example.org
+```
+
+**The image runs as uid 65532 and will not start on a volume it cannot write.**
+The state directory defaults to `<repo>/.sextant-state`, so a bind mount owned
+by your own user fails with:
+
+```
+sextant: state dir: mkdir /data/overlay/.sextant-state: permission denied
+```
+
+Chown the volume to that uid before the first run (`podman unshare chown -R
+65532:65532 /srv/sextant/overlay` for a rootless podman), or point `--state-dir`
+at a volume that is writable.
+
+**`--dev-auth` only works on loopback**, which inside a container is the
+container's own. `--network host` is why the example above works; a real
+deployment uses an IdP and does not need it.
+
+Verified on 0.91.0: five capabilities mounted, `/station` answered 200, and a
+setting saved in the console landed in `fleet.json` inside the mounted overlay.
+
+Put TLS in front of it and set `--public-url` to the https address. Behind
+TLS on a non-loopback address the console refuses to ship session cookies
+without the Secure flag, deliberately; an https public URL turns it on.
+
+## 4. The Helm chart
+
+```sh
+kubectl create namespace sextant
+kubectl -n sextant create secret generic sextant \
+  --from-literal=SEXTANT_CHECKIN_TOKEN='…' \
+  --from-literal=SEXTANT_SECRET_KEY="$(head -c 32 /dev/urandom | base64)" \
+  --from-literal=SEXTANT_SESSION_KEY="$(head -c 32 /dev/urandom | base64)" \
+  --from-literal=SEXTANT_OIDC_CLIENT_SECRET='…'
+helm install sextant ./deploy/helm -n sextant -f my-values.yaml
+```
+
+`my-values.yaml` needs at least `gitRemote.url`: the chart refuses to render
+without a fleet repository. An empty one is fine; the chart fills it before
+the console starts.
+
+This is the only path that brings its own database: the chart creates a
+CloudNativePG cluster and wires the console to it, so `SEXTANT_PG_DSN` is not
+in that secret. It needs the CloudNativePG operator installed first.
+
+The walk-through, including the values that bite, is
+[First deploy, end to end](#first-deploy-end-to-end) below.
 
 ## Connect the console to your overlay repo
 
@@ -116,17 +293,7 @@ put the new key first and keep the old one after it.
 1. Create a repository on your forge (GitHub, Codeberg, GitLab, Forgejo). Under
    Helm it may stay empty: the chart fills it with a starter fleet. Put a
    netrc with a credential that may push in a Secret for `gitRemote.netrcSecret`.
-2. Deploy the console from the chart in this repository:
-
-   ```sh
-   kubectl create namespace sextant
-   kubectl -n sextant create secret generic sextant \
-     --from-literal=SEXTANT_CHECKIN_TOKEN='...' \
-     --from-literal=SEXTANT_SECRET_KEY="$(head -c 32 /dev/urandom | base64)" \
-     --from-literal=SEXTANT_SESSION_KEY="$(head -c 32 /dev/urandom | base64)" \
-     --from-literal=SEXTANT_OIDC_CLIENT_SECRET='...'
-   helm install sextant ./deploy/helm -n sextant -f my-values.yaml
-   ```
+2. Deploy the console with [the Helm chart](#4-the-helm-chart), as above.
 
    The chart creates a CloudNativePG cluster and wires the console to it, so
    the DSN is not in that secret. Its backup is **off** by default, because a
@@ -180,6 +347,22 @@ secret; add it to the same secret the chart mounts (`secretName`).
 
 Multi-tenant (model B): one overlay repo per organisation, isolated stores,
 one console instance per repo. See `docs/adr/` for the decisions behind this.
+
+## What differs between them
+
+The console is the same binary in all four. What changes:
+
+- **The database.** The compose stack starts one in a volume, the NixOS
+  module runs one on the host (`database.createLocally`, on by default), the
+  chart creates one; the container expects one.
+- **Validation.** The compose stack runs the remote gate, as production does.
+  The container and the chart should use
+  `--gate remote` with a nix-capable gate-runner - the console image ships no
+  nix on purpose.
+- **Backups.** Only the chart has an opinion, and its backup is **off** by
+  default while the database holds the only copy of the LUKS recovery keys.
+  Whichever path you take, that is your decision to make and not one to
+  inherit.
 
 ## Troubleshooting
 
