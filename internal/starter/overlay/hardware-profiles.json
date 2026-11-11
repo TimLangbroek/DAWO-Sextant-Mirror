@@ -1,0 +1,17 @@
+[
+  {
+    "name": "generic-amd",
+    "notes": "Any laptop with an AMD processor that no model-specific profile names. A laptop that joins with a code lands here until somebody adds a profile for its model.",
+    "disko": "LUKS2 on the first disk, ext4 root, 1 GiB ESP"
+  },
+  {
+    "name": "generic-intel",
+    "notes": "Any laptop with an Intel processor that no model-specific profile names. A laptop that joins with a code lands here until somebody adds a profile for its model.",
+    "disko": "LUKS2 on the first disk, ext4 root, 1 GiB ESP"
+  },
+  {
+    "name": "vm",
+    "notes": "A virtual machine, for trying Sextant out.",
+    "disko": "LUKS2 on the first disk, ext4 root, 1 GiB ESP"
+  }
+]

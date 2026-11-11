@@ -67,3 +67,24 @@ func TestForFillsTheConsoleBlock(t *testing.T) {
 		t.Fatalf("an empty address was written:\n%s", raw)
 	}
 }
+
+// A laptop that joins with a code (design 0015) falls back to a generic
+// profile when nothing names its model. Without these in the starter, every
+// join to a console that setup made refused with "no hardware profile fits",
+// and the only way out was editing the repository by hand: the step C2 says
+// a newcomer never takes.
+func TestStarterCarriesTheJoinFallbackProfiles(t *testing.T) {
+	raw, err := fs.ReadFile(Overlay(), fleet.HardwareProfilesFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hw, err := fleet.ParseHardwareProfiles(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"generic-intel", "generic-amd", "vm"} {
+		if !hw.Has(name) {
+			t.Errorf("starter has no %q profile", name)
+		}
+	}
+}
