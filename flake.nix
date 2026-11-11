@@ -14,24 +14,27 @@
       # go. Excepting it in .govulncheck-exceptions would be accepting a
       # reachable crash, not a fix.
       #
+      # Used only where this flake builds Go: the sextant package and the
+      # devshell's go. Not an overlay on nixpkgs: an overlay changed every
+      # Go-built package in the VM tests' systems, nothing came from the
+      # binary cache, and the flake check ran past its timeout (CI run 830).
+      #
       # REMOVE THIS the moment nixpkgs ships 1.27.4 or later. A local version
       # override is a small fork of the toolchain: it stops receiving whatever
       # nixpkgs does to its go derivation. `nix flake update nixpkgs` then
       # `nix develop --command go version` is the whole check. The hash is the
       # sha256 go.dev publishes for the source tarball.
       goVersion = "1.27.4";
-      goOverlay = _final: prev: {
-        go = prev.go.overrideAttrs (_old: {
-          version = goVersion;
-          src = prev.fetchurl {
-            url = "https://go.dev/dl/go${goVersion}.src.tar.gz";
-            hash = "sha256-c8+4VxrsDAEXdofbhxY9Rqog6XeWcncokaoXZU2aYJk=";
-          };
-        });
-      };
+      goFor = pkgs: pkgs.go.overrideAttrs (_old: {
+        version = goVersion;
+        src = pkgs.fetchurl {
+          url = "https://go.dev/dl/go${goVersion}.src.tar.gz";
+          hash = "sha256-c8+4VxrsDAEXdofbhxY9Rqog6XeWcncokaoXZU2aYJk=";
+        };
+      });
 
       forAll = f: nixpkgs.lib.genAttrs systems
-        (system: f (import nixpkgs { inherit system; overlays = [ goOverlay ]; }));
+        (system: f nixpkgs.legacyPackages.${system});
 
       # One version, read from the chart, because the chart's is the one a
       # release already guards against the tag (release.yml, "Chart version
@@ -75,7 +78,7 @@
       };
 
       packages = forAll (pkgs: rec {
-        sextant = pkgs.buildGoModule {
+        sextant = (pkgs.buildGoModule.override { go = goFor pkgs; }) {
           pname = "sextant";
           inherit version;
           # Only the Go source tree feeds the build - filtered rather than
@@ -188,7 +191,7 @@
       devShells = forAll (pkgs: {
         default = pkgs.mkShell {
           packages = with pkgs; [
-            go
+            (goFor pkgs)
             golangci-lint
             just
             git
