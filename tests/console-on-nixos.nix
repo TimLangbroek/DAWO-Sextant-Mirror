@@ -82,14 +82,22 @@ pkgs.testers.runNixOSTest {
     # The fleet repository on its forge. The example overlay, because the
     # write below needs a catalog to write against. The service has been
     # retrying since boot, because there was nothing at the address yet.
+    #
+    # Built aside and moved into place whole. Made in place, the retrying
+    # service could find it empty between init and push, seed a starter
+    # fleet into its working copy and fail to push it (the repository was
+    # still root's): the restart below then found origin/main, said up to
+    # date, and the working copy stayed on its own seed until the first
+    # sync. Measured on the forge, 2026-11-11, run 822.
     machine.succeed(
-        "git init -q --bare -b main /srv/fleet.git && "
+        "git init -q --bare -b main /srv/fleet.git.new && "
         "cp -r ${self}/examples/overlay /tmp/fleet && chmod -R u+w /tmp/fleet && "
         "cd /tmp/fleet && git init -q -b main && "
         "git -c user.name=t -c user.email=t@t add -A && "
         "git -c user.name=t -c user.email=t@t commit -qm seed && "
-        "git push -q /srv/fleet.git main && "
-        "chown -R sextant:sextant /srv/fleet.git"
+        "git push -q /srv/fleet.git.new main && "
+        "chown -R sextant:sextant /srv/fleet.git.new && "
+        "mv /srv/fleet.git.new /srv/fleet.git"
     )
     seeded = machine.succeed("git --git-dir=/srv/fleet.git rev-parse main").strip()
 
