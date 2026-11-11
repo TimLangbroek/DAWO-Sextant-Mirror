@@ -3,6 +3,11 @@
 // for the code from the console, says which disk it will erase, installs the
 // laptop from the fleet repository and restarts it. The console address is
 // built into the stick; nothing that grants access is.
+//
+// Booted over the network from an imaging station (design 0018), it takes
+// its job from the station instead of a typed code: --station, or
+// sextant.station= on the kernel command line, which is how the station's
+// netboot menu passes it.
 package main
 
 import (
@@ -22,9 +27,14 @@ import (
 
 func main() {
 	console := flag.String("console", "", "console address, e.g. https://sextant.example.org")
+	stationURL := flag.String("station", "", "imaging station this machine booted from (default: sextant.station= on the kernel command line)")
 	flag.Parse()
-	if *console == "" {
-		fmt.Fprintln(os.Stderr, "usage: sextant-installer --console https://...")
+	if *stationURL == "" {
+		cmdline, _ := os.ReadFile("/proc/cmdline")
+		*stationURL = fromCmdline(string(cmdline), "sextant.station")
+	}
+	if *console == "" && *stationURL == "" {
+		fmt.Fprintln(os.Stderr, "usage: sextant-installer --console https://... | --station http://...")
 		os.Exit(2)
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -38,6 +48,10 @@ func main() {
 		reachable: func(ctx context.Context) bool { return reachable(ctx, *console) },
 		hasTPM2:   func() bool { _, err := os.Stat("/sys/class/tpm/tpm0"); return err == nil },
 	}
+	if *stationURL != "" {
+		i.station = &stationClient{url: strings.TrimSuffix(*stationURL, "/"),
+			http: &http.Client{Timeout: 30 * time.Second}, wait: sleep(10 * time.Second)}
+	}
 	for {
 		err := i.Run(ctx)
 		if err == nil || ctx.Err() != nil {
@@ -48,6 +62,16 @@ func main() {
 		fmt.Printf("\n%v\n\nPress Enter to start again.", err)
 		_, _ = i.in.ReadString('\n')
 	}
+}
+
+// fromCmdline finds key=value on a kernel command line.
+func fromCmdline(cmdline, key string) string {
+	for _, f := range strings.Fields(cmdline) {
+		if v, ok := strings.CutPrefix(f, key+"="); ok {
+			return v
+		}
+	}
+	return ""
 }
 
 // runCommand runs one tool and reports its output and exit code.

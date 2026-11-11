@@ -41,6 +41,10 @@ const (
 	// enrolKeyPath is where sextant-actd finds the key that lets it seal
 	// the disk to PCR 7 when the laptop is secured.
 	enrolKeyPath = "/var/lib/sextant-actd/luks-enroll.key"
+	// sbctlDir holds the per-device Secure Boot keys: sbctl creates them in
+	// the live system, lanzaboote signs the installed boot chain with them
+	// and sextant-actd enrols them when the firmware is in Setup Mode.
+	sbctlDir = "/var/lib/sbctl"
 )
 
 // runResult is what one command did.
@@ -62,6 +66,9 @@ type installer struct {
 	hasTPM2 func() bool
 	// root is prefixed to every path the installer writes; "" in production.
 	root string
+	// station, when set, is the imaging station this machine booted from
+	// (design 0018): the job comes from there instead of a typed code.
+	station *stationClient
 }
 
 // joined is what join left in joined.json.
@@ -89,6 +96,9 @@ func (d disk) String() string {
 // Run is the whole stick, start to reboot. It returns only when something
 // cannot go on; a refused code or a missing network is asked again.
 func (i *installer) Run(ctx context.Context) error {
+	if i.station != nil {
+		return i.runFromStation(ctx)
+	}
 	i.say("Sextant installation\n")
 	if err := i.network(ctx); err != nil {
 		return err
@@ -105,7 +115,7 @@ func (i *installer) Run(ctx context.Context) error {
 	if !i.yes("Go on? [y/N] ") {
 		return errors.New("stopped before anything was erased")
 	}
-	if err := i.install(ctx, j, d); err != nil {
+	if err := i.install(ctx, j, d, ""); err != nil {
 		return err
 	}
 	i.say("\nInstalled. The laptop restarts and appears in the console as %s.\n", j.Tag)
@@ -231,8 +241,9 @@ func (i *installer) stickDisk(ctx context.Context) string {
 }
 
 // install clones the fleet, lays out and installs the disk the fleet says,
-// and binds it to the TPM2 when there is one.
-func (i *installer) install(ctx context.Context, j joined, d disk) error {
+// and binds it to the TPM2 when there is one. rev pins the fleet revision a
+// station job names; "" takes the branch head.
+func (i *installer) install(ctx context.Context, j joined, d disk, rev string) error {
 	cred, err := os.ReadFile(i.path(filepath.Join(joinedDir, "credential")))
 	if err != nil {
 		return fmt.Errorf("join left no credential: %w", err)
@@ -261,6 +272,21 @@ func (i *installer) install(ctx context.Context, j joined, d disk) error {
 		}
 	}
 
+	// Per-device Secure Boot keys, made here so lanzaboote signs the boot
+	// chain at install and actd can enrol them later: at first boot for a
+	// machine from a station whose firmware is in Setup Mode, or when an
+	// owner secures the laptop.
+	if r := i.run(ctx, nil, "sbctl", "create-keys"); r.Code != 0 {
+		return fmt.Errorf("could not make the Secure Boot keys: %s", tail(r.Out))
+	}
+	if err := os.MkdirAll(filepath.Join(hand, filepath.Dir(sbctlDir)), 0o700); err != nil {
+		return err
+	}
+	if r := i.run(ctx, nil, "cp", "-a", i.path(sbctlDir), filepath.Join(hand, sbctlDir)); r.Code != 0 {
+		return fmt.Errorf("could not stage the Secure Boot keys: %s", tail(r.Out))
+	}
+
+	i.step(ctx, "Fetching the fleet configuration", 10)
 	i.say("\nFetching the fleet configuration...\n")
 	auth := "Authorization: Basic " + base64.StdEncoding.EncodeToString([]byte(j.Tag+":"+string(cred)))
 	// The credential goes in through the environment, never the argument
@@ -271,11 +297,23 @@ func (i *installer) install(ctx context.Context, j joined, d disk) error {
 	if branch == "" {
 		branch = "main"
 	}
-	if r := i.run(ctx, env, "git", "clone", "--depth", "1", "--branch", branch,
-		strings.TrimSuffix(j.URL, "/")+"/fleet.git", i.path(fleetClone)); r.Code != 0 {
-		return fmt.Errorf("could not fetch the fleet configuration: %s", strings.TrimSpace(r.Out))
+	repo := strings.TrimSuffix(j.URL, "/") + "/fleet.git"
+	if rev == "" {
+		if r := i.run(ctx, env, "git", "clone", "--depth", "1", "--branch", branch, repo, i.path(fleetClone)); r.Code != 0 {
+			return fmt.Errorf("could not fetch the fleet configuration: %s", strings.TrimSpace(r.Out))
+		}
+	} else {
+		// The revision the console approved, not whatever the branch says
+		// now: a device installed ahead of its ring cannot converge back.
+		if r := i.run(ctx, env, "git", "clone", "--no-checkout", repo, i.path(fleetClone)); r.Code != 0 {
+			return fmt.Errorf("could not fetch the fleet configuration: %s", strings.TrimSpace(r.Out))
+		}
+		if r := i.run(ctx, nil, "git", "-C", i.path(fleetClone), "checkout", "--detach", rev); r.Code != 0 {
+			return fmt.Errorf("the fleet configuration has no revision %s: %s", rev, strings.TrimSpace(r.Out))
+		}
 	}
 
+	i.step(ctx, "Installing the system", 30)
 	i.say("Installing on %s. This takes a while.\n", d)
 	if r := i.run(ctx, nil, "disko-install", "--flake", i.path(fleetClone)+"#"+j.Tag,
 		"--disk", defaultDiskName, d.Path, "--extra-files", hand, "/",
@@ -298,6 +336,7 @@ func (i *installer) install(ctx context.Context, j joined, d disk) error {
 		i.say("Found %d encrypted volumes on %s, so the TPM2 is not bound; the laptop asks for its phrase until it is secured.\n", len(mine), d.Path)
 		return nil
 	}
+	i.step(ctx, "Binding the disk to the TPM2", 90)
 	// Bound to no PCR on purpose (design 0016, decided): the laptop starts
 	// by itself until Secure this laptop seals to PCR 7 and removes this slot.
 	if r := i.run(ctx, nil, "systemd-cryptenroll", "--unlock-key-file="+i.path(diskKeyFile),

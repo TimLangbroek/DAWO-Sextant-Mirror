@@ -38,6 +38,8 @@ func newRig(t *testing.T, input string) *rig {
 		"blkid":     {Out: "/dev/nvme0n1p2\n/dev/sdb1\n"},
 		"nmcli -t":  {Out: "home\nhome\noffice\n"},
 		"git":       {},
+		"sbctl":     {},
+		"cp -a":     {},
 		"disko":     {},
 		"systemd":   {},
 		"systemctl": {},
@@ -134,6 +136,15 @@ func TestTheStickInstallsTheLaptop(t *testing.T) {
 		if !strings.Contains(disko, want) {
 			t.Errorf("disko-install %q lacks %q", disko, want)
 		}
+	}
+
+	// The Secure Boot keys are made and staged before the install, so
+	// lanzaboote signs the boot chain with them.
+	if cp := r.called("cp -a"); cp != "cp -a "+filepath.Join(r.root, sbctlDir)+" "+filepath.Join(r.root, handoverDir, sbctlDir) {
+		t.Errorf("keys staged with %q", cp)
+	}
+	if order := strings.Join(r.calls, "|"); strings.Index(order, "sbctl create-keys") > strings.Index(order, "disko-install") {
+		t.Error("the Secure Boot keys were made after the install")
 	}
 
 	phrase := r.file(t, diskKeyFile)
