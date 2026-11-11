@@ -13,6 +13,9 @@ type Preferences struct {
 	Timezone string `json:"timezone,omitempty"`
 	// Locale is a supported UI language tag; empty inherits.
 	Locale string `json:"locale,omitempty"`
+	// AllPages shows every page in the console's sidebar; off shows the few
+	// the everyday flows go through (design 0020).
+	AllPages bool `json:"allPages,omitempty"`
 }
 
 // SupportedLocales lists the UI languages the console ships.

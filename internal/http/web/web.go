@@ -297,6 +297,7 @@ func (s *Server) Routes(mux *http.ServeMux) {
 	post("/access/revoke", s.postAccessRevoke)
 	post("/assurance", s.postAssurance)
 	post("/profile/prefs", s.postProfilePrefs)
+	post("/profile/all-pages", s.postAllPages)
 	post("/profile/tokens", s.postProfileTokenMint)
 	post("/profile/tokens/{id}/revoke", s.postProfileTokenRevoke)
 	post("/enroll/{station}/batch", s.postEnrollBatch)

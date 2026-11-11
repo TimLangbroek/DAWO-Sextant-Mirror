@@ -18,6 +18,13 @@ This handbook is for operators running a fleet and for engineers working on
 Sextant itself. It is built with mdBook and served self-hosted; it uses no
 external CDN.
 
+The console starts simple: its sidebar shows the pages the everyday tasks go
+through (Overview, Devices, Groups, Settings, Integrations, Updates, and
+Enrollment once you have an imaging station). **Show all pages**, at the
+bottom of the sidebar, adds Policies, Hardware, Compliance and Elevation. It
+is your own choice, kept with your language and time zone, and it hides
+nothing from you: every page stays at its address with the same rights.
+
 ## The lifecycle at a glance
 
 1. **Set up an imaging station** - a NUC or mini-PC that boots devices over the

@@ -1485,6 +1485,10 @@
               "en",
               "nl"
             ]
+          },
+          "allPages": {
+            "type": "boolean",
+            "description": "Show every page in the console's sidebar. Off shows the few pages the everyday tasks use; every page stays reachable at its address. A PUT replaces all preferences, so send this along to keep it."
           }
         }
       },

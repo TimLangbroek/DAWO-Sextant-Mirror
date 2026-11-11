@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -78,6 +79,8 @@ func (s *Server) postProfilePrefs(w http.ResponseWriter, r *http.Request, v view
 	p := identity.Preferences{
 		Timezone: strings.TrimSpace(r.FormValue("timezone")),
 		Locale:   r.FormValue("locale"),
+		// Not on this form: kept as it is.
+		AllPages: v.AllPages,
 	}
 	if err := p.Validate(); err != nil {
 		return err
@@ -87,6 +90,37 @@ func (s *Server) postProfilePrefs(w http.ResponseWriter, r *http.Request, v view
 	}
 	http.Redirect(w, r, "/profile", http.StatusSeeOther)
 	return nil
+}
+
+// postAllPages flips the sidebar between the short list and every page
+// (design 0020) and returns to the page it was flipped on.
+func (s *Server) postAllPages(w http.ResponseWriter, r *http.Request, v view) error {
+	if s.svc.Prefs == nil {
+		return fmt.Errorf("preferences need the database (postgres not configured)")
+	}
+	p, _, err := s.svc.Prefs.GetPrefs(r.Context(), app.DefaultTenant, v.User.Subject)
+	if err != nil {
+		return err
+	}
+	p.AllPages = r.FormValue("all") == "on"
+	if err := s.svc.Prefs.PutPrefs(r.Context(), app.DefaultTenant, v.User.Subject, p, time.Now()); err != nil {
+		return err
+	}
+	http.Redirect(w, r, backPath(r), http.StatusSeeOther)
+	return nil
+}
+
+// backPath is the page the switch was pressed on, from the Referer, and
+// only when that page is on this console: a path, never a URL that leaves.
+func backPath(r *http.Request) string {
+	u, err := url.Parse(r.Referer())
+	if err != nil || u.Host != r.Host || !strings.HasPrefix(u.Path, "/") || strings.HasPrefix(u.Path, "//") {
+		return "/"
+	}
+	if u.RawQuery != "" {
+		return u.Path + "?" + u.RawQuery
+	}
+	return u.Path
 }
 
 // postProfileTokenMint mints a personal token for the session user. The

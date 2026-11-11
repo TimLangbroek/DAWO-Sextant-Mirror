@@ -27,8 +27,8 @@ func TestPrefsRoundTrip(t *testing.T) {
 		t.Fatalf("get = %+v, %v, %v", got, ok, err)
 	}
 
-	// Upsert replaces.
-	p2 := identity.Preferences{Timezone: "UTC", Locale: "en"}
+	// Upsert replaces, the sidebar choice included (design 0020).
+	p2 := identity.Preferences{Timezone: "UTC", Locale: "en", AllPages: true}
 	if err := s.PutPrefs(ctx, "t1", "ada", p2, now.Add(time.Hour)); err != nil {
 		t.Fatal(err)
 	}

@@ -19,7 +19,10 @@ type view struct {
 	CSRF   string
 	L      Localizer
 	Unread int // unread notifications, for the header bell badge
-	rv     identity.Resolver
+	// AllPages is the person's sidebar choice (design 0020). Without a
+	// preferences store it is always on: there would be no way to turn it on.
+	AllPages bool
+	rv       identity.Resolver
 }
 
 func (v view) roleAt(ref string) identity.Role { return v.rv.RoleAt(v.User, ref) }
@@ -73,7 +76,7 @@ func (s *Server) authed(w http.ResponseWriter, r *http.Request) (view, bool) {
 			}
 		}(u)
 	}
-	v := view{User: u, CSRF: csrf, L: l, rv: rv}
+	v := view{User: u, CSRF: csrf, L: l, rv: rv, AllPages: s.svc.Prefs == nil || prefs.AllPages}
 	// Bell badge: best-effort unread count. A store error leaves the badge at
 	// zero rather than blocking the page - notifications are never load-bearing.
 	if s.svc.Notify != nil {
@@ -175,6 +178,11 @@ func (s *Server) render(w http.ResponseWriter, name string, data map[string]any,
 	// sidebar offered - so the sidebar stops offering them instead.
 	data["HasElevation"] = s.svc.Elevation != nil
 	data["HasEnrolment"] = s.svc.Discovery != nil
+	// Simple by default (design 0020): the sidebar's short list, and the
+	// switch when there is somewhere to keep the choice.
+	data["AllPages"] = v.AllPages
+	data["CanChoosePages"] = s.svc.Prefs != nil
+	data["HasStations"] = len(s.svc.Config.Fleet().Stations) > 0
 	data["HasJoin"] = s.svc.Joins != nil
 	// Said before anyone fills in a form, not only after.
 	data["ReadOnly"] = !s.write

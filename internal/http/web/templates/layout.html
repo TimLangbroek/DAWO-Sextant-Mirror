@@ -61,15 +61,15 @@
         <li><a href="/" class="nav-link {{if eq $n "overview"}}nav-active{{end}}"><span class="material-symbols-outlined nav-ico">dashboard</span>{{.L.T "nav.overview"}}</a></li>
         <li><a href="/devices" class="nav-link {{if eq $n "devices"}}nav-active{{end}}"><span class="material-symbols-outlined nav-ico">devices</span>{{.L.T "nav.devices"}}</a></li>
         <li><a href="/groups" class="nav-link {{if eq $n "groups"}}nav-active{{end}}"><span class="material-symbols-outlined nav-ico">group_work</span>{{.L.T "nav.groups"}}</a></li>
-        {{if .HasEnrolment}}<li><a href="/enroll" class="nav-link {{if eq $n "enroll"}}nav-active{{end}}"><span class="material-symbols-outlined nav-ico">cable</span>{{.L.T "nav.enroll"}}</a></li>{{end}}
+        {{if and .HasEnrolment (or .AllPages .HasStations (eq $n "enroll"))}}<li><a href="/enroll" class="nav-link {{if eq $n "enroll"}}nav-active{{end}}"><span class="material-symbols-outlined nav-ico">cable</span>{{.L.T "nav.enroll"}}</a></li>{{end}}
       </ul>
       <p class="nav-section">{{.L.T "layout.section_configuration"}}</p>
       <ul class="space-y-1 px-2">
         <li><a href="/settings" class="nav-link {{if eq $n "settings"}}nav-active{{end}}"><span class="material-symbols-outlined nav-ico">settings</span>{{.L.T "nav.settings"}}</a></li>
-        <li><a href="/policies" class="nav-link {{if eq $n "policies"}}nav-active{{end}}"><span class="material-symbols-outlined nav-ico">policy</span>{{.L.T "nav.policies"}}</a></li>
-        <li><a href="/hardware" class="nav-link {{if eq $n "hardware"}}nav-active{{end}}"><span class="material-symbols-outlined nav-ico">memory</span>{{.L.T "nav.hardware"}}</a></li>
-        <li><a href="/compliance" class="nav-link {{if eq $n "compliance"}}nav-active{{end}}"><span class="material-symbols-outlined nav-ico">verified_user</span>{{.L.T "nav.compliance"}}</a></li>
-        {{if and .CanOrgView .HasElevation}}<li><a href="/elevation" class="nav-link {{if eq $n "elevation"}}nav-active{{end}}"><span class="material-symbols-outlined nav-ico">pan_tool</span>{{.L.T "nav.elevation"}}</a></li>{{end}}
+        {{if or $.AllPages (eq $n "policies")}}<li><a href="/policies" class="nav-link {{if eq $n "policies"}}nav-active{{end}}"><span class="material-symbols-outlined nav-ico">policy</span>{{.L.T "nav.policies"}}</a></li>{{end}}
+        {{if or $.AllPages (eq $n "hardware")}}<li><a href="/hardware" class="nav-link {{if eq $n "hardware"}}nav-active{{end}}"><span class="material-symbols-outlined nav-ico">memory</span>{{.L.T "nav.hardware"}}</a></li>{{end}}
+        {{if or $.AllPages (eq $n "compliance")}}<li><a href="/compliance" class="nav-link {{if eq $n "compliance"}}nav-active{{end}}"><span class="material-symbols-outlined nav-ico">verified_user</span>{{.L.T "nav.compliance"}}</a></li>{{end}}
+        {{if and .CanOrgView .HasElevation (or .AllPages (eq $n "elevation"))}}<li><a href="/elevation" class="nav-link {{if eq $n "elevation"}}nav-active{{end}}"><span class="material-symbols-outlined nav-ico">pan_tool</span>{{.L.T "nav.elevation"}}</a></li>{{end}}
         {{if .CanOrgView}}<li><a href="/integrations" class="nav-link {{if eq $n "integrations"}}nav-active{{end}}"><span class="material-symbols-outlined nav-ico">extension</span>{{.L.T "nav.integrations"}}</a></li>{{end}}
       </ul>
       {{if .CanOrgView}}
@@ -91,6 +91,14 @@
 
     <!-- Help resources, anchored at the bottom. External, open in a new tab. -->
     <div class="border-t border-border-hairline p-2">
+      {{if .CanChoosePages}}
+      {{/* Simple by default (design 0020): navigation, never permission. */}}
+      <form method="post" action="/profile/all-pages" class="!m-0">
+        <input type="hidden" name="csrf" value="{{.CSRF}}">
+        <input type="hidden" name="all" value="{{if .AllPages}}off{{else}}on{{end}}">
+        <button type="submit" class="nav-link w-full text-left !bg-transparent" data-all-pages="{{if .AllPages}}on{{else}}off{{end}}"><span class="material-symbols-outlined nav-ico">tune</span>{{if .AllPages}}{{.L.T "layout.fewer_pages"}}{{else}}{{.L.T "layout.all_pages"}}{{end}}</button>
+      </form>
+      {{end}}
       {{/* Support and docs point at the project's own site, not at the company
            that stewards it: Sextant is the thing an operator is using, and
            bb-open.com answers a different question (ADR 0024). */}}

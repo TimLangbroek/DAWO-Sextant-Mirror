@@ -1645,6 +1645,7 @@ Your own preferences. Empty means the organisation's default.
 
 | Field | Type | Required | Meaning |
 |---|---|---|---|
+| `allPages` | boolean |  | Show every page in the console's sidebar. Off shows the few pages the everyday tasks use; every page stays reachable at its address. A PUT replaces all preferences, so send this along to keep it. |
 | `locale` | one of `en`, `nl` |  | The console's language. |
 | `timezone` | string |  | An IANA time zone, such as "Europe/Amsterdam". |
 
