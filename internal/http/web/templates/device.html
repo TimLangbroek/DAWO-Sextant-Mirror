@@ -310,7 +310,7 @@
       </form>
       {{else}}
       <div class="flex flex-col gap-2 text-body-sm text-text-secondary">
-        <div class="flex items-center justify-between border-b border-border-soft pb-2"><span>{{.L.T "common.groups"}}</span><span>{{range .Device.Groups}}<span class="tag">{{.}}</span> {{else}}<span class="muted">{{$.L.T "common.none"}}</span>{{end}}</span></div>
+        <div class="flex items-center justify-between border-b border-border-soft pb-2"><span>{{.L.T "common.groups"}}</span><span>{{range .Device.Groups}}<span class="tag whitespace-nowrap">{{.}}</span> {{else}}<span class="muted">{{$.L.T "common.none"}}</span>{{end}}</span></div>
         <div class="flex items-center justify-between border-b border-border-soft pb-2"><span>{{.L.T "common.hardware"}}</span><span class="font-mono text-code-inline text-ink">{{with .Device.Hardware}}{{.}}{{else}}-{{end}}</span></div>
         <div class="flex items-center justify-between"><span>{{.L.T "device.assigned_user"}}</span><span class="text-ink">{{with .Device.AssignedUser}}{{.}}{{else}}<span class="muted">-</span>{{end}}</span></div>
       </div>
