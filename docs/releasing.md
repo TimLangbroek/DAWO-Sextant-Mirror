@@ -5,6 +5,33 @@ steps have an order that matters and two of them have bitten us: the chart
 version has to match the tag, and the platform repo has a mirror remote that
 must not receive the push.
 
+## Version numbers
+
+From 1.0.0 on, versions follow [Semantic Versioning 2.0.0](https://semver.org).
+Before 1.0.0 a minor release could break anything; after it, the number
+tells an operator whether an upgrade needs reading first.
+
+What the number promises about is what an operator or another program
+relies on, and nothing else:
+
+- the machine API, as `openapi.json` describes it;
+- the check-in between agent and console;
+- the fleet repository's format (`fleet.json` and the files beside it);
+- the console's flags, environment variables, Helm values and NixOS options;
+- the database, in that an upgrade migrates it without a hand step.
+
+| | When | Example |
+|---|---|---|
+| **MAJOR** (2.0.0) | Something in that list stops working the way it did: a field, flag or value removed or changing meaning, an agent the new console no longer accepts, a migration that needs a hand step | a Helm value renamed |
+| **MINOR** (1.1.0) | Something is added and everything that worked still works | a new page, a new API endpoint, a new optional setting |
+| **PATCH** (1.0.1) | Only fixes, and nothing new to learn | a wrong status label, a security fix |
+
+A console accepts every agent of the same major version, so devices do not
+have to be upgraded in the same window as the console. Something that will
+go in the next major is first marked deprecated in a minor release, with the
+replacement, and the release notes say so. The page layout of the console
+and the wording in it are not part of the promise.
+
 ## The steps
 
 A version TAG is the single lever. `.forgejo/workflows/release.yml` triggers on
