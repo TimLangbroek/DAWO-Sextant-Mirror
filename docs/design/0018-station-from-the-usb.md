@@ -89,11 +89,11 @@ the console approved.
    becomes a station and says so: "This machine becomes imaging station
    station-7k2p9q. Everything on ... is erased."
 3. Joining with a station code makes the device (class `station`) and the
-   `stations` entry in one commit, and returns two credentials: the
-   device's and the station's report credential. The installer hands over
-   both. The station credential goes to
-   `/var/lib/sextant-station/token`, written by the program, so there is
-   no newline to forget.
+   `stations` entry in one commit, and returns the device credential as
+   for a laptop. The station API accepts that credential for the station
+   with the same tag, so a station holds one credential, not two, and
+   nobody copies a token into a file. (A separately minted station
+   credential keeps working for stations set up the old way.)
 4. After the reboot the station checks in as a device and starts
    reporting. The console's station list shows it within a minute.
 
@@ -128,8 +128,8 @@ The USB path keeps 0016's behaviour: unbound until **Secure this laptop**.
   `nixosModules.station`, a netboot output next to `mkInstaller`.
 - `sextant-installer` gets a station mode (`--station <url>`): job by MAC,
   no confirmation key, status to the station, Secure Boot keys created.
-- Join codes get a kind (`laptop`, `station`); `POST /api/join` returns
-  the station credential for a station code.
+- Join codes get a kind (`laptop`, `station`). The station API accepts a
+  station device's own credential for its own tag.
 - Console: **Add a station** on the Imaging stations page.
 - Handbook: `operators/station-nuc.md` becomes one page with the three
   steps above. The nine manual steps and every reference to the appliance

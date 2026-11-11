@@ -682,6 +682,20 @@ func (d *deps) joinConsole() (url, branch string) {
 	return strings.TrimSuffix(url, "/"), branch
 }
 
+// stationAuth proves a station by its minted credential or, for a station
+// installed from the USB (design 0018), by its own device credential. Nil
+// without a token store, so the API sees "no station auth" rather than an
+// authenticator with nothing behind it.
+func (d *deps) stationAuth() api.StationAuthenticator {
+	if d.staCreds == nil {
+		return nil
+	}
+	if d.svc == nil {
+		return app.NewStationAuth(d.staCreds, nil, nil)
+	}
+	return app.NewStationAuth(d.staCreds, d.devCreds, d.svc)
+}
+
 // stationCapability serves the imaging-station report endpoint (rate
 // limited). A station reports over the mesh, not the public internet, but the
 // endpoint is authed and bounded regardless.
@@ -691,7 +705,7 @@ func (d *deps) stationCapability() capability.Capability {
 		EnabledFn: func() bool { return d.discovery != nil },
 		RoutesFn: func(mux *http.ServeMux) {
 			inner := http.NewServeMux()
-			api.NewStation(d.discovery, d.imaging, d.devCreds, d.staCreds, d.cfg.CheckinToken, d.log).
+			api.NewStation(d.discovery, d.imaging, d.devCreds, d.stationAuth(), d.cfg.CheckinToken, d.log).
 				WithSecrets(d.deviceSecrets).WithConfig(d.svc).Routes(inner)
 			// Rate-limit every station route (report is high-frequency, the job
 			// claim/status calls are lower but still unauthenticated-reachable),
