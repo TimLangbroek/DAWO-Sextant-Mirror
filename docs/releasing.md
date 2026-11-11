@@ -127,9 +127,8 @@ The order, then:
 
 ## Commit and style rules
 
-English, ASCII-only, Conventional Commits, no marketing language. Every commit
-carries the trailer naming the assisting model and the human who reviewed and
-integrated it. Push to the bbopen remote (`git.edano.eu`) when a tag or a CI
+English, ASCII-only, Conventional Commits, no marketing language, no tool
+attribution (see CONTRIBUTING.md). Push to the bbopen remote (`git.edano.eu`) when a tag or a CI
 run there is near; nothing mirrors to it.
 
 Run `nix develop -c golangci-lint run ./...` before pushing. `go test` does not
