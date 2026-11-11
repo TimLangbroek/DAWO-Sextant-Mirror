@@ -25,6 +25,9 @@ type Sessions interface {
 
 // Services are the app services the console renders.
 type Services struct {
+	// Reacher tries an integration's servers for its Test button (design
+	// 0019). The zero value is what production uses; tests set Roots.
+	Reacher   app.Reacher
 	Config    *app.ConfigService
 	Changes   *app.ChangeService
 	Rollouts  *app.RolloutService
@@ -257,6 +260,7 @@ func (s *Server) Routes(mux *http.ServeMux) {
 	post("/devices/{tag}/update", s.postDeviceUpdate)
 	post("/devices/group", s.postDevicesGroupCreate)
 	post("/settings", s.postSetting)
+	post("/integrations/{key}/test", s.postIntegrationTest)
 	post("/settings/bundle/{name}/apply", s.postBundleApply)
 	post("/hardware/{name}/configure", s.postHardwareConfigure)
 	post("/policies", s.postPolicyPut)

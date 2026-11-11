@@ -110,6 +110,42 @@
         {{end}}
       </div>
       {{end}}
+      {{if $.CanEdit}}
+      {{/* Test (design 0019): asks, changes nothing. Its own form, so it
+           never submits the card's unsaved values. */}}
+      <form method="post" action="/integrations/{{.Key}}/test" class="!m-0">
+        <input type="hidden" name="csrf" value="{{$.CSRF}}">
+        <input type="hidden" name="scope" value="{{$.Scope}}">
+        <button type="submit" class="quiet" data-integration-test="{{.Key}}"><span class="material-symbols-outlined msz-18">play_arrow</span>{{$.L.T "integrations.test"}}</button>
+      </form>
+      {{end}}
+      {{with .Test}}
+      <div class="rounded-md border border-border-hairline bg-surface-container-low p-4 text-body-sm" role="status" data-integration-result="{{.Key}}">
+        <p class="mb-1 font-medium text-ink">{{$.L.T "integrations.test_console"}}</p>
+        {{if .HasAddresses}}
+        <p class="mb-2 text-text-tertiary">{{$.L.T "integrations.test_console_hint"}}</p>
+        <ul class="mb-2 list-none">
+          {{range .Console}}
+          <li class="flex items-start gap-2">{{if .OK}}<span class="material-symbols-outlined msz-18 text-mint-deep">check_circle</span>{{else}}<span class="material-symbols-outlined msz-18 text-status-error">error</span>{{end}}
+            <span><code>{{.Target}}</code> {{.Detail}}</span></li>
+          {{end}}
+          {{range .Unset}}
+          <li class="flex items-start gap-2"><span class="material-symbols-outlined msz-18 text-text-tertiary">help</span><span>{{$.L.T "integrations.test_unset"}} <code>{{.}}</code></span></li>
+          {{end}}
+        </ul>
+        {{else}}
+        <p class="mb-2 text-text-tertiary">{{$.L.T "integrations.test_no_address"}}</p>
+        {{end}}
+        <p class="mb-1 mt-3 font-medium text-ink">{{$.L.T "integrations.test_devices"}}</p>
+        {{if .Devices}}
+        <p class="mb-1" data-integration-counts>{{.Up}} {{$.L.T "integrations.test_up"}} · {{.Down}} {{$.L.T "integrations.test_down"}} · {{.NoReading}} {{$.L.T "integrations.test_no_reading"}}</p>
+        {{if .DownTag}}<p class="mb-1">{{$.L.T "integrations.test_last_down"}} <a href="/devices/{{.DownTag}}" class="font-mono">{{.DownTag}}</a>{{with .DownDetail}}: {{.}}{{end}}</p>{{end}}
+        {{else}}
+        <p class="mb-1 text-text-tertiary">{{$.L.T "integrations.test_no_devices"}}</p>
+        {{end}}
+        <p class="mb-0 mt-2 text-text-tertiary">{{$.L.T "integrations.test_secrets"}}</p>
+      </div>
+      {{end}}
       {{end}}
     </div>
   </div>

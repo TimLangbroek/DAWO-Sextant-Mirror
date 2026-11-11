@@ -44,6 +44,25 @@ name.
    stages as a change, if your organisation requires change requests - see
    [Ship an update](./updates.md)).
 
+## Does it work? Press Test
+
+Every card has a **Test** button for editors. It changes nothing and answers
+in two parts on the card:
+
+- **From the console**: whether each server the card names answers from where
+  the console stands. NetBird's management URL, OpenBao's address and the
+  Fleet server get one request; the LDAP server a connection, and for
+  `ldaps://` a check of its certificate; the Wazuh manager a connection on
+  1514 and 1515. A certificate the devices would refuse is named as such. The
+  console's network is not the devices', so this is evidence, not proof.
+- **From the devices**: of the devices in the scope that have the integration
+  on, how many report it working, not working, or nothing yet, and the words
+  of the last device that reported it not working.
+
+The console never sends a secret: it holds only references. A wrong setup key
+or bind password therefore shows in the devices' part, as the integration not
+working with the unit's error, not in the console's part.
+
 If a card reads *not published*, the overlay has not exported that
 integration's options yet: add its module to the overlay and regenerate the
 catalog (`nix eval .#catalog --json > catalog.json`).
@@ -63,6 +82,12 @@ not live-read from the overlay's Nix source.
 Same as any setting - the distilled error names the actionable line (e.g. an
 out-of-range value or an unknown option). See
 [Safe writes and the Nix gate](../concepts/safe-writes.md).
+
+**Test says the server answers, but the devices say it does not work.**
+The console reaches the server and the devices do not, or the secret is
+wrong. Read the device's words on the card: a refused key or password names
+itself there; a timeout points at the network between the devices and the
+server (a firewall, or a mesh route that is not up yet).
 
 **A secret field's picker is empty.**
 No secret reference has been registered yet - use the inline shortcut next

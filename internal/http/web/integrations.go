@@ -57,7 +57,12 @@ func isIntegrationSetting(key string) bool {
 // one group first, then widened). Viewer at the scope to see; the card forms
 // post to the settings editor, which enforces Editor at the scope.
 func (s *Server) integrationsPage(w http.ResponseWriter, r *http.Request, v view) {
-	scope := r.URL.Query().Get("scope")
+	s.renderIntegrations(w, r, v, r.URL.Query().Get("scope"), nil)
+}
+
+// renderIntegrations draws the page; tested is the card whose Test button
+// was just pressed, answered on that card only.
+func (s *Server) renderIntegrations(w http.ResponseWriter, r *http.Request, v view, scope string, tested *integrationTest) {
 	if scope == "" {
 		scope = "org"
 	}
@@ -90,6 +95,7 @@ func (s *Server) integrationsPage(w http.ResponseWriter, r *http.Request, v view
 		integration
 		Published bool
 		Rows      []optRow
+		Test      *integrationTest
 	}
 	cards := make([]card, 0, len(knownIntegrations))
 	for _, ig := range knownIntegrations {
@@ -116,6 +122,9 @@ func (s *Server) integrationsPage(w http.ResponseWriter, r *http.Request, v view
 			return c.Rows[i].Entry.Name < c.Rows[j].Entry.Name
 		})
 		c.Published = len(c.Rows) > 0
+		if tested != nil && tested.Key == ig.Key {
+			c.Test = tested
+		}
 		cards = append(cards, c)
 	}
 
