@@ -68,10 +68,11 @@ Pull requests on Codeberg are welcome and are not turned away for being in the
 wrong place; a maintainer applies them to canonical with your authorship
 intact.
 
-## AI assistance is disclosed
+## The code is judged, not the tool
 
-Where AI assists, we say so and name the model, with a commit trailer such as
-`Code AI-assisted (Claude Fable 5); testing, review and integration by a human.`
+A change is reviewed on what it does and how it reads, not on whether an
+editor, a linter or an AI helped write it, and no trailer saying so is asked
+for.
 
 The code remains the developer's responsibility either way, and it has to be
 understandable by a human who has to troubleshoot it at three in the morning.

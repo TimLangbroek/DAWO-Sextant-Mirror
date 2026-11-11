@@ -67,9 +67,9 @@ failure you have not read.
   internal coordination. Documentation may be translated when needed.
 
 ## AI policy
-- **Disclosure**: when AI assists, disclose it and name the model(s) and
-  agent(s) used, e.g. the commit trailer
-  `Code AI-assisted (Claude Fable 5); testing, review and integration by a human.`
+- **Judged on the result**: a contribution is reviewed on what it does and
+  how it reads, not on which tools helped write it. No disclosure trailer
+  is asked for.
 - **Responsible use**: use AI where it addresses a specific need; plain
   human discussion and coding is otherwise preferred.
 - **Human accountability**: AI-generated code remains the developer's
