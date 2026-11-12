@@ -2,16 +2,16 @@
   {
     "name": "generic-amd",
     "notes": "Any laptop with an AMD processor that no model-specific profile names. A laptop that joins with a code lands here until somebody adds a profile for its model.",
-    "disko": "LUKS2 on /dev/nvme0n1, btrfs with / /home /nix and swap, 512 MB ESP (the core's single-nvme-luks layout)"
+    "disko": "Sextant's default: GPT, 1 GB EFI partition, the rest one LUKS2 volume with an ext4 root, on the disk the installer picks"
   },
   {
     "name": "generic-intel",
     "notes": "Any laptop with an Intel processor that no model-specific profile names. A laptop that joins with a code lands here until somebody adds a profile for its model.",
-    "disko": "LUKS2 on /dev/nvme0n1, btrfs with / /home /nix and swap, 512 MB ESP (the core's single-nvme-luks layout)"
+    "disko": "Sextant's default: GPT, 1 GB EFI partition, the rest one LUKS2 volume with an ext4 root, on the disk the installer picks"
   },
   {
     "name": "vm",
     "notes": "A virtual machine, for trying Sextant out.",
-    "disko": "LUKS2 on /dev/vda, btrfs with / /home /nix and swap, 512 MB ESP (the core's single-nvme-luks layout)"
+    "disko": "Sextant's default: GPT, 1 GB EFI partition, the rest one LUKS2 volume with an ext4 root, on the disk the installer picks"
   }
 ]

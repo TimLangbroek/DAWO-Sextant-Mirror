@@ -18,6 +18,9 @@
     # Sextant: the generator that turns fleet.json into one NixOS host per
     # device, and the device module (agent, comin, integrations).
     sextant.url = "git+https://codeberg.org/DAWO/DAWO-Sextant.git";
+    # One disko for the core and Sextant's default disk layout, so the
+    # module is imported once.
+    sextant.inputs.disko.follows = "dawo/disko";
     # The core's blocks reach these through the `inputs` special argument;
     # follow its pins so there is one nixpkgs and one of everything else.
     nixpkgs.follows = "dawo/nixpkgs";
@@ -46,11 +49,13 @@
         inputs.agenix.nixosModules.default
       ];
 
-      # A laptop or desktop: the core's own client recipe.
+      # A laptop or desktop: the core's own client recipe, without its disk
+      # layout. The disk is laid out by the device module's default (design
+      # 0016), which is what the installer writes the passphrase for; a
+      # fleet that wants another layout declares disko.devices.
       workplace = [
         blocks.boot-loader
         blocks.boot-plymouth-bzk
-        blocks.disko-single-nvme-luks
         blocks.profiles-dawo-generic
         blocks.maid-dawo-generic
       ];
@@ -76,13 +81,11 @@
       hardwareProfiles = {
         generic-intel = blocks.hardware-generic-intel;
         generic-amd = blocks.hardware-generic-amd;
-        vm = { lib, modulesPath, ... }: {
+        vm = { modulesPath, ... }: {
           imports = [
             blocks.hardware-dawo-base
             (modulesPath + "/profiles/qemu-guest.nix")
           ];
-          # The core's layout names an NVMe disk; a virtio disk is vda.
-          disko.devices.disk.main.device = lib.mkForce "/dev/vda";
         };
       };
 

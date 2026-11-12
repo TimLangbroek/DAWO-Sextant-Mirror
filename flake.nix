@@ -2,8 +2,15 @@
   description = "Sextant - declarative fleet control-plane for NixOS";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+  # The default disk layout of a device and the installer that applies it
+  # (design 0016). Pinned like nixpkgs, and following it, so a fleet that
+  # also has disko through its core can point both at one.
+  inputs.disko = {
+    url = "github:nix-community/disko/latest";
+    inputs.nixpkgs.follows = "nixpkgs";
+  };
 
-  outputs = { self, nixpkgs }:
+  outputs = { self, nixpkgs, disko }:
     let
       systems = [ "x86_64-linux" "aarch64-linux" ];
 

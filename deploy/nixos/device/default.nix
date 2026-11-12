@@ -12,6 +12,7 @@
 #   user-rights.nix        what a non-admin user may do
 #   cache-auth.nix         the device authenticates to the release cache
 #   secrets.nix            the overlay's agenix secrets, by name
+#   disk.nix               the default disk layout, and a root that must be encrypted
 #
 # It assumes DAWO-Core underneath (comin, agenix, Lanzaboote and the dawo.*
 # options these build on). Anything an organisation adds - its SSH keys, its
@@ -36,5 +37,6 @@
     ./user-rights.nix
     ./cache-auth.nix
     ./secrets.nix
+    (import ./disk.nix { inherit self; })
   ];
 }

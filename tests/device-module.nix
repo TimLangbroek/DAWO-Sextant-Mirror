@@ -44,10 +44,33 @@ let
       ({ ... }: {
         boot.loader.grub.enable = false;
         fileSystems."/" = { device = "/dev/null"; fsType = "ext4"; };
+        sextant.disk = { defaultLayout = false; requireEncryption = false; };
         system.stateVersion = "24.05";
       })
     ] ++ (self.lib.generator.mkModules { inherit fleet; tag = "lt-1"; }) ++ [ extra ];
   });
+
+  # The disk (design 0016): a fleet that says nothing gets an encrypted
+  # default, and a root that is not on LUKS is refused.
+  diskHost = extra: lib.nixosSystem {
+    system = pkgs.stdenv.hostPlatform.system;
+    modules = [
+      coreStub
+      self.nixosModules.device
+      ({ ... }: {
+        boot.loader.grub.enable = false;
+        system.stateVersion = "24.05";
+        sextant.console.url = "https://console.example.org";
+        sextant.console.overlayRepoUrl = "https://forge.example.org/acme/fleet.git";
+      })
+      extra
+    ] ++ (self.lib.generator.mkModules { fleet = baseFleet; tag = "lt-1"; });
+  };
+  defaultDisk = diskHost { };
+  plainDisk = diskHost {
+    sextant.disk.defaultLayout = false;
+    fileSystems."/" = { device = "/dev/sda2"; fsType = "ext4"; };
+  };
 
   failed = cfg: map (a: a.message) (lib.filter (a: !a.assertion) cfg.config.assertions);
 
@@ -149,6 +172,10 @@ pkgs.runCommand "sextant-device-module-check"
   gcAllLong = gcWarning { automatic = true; options = "--max-freed 1G --delete-old"; };
   gcZero = gcWarning { automatic = true; options = "--delete-older-than 0d"; };
   gcOff = gcWarning { automatic = false; options = "-d"; };
+  diskFailed = builtins.concatStringsSep "|" (failed defaultDisk);
+  diskRoot = defaultDisk.config.fileSystems."/".device;
+  diskLuks = builtins.toJSON (builtins.attrNames defaultDisk.config.boot.initrd.luks.devices);
+  plainFailed = builtins.concatStringsSep "|" (failed plainDisk);
   maFailed = builtins.concatStringsSep "|" (failed managedAdmin);
   maHashFile = ma.users.users.beheer.hashedPasswordFile;
   maExecutor = ma.services.sextant-actd.managedAdmin;
@@ -160,6 +187,14 @@ pkgs.runCommand "sextant-device-module-check"
   fail() { echo "FAIL: $1" >&2; exit 1; }
 
   [ -z "$wiredFailed" ] || fail "a wired device was refused: $wiredFailed"
+
+  [ -z "$diskFailed" ] || fail "the default disk layout was refused: $diskFailed"
+  [ "$diskRoot" = /dev/mapper/cryptroot ] || fail "default layout root is on '$diskRoot'"
+  [ "$diskLuks" = '["cryptroot"]' ] || fail "default layout unlocks $diskLuks"
+  case "$plainFailed" in
+    *"not on an encrypted volume (it is on /dev/sda2)"*) ;;
+    *) fail "an unencrypted root was accepted: '$plainFailed'" ;;
+  esac
   case "$bareFailed" in
     *"sextant.console.url is not set"*"overlayRepoUrl is not set"*) ;;
     *) fail "a device without a console or repository was accepted: '$bareFailed'" ;;
