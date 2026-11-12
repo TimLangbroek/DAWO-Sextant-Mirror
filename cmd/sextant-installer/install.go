@@ -320,8 +320,12 @@ func (i *installer) install(ctx context.Context, j joined, d disk, rev string) e
 
 	i.step(ctx, "Installing the system", 30)
 	i.say("Installing on %s. This takes a while.\n", d)
+	// disko-install copies an extra file with `cp -ar SOURCE ROOT/DEST`, so a
+	// directory named as the source lands as a directory under DEST. The
+	// trailing "/." copies what is in it, which is what puts the credential
+	// at /var/lib/sextant-agent rather than at /handover/var/lib/...
 	if r := i.run(ctx, nil, "disko-install", "--flake", i.path(fleetClone)+"#"+j.Tag,
-		"--disk", defaultDiskName, d.Path, "--extra-files", hand, "/",
+		"--disk", defaultDiskName, d.Path, "--extra-files", hand+"/.", "/",
 		"--write-efi-boot-entries"); r.Code != 0 {
 		return fmt.Errorf("installation failed: %s", tail(r.Out))
 	}

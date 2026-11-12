@@ -145,7 +145,7 @@ func TestTheStickInstallsTheLaptop(t *testing.T) {
 		t.Errorf("clone environment %q carries no credential", env)
 	}
 	disko := r.called("disko-install")
-	for _, want := range []string{"#laptop-3abcde", "--disk main /dev/nvme0n1", "--extra-files " + filepath.Join(r.root, handoverDir) + " /"} {
+	for _, want := range []string{"#laptop-3abcde", "--disk main /dev/nvme0n1", "--extra-files " + filepath.Join(r.root, handoverDir) + "/. /"} {
 		if !strings.Contains(disko, want) {
 			t.Errorf("disko-install %q lacks %q", disko, want)
 		}
