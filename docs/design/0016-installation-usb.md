@@ -140,7 +140,7 @@ ISO is one more kind of job:
   revision. Poll-style and idempotent per (rev, name), like `/build`.
 - The result is kept next to the cache, the last two revisions only.
 - The fleet flake exposes it in one line:
-  `installer = sextant.lib.mkInstaller { inherit self; };`. The starter
+  `packages.x86_64-linux.installer = sextant.lib.mkInstaller { inherit self; };`. The starter
   fleet (0014) has that line; for a fleet without it, the console shows the
   line to add.
 

@@ -12,6 +12,8 @@
 
   outputs = { self, nixpkgs, disko }:
     let
+      # mkInstaller takes the FLEET's self as an argument; this one is ours.
+      self' = self;
       systems = [ "x86_64-linux" "aarch64-linux" ];
 
       # Go 1.27.4, ahead of nixpkgs, because GO-2026-6859 (an HTTP/1 server
@@ -82,6 +84,34 @@
         exportCatalogFromClassOptions =
           (import ./nix/export-catalog.nix { lib = nixpkgs.lib; }).exportCatalogFromClassOptions;
         tests = import ./nix/tests.nix { lib = nixpkgs.lib; };
+
+        # The installation USB of one fleet (design 0016). A fleet flake
+        # exposes it in one line:
+        #   packages.x86_64-linux.installer = sextant.lib.mkInstaller { inherit self; };
+        # The console address comes from the fleet's own fleet.json, so the
+        # person at the laptop types the code and nothing else.
+        mkInstaller =
+          { self
+          , system ? "x86_64-linux"
+          , nixpkgs ? self.inputs.nixpkgs
+          , modules ? [ ]
+          }:
+          let
+            fleet = builtins.fromJSON (builtins.readFile (self + "/fleet.json"));
+            url = (fleet.console or { }).url or "";
+          in
+          if url == "" then
+            throw ("mkInstaller: fleet.json has no console.url, so the stick would not "
+              + "know which console to join. The console writes it when it prepares "
+              + "the repository (design 0014).")
+          else
+            (nixpkgs.lib.nixosSystem {
+              inherit system;
+              modules = [
+                self'.nixosModules.installer
+                { sextant.installer.console = url; }
+              ] ++ modules;
+            }).config.system.build.isoImage;
       };
 
       packages = forAll (pkgs: rec {
@@ -130,6 +160,19 @@
           };
         };
         default = sextant;
+
+        # What the installation USB and the imaging station run (designs 0016
+        # and 0018): the same source as the console, built apart so the stick
+        # does not carry the console.
+        sextant-installer = sextant.overrideAttrs (old: {
+          pname = "sextant-installer";
+          subPackages = [ "cmd/sextant-installer" "cmd/sextant-station" ];
+          postInstall = "";
+          meta = old.meta // {
+            description = "Sextant installer for the installation USB and the imaging station";
+            mainProgram = "sextant-installer";
+          };
+        });
 
         # The device agent (ADR 0010): Rust, static-friendly, observes and
         # reports only - comin does the converging.
@@ -238,6 +281,8 @@
       # the console configures, update window, boot health, elevation
       # requests, user rights, cache auth, agenix secrets.
       nixosModules.device = import ./deploy/nixos/device { inherit self; };
+      # The live system on the installation USB; see lib.mkInstaller.
+      nixosModules.installer = import ./deploy/nixos/installer.nix { inherit self; };
 
       # The console as a systemd service. One host, your own database and
       # proxy - the container path without the container (see

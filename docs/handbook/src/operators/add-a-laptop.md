@@ -28,7 +28,41 @@ Valid until Wed 11 Nov 09:14 · 1 laptop · shown only now
 The code is shown once. The console keeps only a keyed hash of it, so it
 cannot show it again. If you lose it, withdraw it and make a new one.
 
-## On the laptop
+## On the laptop: the installation USB
+
+The usual way. The stick erases the laptop's disk and installs it from your
+fleet repository, so it works the same for a laptop that came with Windows
+as for one that ran something else before.
+
+1. On **Add a laptop**, click **Download the installation USB**. The first
+   time, the console has it built, which takes about ten minutes; the page
+   then shows the stick with the revision and date it was built from.
+2. Write it to a USB stick of at least 2 GB, with Fedora Media Writer or
+   `dd`. One stick serves every laptop of the organisation, and it holds no
+   code and no credential: a lost stick gives nobody access.
+3. Start the laptop from the stick. It asks for a wireless network when
+   there is no cable, then for the code.
+4. It names the laptop and the disk it will erase, for example "This laptop
+   becomes laptop-3abcde. Everything on Samsung PM9A1 (512 GB) is erased."
+   Nothing has been touched until you confirm. A wrong code is asked again.
+5. It installs, hands the disk phrase to the console, and restarts. From the
+   first start the laptop checks in and is active under **Devices**.
+
+The disk is encrypted from the first start. A laptop with a TPM2 chip
+unlocks it by itself; one without asks for the phrase at every start, and an
+owner can reveal that phrase on the laptop's page. Until you click **Secure
+this laptop** on that page, the page shows the laptop as not secured: the
+TPM2 unlock does not yet depend on Secure Boot.
+
+A stick from an older revision still installs what the fleet repository says
+at the moment of installing. A new stick is only needed when the live system
+itself needs newer hardware support.
+
+If the page says the stick could not be built, your fleet repository has no
+installer output. A repository the console set up has one; an older one adds
+the line the page shows to its `flake.nix`.
+
+## On a laptop that already runs NixOS
 
 The laptop needs the Sextant agent. On NixOS:
 
@@ -44,7 +78,8 @@ sudo sextant-agent join https://console.example.org K7QM-4XWD
 ```
 
 Case, dashes and spaces do not matter, and the letters O, I and L are read
-as 0, 1 and 1, so a code read out over the phone still works.
+as 0, 1 and 1, so a code read out over the phone still works. The stick reads
+codes the same way.
 
 The agent tells the console the serial number, vendor and model from the
 firmware, the processor vendor, and whether the machine is virtual. It gets
@@ -53,11 +88,8 @@ back the laptop's name and its credential, writes both to
 is under **Devices** right away, and becomes active when it first checks in,
 usually within a minute.
 
-> The installation USB that brings the agent with it is the next step of
-> design 0015. Until it exists, the agent comes from the NixOS configuration
-> above. Such a laptop reports to the console and shows its state there. It
-> keeps running its own configuration until it is installed from your fleet
-> repository; settings made in the console reach it from then on.
+Such a laptop keeps running its own configuration until it is installed from
+your fleet repository; settings made in the console reach it from then on.
 
 ## What the console decides
 

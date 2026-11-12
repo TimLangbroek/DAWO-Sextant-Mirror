@@ -20,7 +20,7 @@ import (
 const installerName = "installer"
 
 // installerLine is what a fleet without the output adds to its flake.
-const installerLine = "installer = sextant.lib.mkInstaller { inherit self; };"
+const installerLine = "packages.x86_64-linux.installer = sextant.lib.mkInstaller { inherit self; };"
 
 var installerRevRe = regexp.MustCompile(`^[0-9a-f]{7,40}$`)
 

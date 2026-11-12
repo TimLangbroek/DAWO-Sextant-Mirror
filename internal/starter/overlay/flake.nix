@@ -113,6 +113,10 @@
           catalogKeys specialArgsFor extraModules;
       };
 
+      # The installation USB (design 0016): the console builds it through
+      # the gate-runner and offers it under Add a laptop.
+      packages.${system}.installer = sextant.lib.mkInstaller { inherit self; };
+
       # The settings vocabulary the console renders (Sextant ADR 0005), one
       # synthetic host per class so every entry says which classes have it.
       catalog =
