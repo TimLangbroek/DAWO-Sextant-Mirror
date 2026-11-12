@@ -61,6 +61,11 @@ let
     # be.
     [ "autoUpdate" "options" "repoUrl" ]
     [ "autoUpdate" "options" "branch" ]
+    # Credentials for that pull, as paths on the device. Devices pull the fleet
+    # repository from the console (design 0014), which sets these itself; a
+    # path typed into a settings page points at a file that is not there.
+    [ "autoUpdate" "options" "sshDeployKeyPath" ]
+    [ "autoUpdate" "options" "knownHostsPath" ]
     [ "secureboot" "pkiBundle" ] # sbctl PKI path: a fixed convention, not policy
     [ "diskUnlock" "luksVolume" ] # disko layout name; wrong value bricks unlock
     # usbControl is driven by an overlay-provided surface (dawo.usbDevices),

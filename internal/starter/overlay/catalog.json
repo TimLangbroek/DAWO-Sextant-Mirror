@@ -1,0 +1,654 @@
+[
+    {
+        "default": false,
+        "description": "Whether to enable communication apps (Element).",
+        "label": "Communication apps",
+        "name": "apps.comms.enable",
+        "type": "boolean"
+    },
+    {
+        "default": false,
+        "description": "Whether to enable creative apps (GIMP, Inkscape, Krita, Penpot).",
+        "label": "Creative apps",
+        "name": "apps.creative.enable",
+        "type": "boolean"
+    },
+    {
+        "default": false,
+        "description": "Whether to enable developer tools (VSCodium, Nix toolchain, gcc).",
+        "label": "Developer tools",
+        "name": "apps.dev.enable",
+        "type": "boolean"
+    },
+    {
+        "default": false,
+        "description": "Whether to enable media player (VLC).",
+        "label": "Media apps",
+        "name": "apps.media.enable",
+        "type": "boolean"
+    },
+    {
+        "default": false,
+        "description": "Whether to enable office suite + mail (Thunderbird).",
+        "label": "Office apps",
+        "name": "apps.office.enable",
+        "type": "boolean"
+    },
+    {
+        "default": "libreoffice",
+        "description": "Office suite installed when dawo.apps.office is enabled. Collabora resonates more with users coming from Windows.",
+        "label": "Office suite",
+        "name": "apps.office.suite",
+        "type": "one of \"libreoffice\", \"collabora\""
+    },
+    {
+        "default": true,
+        "description": "Password manager (KeePassXC). The one set that is opt-out: without a password manager people reuse passwords or write them down, so a deployment has to say no on purpose (e.g. it ships an organisation-wide vault).",
+        "label": "Password manager and security apps",
+        "name": "apps.security.enable",
+        "type": "boolean"
+    },
+    {
+        "default": true,
+        "description": "PipeWire audio (ALSA + PulseAudio compat). On by default; a host may disable it.",
+        "label": "Audio",
+        "name": "audio.enable",
+        "type": "boolean"
+    },
+    {
+        "default": false,
+        "description": "Whether to enable desktop notifications on build/deploy events (comin's own user service).\nOff by default: it also notifies at every graphical login, which is\nnoise on a device that updates cleanly. Turn it on where an update is\nbeing watched\n.",
+        "label": "Tell the user about updates on the desktop",
+        "name": "autoUpdate.desktopNotifications.enable",
+        "type": "boolean"
+    },
+    {
+        "default": false,
+        "description": "Whether to enable git-driven auto-update via comin.",
+        "label": "Automatic updates",
+        "name": "autoUpdate.enable",
+        "type": "boolean"
+    },
+    {
+        "default": 1800,
+        "description": "Poll interval in seconds (must be > 0).",
+        "label": "Check interval (seconds)",
+        "name": "autoUpdate.options.pollSeconds",
+        "type": "positive integer, meaning >0"
+    },
+    {
+        "default": false,
+        "description": "Say out loud that this deployment means to ship the password\ndocumented in this module, and silence the warning about it.\n\nThe account exists so that somebody with no technical knowledge\nends up with a machine they can log into, which is worth keeping.\nThis option is how a deployment separates \"we chose this\" from\n\"nobody looked\".\n",
+        "label": "Keep the documented first password for the bootstrap account",
+        "name": "bootstrapUser.acknowledgeDefaultPassword",
+        "type": "boolean"
+    },
+    {
+        "default": true,
+        "description": "Create the dawo bootstrap/break-glass admin. Set false once named admins (agenix) are in place.",
+        "label": "Bootstrap admin account",
+        "name": "bootstrapUser.enable",
+        "type": "boolean"
+    },
+    {
+        "default": "",
+        "description": "Hash for the bootstrap account's first password, as `mkpasswd`\nprints it. Empty falls back to the hash of the word written in this\nmodule, which every reader of the repository knows.\n\nIt applies at account creation only (`mutableUsers = true`), so\nchanging it later does not reach a device that already exists.\n",
+        "label": "First password of the bootstrap account (hash)",
+        "name": "bootstrapUser.initialHashedPassword",
+        "type": "string"
+    },
+    {
+        "default": false,
+        "description": "Whether to enable authenticate to the release binary cache.",
+        "label": "Cache authentication",
+        "name": "cacheAuth.enable",
+        "type": "boolean"
+    },
+    {
+        "default": "",
+        "description": "Hostname of the release cache. Must match the substituter's host\nexactly: netrc is matched by machine name, and a mismatch is silent -\nnix simply sends no credential and the device starts compiling.\n",
+        "label": "Cache host",
+        "name": "cacheAuth.host",
+        "type": "string"
+    },
+    {
+        "default": false,
+        "description": "Whether to enable GNOME desktop with GDM.",
+        "label": "GNOME desktop",
+        "name": "desktop.gnome.enable",
+        "type": "boolean"
+    },
+    {
+        "default": false,
+        "description": "Whether to enable KDE Plasma 6 desktop with SDDM.",
+        "label": "KDE Plasma desktop",
+        "name": "desktop.plasma.enable",
+        "type": "boolean"
+    },
+    {
+        "default": true,
+        "description": "Ship the Mastodon client (Tokodon). A deployment that does not want a social client sets this false.",
+        "label": "Chat client",
+        "name": "desktop.plasma.socialClient",
+        "type": "boolean"
+    },
+    {
+        "default": true,
+        "description": "Unlock the KDE wallet with the login password, at the display manager.\n\nWithout this the wallet asks for a password of its own the first time\nsomething wants a stored credential, which is the prompt people report\nas \"why does it ask again\". NixOS wires kwallet into the `login` stack\nby itself, but `login` is the tty; SDDM is where anyone actually\narrives at a desktop.\n\nIt only works when the wallet is named kdewallet and its password\nequals the login password. A device whose wallet was created with a\ndifferent one keeps asking until that wallet is reset.\n",
+        "label": "Unlock the KDE wallet at login",
+        "name": "desktop.plasma.unlockWalletAtLogin",
+        "type": "boolean"
+    },
+    {
+        "default": "crypted-main",
+        "description": "LUKS mapper name. The disko single-nvme-luks layout uses crypted-main.",
+        "label": "LUKS mapper",
+        "name": "diskUnlock.tpm2.device",
+        "type": "string"
+    },
+    {
+        "default": false,
+        "description": "Whether to enable TPM2 auto-unlock of the LUKS root (PCR 7); passphrase kept as\nbreak-glass. Requires a one-time on-device systemd-cryptenroll first\n(see docs/secureboot-tpm.md).",
+        "label": "TPM2 disk unlock",
+        "name": "diskUnlock.tpm2.enable",
+        "type": "boolean"
+    },
+    {
+        "default": null,
+        "description": "Expected hash of the archive. Null takes the hash nixpkgs itself\nexpects for the version it packages, which is the right answer\nalmost always: it moves with a nixpkgs bump instead of pinning this\nfleet to whichever release happened to be current when someone wrote\nit down.\n\nSet it only to hold a specific archive deliberately, and expect to\nrevisit it when nixpkgs bumps the package.\n",
+        "label": "DisplayLink driver hash",
+        "name": "displaylink.driverHash",
+        "type": "null or string"
+    },
+    {
+        "default": "",
+        "description": "Where to fetch the DisplayLink driver archive. Required when this\nblock is enabled, because the driver may not be redistributed here.\n\nAn organisation's own mirror is the better answer for a fleet: one\nplace to serve it from, no EULA click per device, and it keeps\nworking when the vendor moves its download. The vendor's direct link\nworks too. A `file://` path is accepted for a one-off machine.\n\nThe URL is not trusted - `driverHash` is. Whatever this points at\nmust hash to the value nixpkgs expects, or the build fails.\n",
+        "label": "DisplayLink driver URL",
+        "name": "displaylink.driverUrl",
+        "type": "string"
+    },
+    {
+        "default": false,
+        "description": "Whether to enable DisplayLink dock support (evdi + DisplayLink Manager).",
+        "label": "DisplayLink dock support",
+        "name": "displaylink.enable",
+        "type": "boolean"
+    },
+    {
+        "default": "",
+        "description": "Console base URL the request is sent to.",
+        "label": "Console URL",
+        "name": "elevationRequests.consoleUrl",
+        "type": "string"
+    },
+    {
+        "default": false,
+        "description": "Whether to enable let a user ask an operator for permission instead of needing the admin password.",
+        "label": "Elevation requests",
+        "name": "elevationRequests.enable",
+        "type": "boolean"
+    },
+    {
+        "default": 300,
+        "description": "How long the dialog waits for an answer. Matches the console's own\nwindow; a device waiting longer would be sitting on a request the\nserver has already declared dead.\n",
+        "label": "Wait (seconds)",
+        "name": "elevationRequests.waitSeconds",
+        "type": "positive integer, meaning >0"
+    },
+    {
+        "default": [
+            "de_DE",
+            "en_GB",
+            "en_US",
+            "es_ES",
+            "fr_FR",
+            "it_IT",
+            "nl_NL",
+            "pl_PL",
+            "ro_RO",
+            "ru_RU",
+            "uk_UA"
+        ],
+        "description": "Spell check dictionaries installed for Firefox, by locale code.\n\nThe default is all eleven on offer - the ten most spoken languages in\nEurope, with English in both its spellings - which costs about 26 MB\non every device. A deployment that knows its users only write two\nlanguages should say so and carry only those.\n\nThe empty list installs none and leaves Firefox without spell\nchecking.\n",
+        "label": "Firefox spelling dictionaries",
+        "name": "firefox.dictionaries",
+        "type": "list of (one of \"de_DE\", \"en_GB\", \"en_US\", \"es_ES\", \"fr_FR\", \"it_IT\", \"nl_NL\", \"pl_PL\", \"ro_RO\", \"ru_RU\", \"uk_UA\")"
+    },
+    {
+        "default": [],
+        "description": "Norms this deployment claims. A rule tagged for one of them is on,\nwhatever the level says, because a norm asks for a set of rules\nrather than for a degree of strictness.\n",
+        "label": "Norms to comply with",
+        "name": "hardening.compliance",
+        "type": "list of string"
+    },
+    {
+        "default": [],
+        "description": "Skip every rule carrying one of these tags. For the case where a\nclass of rules is known to break something this deployment needs,\nand listing them one by one would go stale.\n",
+        "label": "Skip hardening rules with these tags",
+        "name": "hardening.excludeTags",
+        "type": "list of string"
+    },
+    {
+        "default": "baseline",
+        "description": "How much of the register applies. Ordered: `baseline` is what every\ndevice carries, `hardened` adds what a deployment opts into, and\n`strict` adds what only a raised-risk device wants.\n\n`none` selects nothing by level, which leaves the per-rule switches\nand the compliance selection as the only way in.\n",
+        "label": "Hardening level",
+        "name": "hardening.level",
+        "type": "one of \"none\", \"baseline\", \"hardened\", \"strict\""
+    },
+    {
+        "default": {},
+        "description": "Per-rule override, and the reason this is a register rather than a\nset of blocks. A rule set here wins over the level and over the\ncompliance selection, in both directions.\n",
+        "label": "Per-rule hardening overrides",
+        "name": "hardening.rules",
+        "type": "attribute set of boolean"
+    },
+    {
+        "default": "daily",
+        "description": "How often the device checks itself, as a systemd calendar\nexpression. The result goes to the journal so a fleet tool can read\nit; empty turns the timer off and leaves the check on request and\nafter activation.\n",
+        "label": "How often a device checks its own hardening",
+        "name": "hardening.verifyOnCalendar",
+        "type": "string"
+    },
+    {
+        "default": false,
+        "description": "Allow device login over an unencrypted ldap:// directory. A simple bind carries the user's PASSWORD, so this turns on SSSD's own ldap_auth_disable_tls_never_use_in_production. Only for a directory that offers no TLS; the supported transport is ldaps:// (ADR 0021). Leave off unless you have accepted that risk in writing.",
+        "label": "Onversleutelde directory-login toestaan",
+        "name": "identity.allowPlaintextLdap",
+        "type": "boolean"
+    },
+    {
+        "default": "",
+        "description": "Service bind DN for SSSD (leave empty for anonymous bind).",
+        "label": "Directory bind account",
+        "name": "identity.bindDN",
+        "type": "string"
+    },
+    {
+        "default": "",
+        "description": "Secret-ref name of a file holding LDAP_BIND_PW=<password> (agenix, SSSD environmentFile).",
+        "label": "Directory bind password",
+        "name": "identity.bindSecret",
+        "secret": true,
+        "type": "string"
+    },
+    {
+        "default": true,
+        "description": "Keep hashed credentials on the device so staff can sign in while offline (laptop on the road). Off forces a live directory bind for every login.",
+        "label": "Offline login",
+        "name": "identity.cacheCredentials",
+        "type": "boolean"
+    },
+    {
+        "default": "dawo",
+        "description": "SSSD domain name.",
+        "label": "Directory domain",
+        "name": "identity.domain",
+        "type": "string"
+    },
+    {
+        "default": false,
+        "description": "Whether to enable directory-backed device login (SSSD).",
+        "label": "Directory login",
+        "name": "identity.enable",
+        "type": "boolean"
+    },
+    {
+        "default": "",
+        "description": "LDAP URI (identity/auth provider endpoint).",
+        "label": "Directory address",
+        "name": "identity.ldapUri",
+        "type": "string"
+    },
+    {
+        "default": 30,
+        "description": "How many days a cached login stays valid without reaching the directory. After this, the device requires a live sign-in again.",
+        "label": "Offline login validity (days)",
+        "name": "identity.offlineLoginDays",
+        "type": "positive integer, meaning >0"
+    },
+    {
+        "default": "ldap",
+        "description": "Directory backend SSSD authenticates against. Vendor-neutral.",
+        "label": "Directory type",
+        "name": "identity.provider",
+        "type": "one of \"ldap\", \"ad\", \"ipa\""
+    },
+    {
+        "default": "",
+        "description": "LDAP search base.",
+        "label": "Directory search base",
+        "name": "identity.searchBase",
+        "type": "string"
+    },
+    {
+        "default": "",
+        "description": "PEM CA certificate chain for an ldaps:// directory signed by a private CA (public material, no secret). Empty = the system trust store (fine for Let's Encrypt-style certs).",
+        "label": "Directory CA-certificaat (PEM)",
+        "name": "identity.tlsCaCert",
+        "type": "strings concatenated with \"\\n\""
+    },
+    {
+        "default": false,
+        "description": "Whether to enable a local administrator account for when the directory is unreachable.",
+        "label": "Local admin account",
+        "name": "localAdmin.enable",
+        "riskClass": "high",
+        "type": "boolean"
+    },
+    {
+        "default": false,
+        "description": "Let each device draw its own password and hand it to the console, which shows it to an owner on the device page and can replace it there (design 0017). One password per device instead of one per scope, and none to keep anywhere else.",
+        "label": "Password held by the console",
+        "name": "localAdmin.managed",
+        "type": "boolean"
+    },
+    {
+        "default": "",
+        "description": "Secret-ref name of a file holding the password HASH (the output of `mkpasswd -m yescrypt`), not the password itself. Ignored when the console holds the password. Turning this integration off locks the account on every device, but does not delete it or its home directory.",
+        "label": "Password (hash)",
+        "name": "localAdmin.passwordSecret",
+        "secret": true,
+        "type": "string"
+    },
+    {
+        "default": "",
+        "description": "Login name for the local administrator. Pick a name per organisation rather than reusing one across fleets: a shared name is a shared credential.",
+        "label": "Username",
+        "name": "localAdmin.username",
+        "type": "string"
+    },
+    {
+        "default": false,
+        "description": "Whether to enable join the self-hosted NetBird mesh.",
+        "label": "NetBird mesh",
+        "name": "netbird.enable",
+        "type": "boolean"
+    },
+    {
+        "default": "",
+        "description": "Self-hosted NetBird management server URL (sovereign; no SaaS).",
+        "label": "NetBird management URL",
+        "name": "netbird.managementUrl",
+        "type": "string"
+    },
+    {
+        "default": "",
+        "description": "Secret-ref name of the NetBird setup key (agenix). Reusable key enrolls the fleet.",
+        "label": "NetBird setup key",
+        "name": "netbird.setupKey",
+        "secret": true,
+        "type": "string"
+    },
+    {
+        "default": "",
+        "description": "OpenBao API address as the DEVICE reaches it (mesh address once the routing peer is up).",
+        "label": "Vault address",
+        "name": "openbao.address",
+        "type": "string"
+    },
+    {
+        "default": false,
+        "description": "Whether to enable fetch device secrets from OpenBao (central vault).",
+        "label": "OpenBao secrets",
+        "name": "openbao.enable",
+        "type": "boolean"
+    },
+    {
+        "default": "fleet",
+        "description": "KV v2 mount that holds the fleet's secrets.",
+        "label": "Secrets mount",
+        "name": "openbao.mount",
+        "type": "string"
+    },
+    {
+        "default": [],
+        "description": "Secret names to fetch. Each lands at /run/secrets/<name> and is linked from /run/agenix/<name> when agenix does not already provide it, so settings that reference a secret name keep working unchanged.",
+        "label": "Secrets to fetch",
+        "name": "openbao.secrets",
+        "type": "list of string"
+    },
+    {
+        "default": "",
+        "description": "Secret-ref name of the vault token file (agenix bootstrap for the experiment; device identity auth replaces it later).",
+        "label": "Vault token",
+        "name": "openbao.tokenSecret",
+        "secret": true,
+        "type": "string"
+    },
+    {
+        "default": 5,
+        "description": "Failed attempts before the account locks. Low enough to stop\nguessing, high enough to survive a keyboard layout somebody did\nnot expect.\n",
+        "label": "Failed logins before an account locks",
+        "name": "pam.lockout.attempts",
+        "type": "positive integer, meaning >0"
+    },
+    {
+        "default": true,
+        "description": "Whether to enable lock an account after repeated failed logins.",
+        "label": "Lock an account after repeated failed logins",
+        "name": "pam.lockout.enable",
+        "type": "boolean"
+    },
+    {
+        "default": [
+            "login",
+            "su",
+            "sudo",
+            "sddm"
+        ],
+        "description": "PAM services the lockout applies to. Every place a password can be\ntyped belongs here; a service left out is a way around it.\n",
+        "label": "Logins that count towards the lockout",
+        "name": "pam.lockout.services",
+        "type": "list of string"
+    },
+    {
+        "default": 600,
+        "description": "How long a lockout lasts. It expires on its own, on purpose: a\nlock that only an administrator can lift turns a typo on a train\ninto a day without a laptop.\n",
+        "label": "Seconds until a locked account unlocks",
+        "name": "pam.lockout.unlockSeconds",
+        "type": "positive integer, meaning >0"
+    },
+    {
+        "default": true,
+        "description": "Whether to enable require a password that is not trivially guessable.",
+        "label": "Refuse easily guessed passwords",
+        "name": "pam.quality.enable",
+        "type": "boolean"
+    },
+    {
+        "default": 12,
+        "description": "Minimum length. Length beats character classes: a long passphrase\nsomebody can remember is worth more than eight characters with a\nsymbol they wrote on a sticky note.\n",
+        "label": "Minimum password length",
+        "name": "pam.quality.minLength",
+        "type": "positive integer, meaning >0"
+    },
+    {
+        "default": false,
+        "description": "Whether to enable a hardware key (FIDO2) as a second factor for login and sudo. Off by\ndefault and deliberately so: every user needs an enrolled key and a\nrecovery path before this is turned on, or it is a lockout with\nextra steps. See docs/users.md\n.",
+        "label": "Require a security key at login",
+        "name": "pam.u2f.enable",
+        "type": "boolean"
+    },
+    {
+        "default": true,
+        "description": "Find printers announced on the local network automatically\n(mDNS/IPP). Off means only printers configured centrally are\navailable - the right choice for a site that publishes its printers\nfrom a server, and for a laptop that should not answer for printers\non whatever network it happens to be on.\n",
+        "label": "Discover network printers",
+        "name": "printing.discover",
+        "type": "boolean"
+    },
+    {
+        "default": "open",
+        "description": "Driver set. `open` covers the standard IPP Everywhere / PostScript\npath most office printers speak. `broad` adds vendor driver packages\nfor older hardware, at the cost of a considerably larger system\nclosure on every device that has it.\n",
+        "label": "Printer drivers",
+        "name": "printing.drivers",
+        "type": "one of \"open\", \"broad\""
+    },
+    {
+        "default": false,
+        "description": "Whether to enable printing (CUPS) on this device.",
+        "label": "Printing",
+        "name": "printing.enable",
+        "type": "boolean"
+    },
+    {
+        "default": true,
+        "description": "SANE scanning (driverless network + USB) + a scan frontend. On by default.",
+        "label": "Scanning",
+        "name": "scanning.enable",
+        "type": "boolean"
+    },
+    {
+        "default": false,
+        "description": "Whether to enable lanzaboote Secure Boot (requires sbctl keys enrolled at pkiBundle).",
+        "label": "Secure Boot",
+        "name": "secureboot.enable",
+        "type": "boolean"
+    },
+    {
+        "default": false,
+        "description": "Whether to enable hardened OpenSSH crypto + login policy (NCSC/CIS).",
+        "label": "SSH access",
+        "name": "ssh.enable",
+        "type": "boolean"
+    },
+    {
+        "default": 4,
+        "description": "Max authentication attempts per connection (must be > 0).",
+        "label": "Max authentication attempts",
+        "name": "ssh.options.maxAuthTries",
+        "type": "positive integer, meaning >0"
+    },
+    {
+        "default": false,
+        "description": "Whether to enable kernel/network sysctl baseline, strict sudo, temp-dir + login banner (BIO/NCSC).",
+        "label": "Kernel hardening baseline",
+        "name": "sysctlBaseline.enable",
+        "type": "boolean"
+    },
+    {
+        "default": false,
+        "description": "Whether to enable NTP time synchronization via chrony (BIO).",
+        "label": "Time synchronisation",
+        "name": "timesync.enable",
+        "type": "boolean"
+    },
+    {
+        "default": [
+            "ntp.time.nl",
+            "0.nl.pool.ntp.org",
+            "1.nl.pool.ntp.org"
+        ],
+        "description": "NTP servers (must be non-empty). Override per organisation (e.g. an internal NTP).",
+        "label": "NTP servers",
+        "name": "timesync.options.servers",
+        "type": "list of string",
+        "widget": "fixedlist"
+    },
+    {
+        "default": false,
+        "description": "Whether to enable hardware/CLI diagnostics for ops/support (htop, lshw, pciutils, dmidecode, ethtool, lm_sensors, usbutils).",
+        "label": "Diagnostic tools",
+        "name": "tools.diagnostics.enable",
+        "type": "boolean"
+    },
+    {
+        "default": "",
+        "description": "Hours during which this device may fetch and apply updates\n(HH:MM-HH:MM, overnight ranges allowed). Empty means always.\n",
+        "label": "Maintenance window",
+        "name": "updates.maintenanceWindow",
+        "type": "string",
+        "widget": "timerange"
+    },
+    {
+        "default": false,
+        "description": "Whether to enable let ordinary users change desktop settings themselves.",
+        "label": "User rights",
+        "name": "userRights.enable",
+        "type": "boolean"
+    },
+    {
+        "default": false,
+        "description": "Approve a Thunderbolt dock or device when it is plugged in. Without\nthis, a docked laptop silently does nothing until an administrator\nvisits it, which is the single most common first-day complaint about\na managed workstation.\n",
+        "label": "Authorise a dock",
+        "name": "userRights.options.docks",
+        "type": "boolean"
+    },
+    {
+        "default": false,
+        "description": "Let a user apply firmware updates offered by fwupd. DOWNGRADES are\ndeliberately excluded: rolling firmware back to an older version is a\nway to reinstate a fixed vulnerability, so it stays an administrator's\ndecision even where updating does not.\n",
+        "label": "Install firmware updates",
+        "name": "userRights.options.firmware",
+        "type": "boolean"
+    },
+    {
+        "default": false,
+        "description": "Edit connections that apply to every user of the machine, including\nVPN profiles the organisation ships. Separate from `wifi` on purpose:\njoining a cafe network is a different act from rewriting the profile\nthat carries company traffic. Hostname and global DNS are deliberately\nNOT included - those belong to the fleet, not to whoever is sitting at\nthe machine.\n",
+        "label": "Change shared network profiles",
+        "name": "userRights.options.networkProfiles",
+        "type": "boolean"
+    },
+    {
+        "default": false,
+        "description": "Add, remove and configure printers. Needs `dawo.printing` to be on -\nwithout CUPS there is nothing to authorise. Job control for other\npeople's jobs is not included; this is about a user connecting the\nprinter in front of them.\n",
+        "label": "Add and manage printers",
+        "name": "userRights.options.printers",
+        "type": "boolean"
+    },
+    {
+        "default": false,
+        "description": "Mount removable drives and memory cards. Mounting devices the system\nitself owns (an internal disk, anything in fstab) stays with the\nadministrator, so this cannot be used to reach a partition the user\nwas not meant to see. Note that USB device control, if enabled, still\ndecides whether the drive is allowed to appear at all - that is a\nseparate and earlier question.\n",
+        "label": "Mount USB storage",
+        "name": "userRights.options.removableMedia",
+        "type": "boolean"
+    },
+    {
+        "default": false,
+        "description": "Set the time zone when travelling. Setting the CLOCK itself is not\nincluded and should not be: time comes from the fleet's NTP servers,\nand a machine whose user can move the clock can move it past a\ncertificate expiry or muddle every log timestamp on it.\n",
+        "label": "Change the time zone",
+        "name": "userRights.options.timezone",
+        "type": "boolean"
+    },
+    {
+        "default": false,
+        "description": "Turn WiFi on or off, scan, and connect to a network, saving it for\nthis user. Does not include company-wide connection profiles - those\nare `networkProfiles`. This is what a laptop needs to work anywhere\nother than the desk it was imaged on.\n",
+        "label": "Choose a network",
+        "name": "userRights.options.wifi",
+        "type": "boolean"
+    },
+    {
+        "default": "default",
+        "description": "Wazuh agent group (server-side policy grouping).",
+        "label": "Wazuh agent group",
+        "name": "wazuh.agentGroup",
+        "type": "string"
+    },
+    {
+        "default": false,
+        "description": "Whether to enable report to a Wazuh manager (endpoint security agent).",
+        "label": "Endpoint security (Wazuh)",
+        "name": "wazuh.enable",
+        "type": "boolean"
+    },
+    {
+        "default": "",
+        "description": "Secret-ref name of the Wazuh enrollment password (agenix; agent-auth registers with it).",
+        "label": "Wazuh enrolment secret",
+        "name": "wazuh.enrollmentSecret",
+        "secret": true,
+        "type": "string"
+    },
+    {
+        "default": "",
+        "description": "Wazuh manager address the agent reports to.",
+        "label": "Wazuh manager",
+        "name": "wazuh.manager",
+        "type": "string"
+    },
+    {
+        "default": false,
+        "description": "Whether to enable Zsh as an interactive shell (opt-in).",
+        "label": "Zsh shell",
+        "name": "zsh.enable",
+        "type": "boolean"
+    }
+]

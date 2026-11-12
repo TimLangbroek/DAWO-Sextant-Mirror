@@ -39,14 +39,23 @@
     "audio.enable": {
       "label": "Audio"
     },
+    "autoUpdate.desktopNotifications.enable": {
+      "label": "Tell the user about updates on the desktop"
+    },
     "autoUpdate.enable": {
       "label": "Automatic updates"
     },
     "autoUpdate.options.pollSeconds": {
       "label": "Check interval (seconds)"
     },
+    "bootstrapUser.acknowledgeDefaultPassword": {
+      "label": "Keep the documented first password for the bootstrap account"
+    },
     "bootstrapUser.enable": {
       "label": "Bootstrap admin account"
+    },
+    "bootstrapUser.initialHashedPassword": {
+      "label": "First password of the bootstrap account (hash)"
     },
     "desktop.gnome.enable": {
       "label": "GNOME desktop"
@@ -56,6 +65,9 @@
     },
     "desktop.plasma.socialClient": {
       "label": "Chat client"
+    },
+    "desktop.plasma.unlockWalletAtLogin": {
+      "label": "Unlock the KDE wallet at login"
     },
     "diskUnlock.tpm2.device": {
       "label": "LUKS mapper"
@@ -74,6 +86,21 @@
     },
     "firefox.dictionaries": {
       "label": "Firefox spelling dictionaries"
+    },
+    "hardening.compliance": {
+      "label": "Norms to comply with"
+    },
+    "hardening.excludeTags": {
+      "label": "Skip hardening rules with these tags"
+    },
+    "hardening.level": {
+      "label": "Hardening level"
+    },
+    "hardening.rules": {
+      "label": "Per-rule hardening overrides"
+    },
+    "hardening.verifyOnCalendar": {
+      "label": "How often a device checks its own hardening"
     },
     "identity.bindDN": {
       "label": "Directory bind account"
@@ -104,6 +131,27 @@
     },
     "netbird.setupKey": {
       "label": "NetBird setup key"
+    },
+    "pam.lockout.attempts": {
+      "label": "Failed logins before an account locks"
+    },
+    "pam.lockout.enable": {
+      "label": "Lock an account after repeated failed logins"
+    },
+    "pam.lockout.services": {
+      "label": "Logins that count towards the lockout"
+    },
+    "pam.lockout.unlockSeconds": {
+      "label": "Seconds until a locked account unlocks"
+    },
+    "pam.quality.enable": {
+      "label": "Refuse easily guessed passwords"
+    },
+    "pam.quality.minLength": {
+      "label": "Minimum password length"
+    },
+    "pam.u2f.enable": {
+      "label": "Require a security key at login"
     },
     "printing.discover": {
       "label": "Discover network printers"

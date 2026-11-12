@@ -1,6 +1,6 @@
 {
   "version": 3,
-  "org": {"settings": {"desktop": "plasma"}},
+  "org": {"settings": {"desktop.plasma.enable": true}},
   "groups": {"pilot": {}},
   "devices": {}
 }
